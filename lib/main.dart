@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:multitracks_df_pro/features/player_mixer/presentation/pages/create_music_page.dart';
+import 'package:multitracks_df_pro/features/player_mixer/presentation/stores/create_music_store.dart';
 import 'core/theme/app_theme.dart';
 import 'injection_container.dart' as di;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize dependencies
+  // Initialize dependency injection
   await di.init();
 
-  // Enforce Landscape Orientation
+  // Enforce Landscape Mode
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
@@ -27,9 +29,7 @@ class MultitracksDFProApp extends StatelessWidget {
       title: 'Multitracks DF Pro',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // Apply the strict dark theme
-      home: const Scaffold(
-        body: Center(child: Text('Multitracks DF Pro - Init')),
-      ),
+      home: CreateMusicPage(store: di.sl<CreateMusicStore>()),
     );
   }
 }

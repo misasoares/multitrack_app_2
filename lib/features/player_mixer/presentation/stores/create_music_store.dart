@@ -102,7 +102,7 @@ abstract class CreateMusicStoreBase with Store {
       name: name,
       filePath: filePath,
       volume: 1.0,
-      pan: 1.0, // Default: panned Right
+      pan: 0.0, // Default: center
       isClick: isClick,
       order: tracks.length,
     );

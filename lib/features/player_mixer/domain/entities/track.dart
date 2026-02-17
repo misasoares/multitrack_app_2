@@ -16,7 +16,7 @@ class Track extends Equatable {
     required this.name,
     required this.filePath,
     this.volume = 1.0,
-    this.pan = 1.0,
+    this.pan = 0.0,
     this.isMuted = false,
     this.isSolo = false,
     this.isClick = false,

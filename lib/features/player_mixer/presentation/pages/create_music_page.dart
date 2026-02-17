@@ -467,7 +467,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                 ],
               ),
               ElevatedButton.icon(
-                onPressed: () => widget.store.saveMusic(),
+                onPressed: () => widget.store.saveMusicConfig(),
                 icon: const Icon(Icons.save_alt),
                 label: const Text('SAVE TO LIBRARY'),
                 style: ElevatedButton.styleFrom(

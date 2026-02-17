@@ -1,55 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-// Note: Ensure google_fonts package is added or fonts are imported in pubspec.yaml
-// for now we use standard TextStyle, assuming fonts will be loaded.
-
 class AppTextStyles {
-  static const String fontMono = 'JetBrains Mono';
-  static const String fontSans = 'Inter';
-
   // Mono Styles (Displays, BPM, Clocks)
-  static const TextStyle digitalDisplay = TextStyle(
-    fontFamily: fontMono,
+  static final TextStyle digitalDisplay = GoogleFonts.jetBrainsMono(
     fontSize: 32,
     fontWeight: FontWeight.bold,
     color: AppColors.primary,
     letterSpacing: 1.5,
   );
 
-  static const TextStyle tempoDisplay = TextStyle(
-    fontFamily: fontMono,
+  static final TextStyle tempoDisplay = GoogleFonts.jetBrainsMono(
     fontSize: 24,
     fontWeight: FontWeight.w500,
     color: AppColors.textPrimary,
   );
 
   // Sans Styles (UI, Buttons, Labels)
-  static const TextStyle headingS = TextStyle(
-    fontFamily: fontSans,
+  static final TextStyle headingS = GoogleFonts.inter(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimary,
   );
 
-  static const TextStyle bodyM = TextStyle(
-    fontFamily: fontSans,
+  static final TextStyle h1 = GoogleFonts.inter(
+    fontSize: 24,
+    fontWeight: FontWeight.w800,
+    color: AppColors.textPrimary,
+    letterSpacing: 1.2,
+  );
+
+  static final TextStyle bodyM = GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.normal,
     color: AppColors.textPrimary,
   );
 
-  static const TextStyle buttonLabel = TextStyle(
-    fontFamily: fontSans,
+  static final TextStyle buttonLabel = GoogleFonts.inter(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary, // Or darker if on primary background
+    color: AppColors.textPrimary,
   );
 
-  static const TextStyle labelMuted = TextStyle(
-    fontFamily: fontSans,
+  static final TextStyle labelMuted = GoogleFonts.inter(
     fontSize: 12,
     fontWeight: FontWeight.w500,
     color: AppColors.textMuted,
+  );
+
+  static final TextStyle bodyMuted = GoogleFonts.inter(
+    fontSize: 14,
+    color: AppColors.textMuted,
+  );
+
+  static final TextStyle bodyPrimary = GoogleFonts.inter(
+    fontSize: 14,
+    color: AppColors.textPrimary,
   );
 }

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -17,25 +19,87 @@ class CreateMusicPage extends StatefulWidget {
 
 class _CreateMusicPageState extends State<CreateMusicPage> {
   @override
+  void dispose() {
+    widget.store.disposeAudioEngine();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      backgroundColor: AppColors.rackBlack,
+      body: Column(
         children: [
-          // Left Panel: Metadata
-          _buildLeftPanel(),
-
-          // Right Panel: Mixer
-          Expanded(child: _buildRightPanel()),
+          // ── Status Bar ──
+          _buildStatusBar(),
+          // ── Main Content ──
+          Expanded(
+            child: Row(
+              children: [
+                _buildLeftPanel(),
+                Expanded(child: _buildRightPanel()),
+              ],
+            ),
+          ),
+          // ── Bottom Bar ──
+          _buildBottomBar(),
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STATUS BAR
+  // ═══════════════════════════════════════════════════════════════════
+
+  Widget _buildStatusBar() {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.rackBlack,
+        border: Border(
+          bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.circle, color: AppColors.primary, size: 8),
+              const SizedBox(width: 8),
+              Text('AMBER STAGE COMMANDER', style: AppTextStyles.sectionLabel),
+            ],
+          ),
+          Row(
+            children: [
+              Text('SYS: ONLINE', style: AppTextStyles.trackLabel),
+              const SizedBox(width: 16),
+              Text(
+                TimeOfDay.now().format(context),
+                style: AppTextStyles.trackLabel,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // LEFT PANEL — Metadata
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _buildLeftPanel() {
     return Container(
       width: 320,
-      color: AppColors.background,
+      decoration: BoxDecoration(
+        color: AppColors.rackDark,
+        border: Border(
+          right: BorderSide(color: AppColors.primary.withValues(alpha: 0.1)),
+        ),
+      ),
       padding: const EdgeInsets.all(24),
       child: SingleChildScrollView(
         child: Column(
@@ -46,25 +110,22 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                 const Icon(
                   Icons.library_music,
                   color: AppColors.primary,
-                  size: 28,
+                  size: 24,
                 ),
                 const SizedBox(width: 8),
-                Text('NEW SEQUENCE', style: AppTextStyles.h1),
+                Text(
+                  'NEW SEQUENCE',
+                  style: AppTextStyles.h1.copyWith(fontSize: 18),
+                ),
               ],
             ),
             const SizedBox(height: 24),
-
-            // Import Tracks
             _buildImportZone(),
             const SizedBox(height: 24),
-
-            // Metadata Fields
             _buildInputField('SONG TITLE', (v) => widget.store.setTitle(v)),
             const SizedBox(height: 16),
             _buildInputField('ARTIST', (v) => widget.store.setArtist(v)),
             const SizedBox(height: 24),
-
-            // BPM & Time Sig Cluster
             _buildBpmAndTimeSig(),
           ],
         ),
@@ -87,8 +148,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           }
         }
       },
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 160,
+        height: 140,
         decoration: BoxDecoration(
           border: Border.all(
             color: AppColors.primary.withValues(alpha: 0.4),
@@ -99,9 +161,27 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.add, color: AppColors.primary, size: 40),
-            Text('IMPORT TRACKS', style: AppTextStyles.buttonLabel),
-            Text('Select .WAV or .AIFF files', style: AppTextStyles.bodyMuted),
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.1),
+              ),
+              child: const Icon(Icons.add, color: AppColors.primary, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'IMPORT TRACKS',
+              style: AppTextStyles.buttonLabel.copyWith(
+                fontSize: 12,
+                color: AppColors.primary,
+                fontFamily: 'JetBrains Mono',
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('Drag .WAV or .AIFF here', style: AppTextStyles.trackLabel),
           ],
         ),
       ),
@@ -114,11 +194,8 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontSize: 10,
-            letterSpacing: 2,
-            fontFamily: 'JetBrains Mono',
+          style: AppTextStyles.sectionLabel.copyWith(
+            color: AppColors.primary.withValues(alpha: 0.7),
           ),
         ),
         const SizedBox(height: 8),
@@ -129,15 +206,26 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppColors.surface,
+            fillColor: AppColors.rackBlack,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(
                 color: AppColors.primary.withValues(alpha: 0.2),
               ),
             ),
-            focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: AppColors.primary),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: BorderSide(
+                color: AppColors.primary.withValues(alpha: 0.2),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(4),
+              borderSide: const BorderSide(color: AppColors.primary),
             ),
           ),
         ),
@@ -149,60 +237,82 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.rackBlack,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // BPM Circle (simplified from design)
+          // BPM Dial
           Column(
             children: [
-              const Text(
-                'BPM',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 8),
-              ),
+              Text('TEMPO / BPM', style: AppTextStyles.sectionLabel),
               const SizedBox(height: 8),
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primary, width: 3),
-                ),
-                alignment: Alignment.center,
-                child: Observer(
-                  builder: (_) => Text(
-                    widget.store.bpm.isEmpty ? '---' : widget.store.bpm,
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'JetBrains Mono',
+              GestureDetector(
+                onTap: () {
+                  // TODO: Tap-tempo logic
+                },
+                child: Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.surfaceDark, width: 4),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.rackDark, AppColors.rackBlack],
                     ),
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Arc indicator
+                      Positioned.fill(
+                        child: CustomPaint(painter: _BpmArcPainter()),
+                      ),
+                      // BPM value
+                      Observer(
+                        builder: (_) => Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.store.bpm.isEmpty
+                                  ? '---'
+                                  : widget.store.bpm,
+                              style: AppTextStyles.tempoDisplay.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'TAP',
+                              style: AppTextStyles.trackLabel.copyWith(
+                                fontSize: 8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-
-          // Time Sig & Count In
           const SizedBox(width: 16),
+          // Time Sig + Count In
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'TIME SIG',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 8),
-                ),
+                Text('TIME SIG', style: AppTextStyles.sectionLabel),
+                const SizedBox(height: 4),
                 _buildDropdown(['4/4', '3/4', '6/8', '5/4']),
                 const SizedBox(height: 12),
-                const Text(
-                  'COUNT IN',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 8),
-                ),
+                Text('COUNT IN', style: AppTextStyles.sectionLabel),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Expanded(child: _buildSmallButton('1 BAR')),
@@ -220,10 +330,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
   Widget _buildDropdown(List<String> options) {
     return Container(
-      margin: const EdgeInsets.only(top: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.surfaceDark,
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -231,13 +340,21 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
         child: DropdownButton<String>(
           value: '4/4',
           isExpanded: true,
-          dropdownColor: AppColors.surface,
+          dropdownColor: AppColors.surfaceDark,
+          icon: Icon(
+            Icons.expand_more,
+            color: AppColors.primary.withValues(alpha: 0.5),
+            size: 16,
+          ),
           items: options.map((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(
                 value,
-                style: const TextStyle(color: AppColors.primary, fontSize: 12),
+                style: AppTextStyles.trackLabel.copyWith(
+                  color: AppColors.primary,
+                  fontSize: 13,
+                ),
               ),
             );
           }).toList(),
@@ -251,9 +368,17 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     return Container(
       height: 32,
       decoration: BoxDecoration(
-        color: isActive ? AppColors.primary : AppColors.background,
+        color: isActive ? AppColors.primary : AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 10,
+                ),
+              ]
+            : null,
       ),
       alignment: Alignment.center,
       child: Text(
@@ -262,28 +387,33 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           color: isActive ? Colors.black : AppColors.textMuted,
           fontSize: 10,
           fontWeight: FontWeight.bold,
+          fontFamily: 'JetBrains Mono',
         ),
       ),
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // RIGHT PANEL — Track Mixer
+  // ═══════════════════════════════════════════════════════════════════
+
   Widget _buildRightPanel() {
     return Container(
       color: AppColors.background,
-      child: Column(
+      child: Stack(
         children: [
-          _buildRightHeader(),
-          Expanded(
-            child: Observer(
-              builder: (_) => ListView.builder(
-                padding: const EdgeInsets.all(24),
-                itemCount: widget.store.tracks.length,
-                itemBuilder: (context, index) {
-                  final track = widget.store.tracks[index];
-                  return _buildTrackItem(track);
-                },
-              ),
+          // Subtle dot grid background
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.05,
+              child: CustomPaint(painter: _DotGridPainter()),
             ),
+          ),
+          Column(
+            children: [
+              _buildRightHeader(),
+              Expanded(child: _buildTrackList()),
+            ],
           ),
         ],
       ),
@@ -295,7 +425,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.rackDark.withValues(alpha: 0.5),
         border: Border(
           bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.1)),
         ),
@@ -303,28 +433,33 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.tune, color: AppColors.primary, size: 18),
-              SizedBox(width: 8),
-              Text(
-                'TRACK MIXER',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 10,
-                  letterSpacing: 2,
-                ),
-              ),
+              const Icon(Icons.tune, color: AppColors.primary, size: 16),
+              const SizedBox(width: 8),
+              Text('TRACK MIXER', style: AppTextStyles.sectionLabel),
             ],
           ),
           Observer(
-            builder: (_) => Text(
-              '${widget.store.tracks.length} TRACKS',
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
-              ),
+            builder: (_) => Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${widget.store.tracks.length} TRACKS',
+                    style: AppTextStyles.trackLabel.copyWith(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -332,55 +467,214 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     );
   }
 
-  Widget _buildTrackItem(Track track) {
+  Widget _buildTrackList() {
+    return Observer(
+      builder: (_) {
+        if (widget.store.tracks.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.music_off,
+                  color: AppColors.textMuted.withValues(alpha: 0.3),
+                  size: 48,
+                ),
+                const SizedBox(height: 12),
+                Text('No tracks imported', style: AppTextStyles.bodyMuted),
+                const SizedBox(height: 4),
+                Text(
+                  'Import .WAV or .AIFF files to begin',
+                  style: AppTextStyles.trackLabel,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ReorderableListView.builder(
+          padding: const EdgeInsets.all(24),
+          proxyDecorator: (child, index, animation) {
+            return AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) => Material(
+                color: Colors.transparent,
+                elevation: 8,
+                shadowColor: AppColors.primary.withValues(alpha: 0.3),
+                child: child,
+              ),
+              child: child,
+            );
+          },
+          onReorder: widget.store.reorderTracks,
+          itemCount: widget.store.tracks.length,
+          itemBuilder: (context, index) {
+            final track = widget.store.tracks[index];
+            return _buildTrackItem(track, index);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTrackItem(Track track, int index) {
+    final bool isSpecial =
+        track.isClick ||
+        track.name.toLowerCase().contains('click') ||
+        track.name.toLowerCase().contains('cue');
+
     return Container(
+      key: ValueKey(track.id),
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.rackDark,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.drag_indicator, color: Colors.grey, size: 20),
-          const SizedBox(width: 12),
+          // ── Drag Handle ──
+          ReorderableDragStartListener(
+            index: index,
+            child: const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: Icon(Icons.drag_indicator, color: Colors.grey, size: 18),
+            ),
+          ),
+
+          // ── Track Name + dB ──
           SizedBox(
-            width: 80,
+            width: 88,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   track.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isSpecial
+                        ? AppColors.primary
+                        : AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
-                const Text(
-                  '0.0dB',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 9),
+                Observer(
+                  builder: (_) => Text(
+                    _volumeToDb(track.volume),
+                    style: AppTextStyles.trackLabel,
+                  ),
                 ),
               ],
             ),
           ),
+
+          // ── Waveform Placeholder ──
           Expanded(
             child: Container(
-              height: 40,
+              height: 44,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(
-                Icons.show_chart,
-                color: AppColors.textMuted,
-                size: 16,
-              ), // Mock waveform
+              child: CustomPaint(painter: _WaveformPainter()),
             ),
           ),
-          const SizedBox(width: 24),
+
+          // ── Pan Slider ──
+          Container(
+            width: 100,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'L',
+                      style: AppTextStyles.trackLabel.copyWith(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'C',
+                      style: AppTextStyles.trackLabel.copyWith(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'R',
+                      style: AppTextStyles.trackLabel.copyWith(
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                Observer(
+                  builder: (_) => SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 5,
+                      ),
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: AppColors.surfaceDark,
+                      thumbColor: AppColors.primary,
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 10,
+                      ),
+                    ),
+                    child: Slider(
+                      value: track.pan,
+                      min: -1.0,
+                      max: 1.0,
+                      onChanged: (v) => widget.store.updatePan(track.id, v),
+                    ),
+                  ),
+                ),
+                Observer(
+                  builder: (_) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Text(
+                      _panLabel(track.pan),
+                      style: AppTextStyles.trackLabel.copyWith(
+                        fontSize: 9,
+                        color: AppColors.primary.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // ── Volume Slider ──
           SizedBox(
             width: 120,
             child: Row(
@@ -390,57 +684,154 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                   color: AppColors.textMuted,
                   size: 12,
                 ),
-                Expanded(child: Slider(value: 0.8, onChanged: (_) {})),
+                Expanded(
+                  child: Observer(
+                    builder: (_) => SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 3,
+                        thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 6,
+                        ),
+                        activeTrackColor: AppColors.primary,
+                        inactiveTrackColor: AppColors.surfaceDark,
+                        thumbColor: AppColors.primary,
+                        overlayShape: const RoundSliderOverlayShape(
+                          overlayRadius: 12,
+                        ),
+                        overlayColor: AppColors.primary.withValues(alpha: 0.15),
+                      ),
+                      child: Slider(
+                        value: track.volume,
+                        min: 0.0,
+                        max: 1.0,
+                        onChanged: (v) =>
+                            widget.store.updateVolume(track.id, v),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(width: 16),
-          Row(
-            children: [
-              _buildControlToggle('M'),
-              const SizedBox(width: 4),
-              _buildControlToggle('S', isActive: true),
-            ],
+
+          const SizedBox(width: 8),
+
+          // ── M / S Buttons ──
+          Observer(
+            builder: (_) => Row(
+              children: [
+                _buildMuteButton(track),
+                const SizedBox(width: 4),
+                _buildSoloButton(track),
+              ],
+            ),
           ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
-            onPressed: () => widget.store.removeTrack(track.id),
+
+          const SizedBox(width: 8),
+
+          // ── Delete ──
+          InkWell(
+            onTap: () => widget.store.removeTrack(track.id),
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.delete_outline,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildControlToggle(String label, {bool isActive = false}) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: isActive ? AppColors.primary : AppColors.surfaceHighlight,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isActive ? Colors.black : AppColors.textMuted,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+  Widget _buildMuteButton(Track track) {
+    final isMuted = track.isMuted;
+    return InkWell(
+      onTap: () => widget.store.toggleMute(track.id),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: isMuted ? AppColors.mutedRed : AppColors.surfaceDark,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isMuted
+                ? AppColors.alert.withValues(alpha: 0.5)
+                : Colors.transparent,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'M',
+          style: TextStyle(
+            color: isMuted ? AppColors.alert : AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'JetBrains Mono',
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildSoloButton(Track track) {
+    final isSolo = track.isSolo;
+    return InkWell(
+      onTap: () => widget.store.toggleSolo(track.id),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: isSolo ? AppColors.primary : AppColors.surfaceDark,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: isSolo
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                  ),
+                ]
+              : null,
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'S',
+          style: TextStyle(
+            color: isSolo ? AppColors.rackBlack : AppColors.textMuted,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'JetBrains Mono',
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // BOTTOM BAR
+  // ═══════════════════════════════════════════════════════════════════
 
   Widget _buildBottomBar() {
     return Container(
       height: 80,
       padding: const EdgeInsets.symmetric(horizontal: 32),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.rackBlack.withValues(alpha: 0.95),
         border: Border(
           top: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.5),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Stack(
         alignment: Alignment.center,
@@ -448,53 +839,183 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'PROJECT SIZE',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 8),
-                  ),
-                  Text(
-                    '${(widget.store.tracks.length * 15.4).toStringAsFixed(1)} MB',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 14,
-                      fontFamily: 'JetBrains Mono',
+              // Project size
+              Observer(
+                builder: (_) => Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PROJECT SIZE', style: AppTextStyles.sectionLabel),
+                    Text(
+                      '${(widget.store.tracks.length * 15.4).toStringAsFixed(1)} MB',
+                      style: AppTextStyles.trackLabel.copyWith(
+                        color: AppColors.primary,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              ElevatedButton.icon(
-                onPressed: () => widget.store.saveMusicConfig(),
-                icon: const Icon(Icons.save_alt),
-                label: const Text('SAVE TO LIBRARY'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
+              // Save button
+              Observer(
+                builder: (_) => ElevatedButton.icon(
+                  onPressed: widget.store.isLoading
+                      ? null
+                      : () => widget.store.saveMusicConfig(),
+                  icon: widget.store.isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Icon(Icons.save_alt),
+                  label: Text(
+                    widget.store.isLoading ? 'SAVING...' : 'SAVE TO LIBRARY',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
                   ),
                 ),
               ),
             ],
           ),
-          // Preview button centered
-          ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('PREVIEW'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.surfaceHighlight,
-              foregroundColor: Colors.white,
-              side: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
-              shape: const StadiumBorder(),
+          // Preview button — centered
+          Observer(
+            builder: (_) => ElevatedButton.icon(
+              onPressed: () {
+                if (widget.store.isPlaying) {
+                  widget.store.pausePreview();
+                } else {
+                  widget.store.loadAndPlayPreview();
+                }
+              },
+              icon: Icon(
+                widget.store.isPlaying ? Icons.pause : Icons.play_arrow,
+                color: AppColors.primary,
+              ),
+              label: Text(
+                widget.store.isPlaying ? 'PAUSE' : 'PREVIEW',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.surfaceDark,
+                foregroundColor: Colors.white,
+                side: BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                ),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // HELPERS
+  // ═══════════════════════════════════════════════════════════════════
+
+  /// Converts a linear volume (0.0–1.0) to a dB string.
+  String _volumeToDb(double volume) {
+    if (volume <= 0.0) return '-∞ dB';
+    final db = 20 * math.log(volume) / math.ln10;
+    return '${db.toStringAsFixed(1)}dB';
+  }
+
+  /// Converts a pan value (-1.0 to 1.0) to a readable label.
+  String _panLabel(double pan) {
+    if (pan.abs() < 0.05) return 'C';
+    final pct = (pan.abs() * 100).round();
+    return pan < 0 ? 'L$pct' : 'R$pct';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CUSTOM PAINTERS
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Draws a half-arc around the BPM dial.
+class _BpmArcPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.8)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final rect = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
+    canvas.drawArc(rect, -math.pi * 0.75, math.pi * 0.5, false, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Stub waveform: draws random bars.
+class _WaveformPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.textMuted.withValues(alpha: 0.3)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final random = math.Random(42); // deterministic seed
+    const barWidth = 2.0;
+    const gap = 2.0;
+    final center = size.height / 2;
+
+    for (double x = 0; x < size.width; x += barWidth + gap) {
+      final h = random.nextDouble() * (size.height * 0.7);
+      canvas.drawLine(
+        Offset(x, center - h / 2),
+        Offset(x, center + h / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Draws a subtle dot grid background.
+class _DotGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primary
+      ..strokeWidth = 1;
+
+    const spacing = 20.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 0.5, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -102,7 +102,7 @@ abstract class CreateMusicStoreBase with Store {
       name: name,
       filePath: filePath,
       volume: 1.0,
-      pan: 0.0,
+      pan: 1.0, // Default: panned Right
       isClick: isClick,
       order: tracks.length,
     );
@@ -144,8 +144,18 @@ abstract class CreateMusicStoreBase with Store {
 
     final current = tracks[index];
     final newMuted = !current.isMuted;
-    tracks[index] = current.copyWith(isMuted: newMuted);
+
+    // Mute and Solo are mutually exclusive —
+    // activating mute must deactivate solo on the same track.
+    tracks[index] = current.copyWith(
+      isMuted: newMuted,
+      isSolo: newMuted ? false : current.isSolo,
+    );
+
     _audioEngine.setTrackMute(trackId, newMuted);
+    if (newMuted && current.isSolo) {
+      _audioEngine.setTrackSolo(trackId, false);
+    }
   }
 
   @action
@@ -155,8 +165,28 @@ abstract class CreateMusicStoreBase with Store {
 
     final current = tracks[index];
     final newSolo = !current.isSolo;
-    tracks[index] = current.copyWith(isSolo: newSolo);
+
+    // Solo and Mute are mutually exclusive —
+    // activating solo must deactivate mute on the same track.
+    tracks[index] = current.copyWith(
+      isSolo: newSolo,
+      isMuted: newSolo ? false : current.isMuted,
+    );
+
     _audioEngine.setTrackSolo(trackId, newSolo);
+    if (newSolo && current.isMuted) {
+      _audioEngine.setTrackMute(trackId, false);
+    }
+
+    // Solo group rule: if ALL tracks are now soloed, treat as none soloed
+    // (normal playback for everyone).
+    final allSoloed = tracks.every((t) => t.isSolo);
+    if (allSoloed) {
+      for (int i = 0; i < tracks.length; i++) {
+        tracks[i] = tracks[i].copyWith(isSolo: false);
+        _audioEngine.setTrackSolo(tracks[i].id, false);
+      }
+    }
   }
 
   // ─── Reorder Action (Drag & Drop) ─────────────────────────────────

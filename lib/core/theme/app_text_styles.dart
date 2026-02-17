@@ -58,4 +58,19 @@ class AppTextStyles {
     fontSize: 14,
     color: AppColors.textPrimary,
   );
+
+  // Track mixer readouts (dB, pan position)
+  static final TextStyle trackLabel = GoogleFonts.jetBrainsMono(
+    fontSize: 10,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textMuted,
+  );
+
+  // Section header labels (TRACK MIXER, TEMPO / BPM)
+  static final TextStyle sectionLabel = GoogleFonts.jetBrainsMono(
+    fontSize: 10,
+    fontWeight: FontWeight.w500,
+    color: AppColors.textMuted,
+    letterSpacing: 2.0,
+  );
 }

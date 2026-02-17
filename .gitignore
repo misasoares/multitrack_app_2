@@ -58,3 +58,5 @@ app.*.map.json
 .env*
 *.secrets
 
+android/build/
+create_song_landscape.*

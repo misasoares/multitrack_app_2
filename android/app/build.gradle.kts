@@ -19,6 +19,14 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // ── Native C++ Audio Engine ──
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.18.1"
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.multitracksdf.multitracks_df_pro"
@@ -28,6 +36,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // ── NDK: use C++ shared STL for the audio engine ──
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
     }
 
     buildTypes {

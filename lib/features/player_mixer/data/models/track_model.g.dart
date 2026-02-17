@@ -43,8 +43,18 @@ const TrackModelSchema = Schema(
       name: r'name',
       type: IsarType.string,
     ),
-    r'volume': PropertySchema(
+    r'order': PropertySchema(
       id: 6,
+      name: r'order',
+      type: IsarType.long,
+    ),
+    r'pan': PropertySchema(
+      id: 7,
+      name: r'pan',
+      type: IsarType.double,
+    ),
+    r'volume': PropertySchema(
+      id: 8,
       name: r'volume',
       type: IsarType.double,
     )
@@ -94,7 +104,9 @@ void _trackModelSerialize(
   writer.writeBool(offsets[3], object.isMuted);
   writer.writeBool(offsets[4], object.isSolo);
   writer.writeString(offsets[5], object.name);
-  writer.writeDouble(offsets[6], object.volume);
+  writer.writeLong(offsets[6], object.order);
+  writer.writeDouble(offsets[7], object.pan);
+  writer.writeDouble(offsets[8], object.volume);
 }
 
 TrackModel _trackModelDeserialize(
@@ -110,7 +122,9 @@ TrackModel _trackModelDeserialize(
     isMuted: reader.readBoolOrNull(offsets[3]),
     isSolo: reader.readBoolOrNull(offsets[4]),
     name: reader.readStringOrNull(offsets[5]),
-    volume: reader.readDoubleOrNull(offsets[6]),
+    order: reader.readLongOrNull(offsets[6]),
+    pan: reader.readDoubleOrNull(offsets[7]),
+    volume: reader.readDoubleOrNull(offsets[8]),
   );
   return object;
 }
@@ -135,6 +149,10 @@ P _trackModelDeserializeProp<P>(
     case 5:
       return (reader.readStringOrNull(offset)) as P;
     case 6:
+      return (reader.readLongOrNull(offset)) as P;
+    case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -663,6 +681,153 @@ extension TrackModelQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'name',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'order',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'order',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderEqualTo(
+      int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'order',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'order',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'order',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> orderBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'order',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'pan',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'pan',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'pan',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'pan',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'pan',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> panBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'pan',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
       ));
     });
   }

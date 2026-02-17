@@ -57,6 +57,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$manualBpmAtom =
+      Atom(name: 'CreateMusicStoreBase.manualBpm', context: context);
+
+  @override
+  int get manualBpm {
+    _$manualBpmAtom.reportRead();
+    return super.manualBpm;
+  }
+
+  @override
+  set manualBpm(int value) {
+    _$manualBpmAtom.reportWrite(value, super.manualBpm, () {
+      super.manualBpm = value;
+    });
+  }
+
   late final _$keyAtom =
       Atom(name: 'CreateMusicStoreBase.key', context: context);
 
@@ -139,6 +155,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$isPlayingAtom =
+      Atom(name: 'CreateMusicStoreBase.isPlaying', context: context);
+
+  @override
+  bool get isPlaying {
+    _$isPlayingAtom.reportRead();
+    return super.isPlaying;
+  }
+
+  @override
+  set isPlaying(bool value) {
+    _$isPlayingAtom.reportWrite(value, super.isPlaying, () {
+      super.isPlaying = value;
+    });
+  }
+
   late final _$errorMessageAtom =
       Atom(name: 'CreateMusicStoreBase.errorMessage', context: context);
 
@@ -155,12 +187,21 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
-  late final _$saveMusicAsyncAction =
-      AsyncAction('CreateMusicStoreBase.saveMusic', context: context);
+  late final _$loadAndPlayPreviewAsyncAction =
+      AsyncAction('CreateMusicStoreBase.loadAndPlayPreview', context: context);
 
   @override
-  Future<void> saveMusic() {
-    return _$saveMusicAsyncAction.run(() => super.saveMusic());
+  Future<void> loadAndPlayPreview() {
+    return _$loadAndPlayPreviewAsyncAction
+        .run(() => super.loadAndPlayPreview());
+  }
+
+  late final _$saveMusicConfigAsyncAction =
+      AsyncAction('CreateMusicStoreBase.saveMusicConfig', context: context);
+
+  @override
+  Future<void> saveMusicConfig() {
+    return _$saveMusicConfigAsyncAction.run(() => super.saveMusicConfig());
   }
 
   late final _$CreateMusicStoreBaseActionController =
@@ -200,6 +241,28 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
+  void setManualBpm(int value) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.setManualBpm');
+    try {
+      return super.setManualBpm(value);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setKey(String value) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.setKey');
+    try {
+      return super.setKey(value);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void setTimeSignatureNumerator(int value) {
     final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
         name: 'CreateMusicStoreBase.setTimeSignatureNumerator');
@@ -216,17 +279,6 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
         name: 'CreateMusicStoreBase.setTimeSignatureDenominator');
     try {
       return super.setTimeSignatureDenominator(value);
-    } finally {
-      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
-    }
-  }
-
-  @override
-  void setKey(String value) {
-    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
-        name: 'CreateMusicStoreBase.setKey');
-    try {
-      return super.setKey(value);
     } finally {
       _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
     }
@@ -255,16 +307,84 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
+  void updateVolume(String trackId, double newVolume) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.updateVolume');
+    try {
+      return super.updateVolume(trackId, newVolume);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updatePan(String trackId, double newPan) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.updatePan');
+    try {
+      return super.updatePan(trackId, newPan);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleMute(String trackId) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.toggleMute');
+    try {
+      return super.toggleMute(trackId);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleSolo(String trackId) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.toggleSolo');
+    try {
+      return super.toggleSolo(trackId);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void reorderTracks(int oldIndex, int newIndex) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.reorderTracks');
+    try {
+      return super.reorderTracks(oldIndex, newIndex);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void pausePreview() {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.pausePreview');
+    try {
+      return super.pausePreview();
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 title: ${title},
 artist: ${artist},
 bpm: ${bpm},
+manualBpm: ${manualBpm},
 key: ${key},
 timeSignatureNumerator: ${timeSignatureNumerator},
 timeSignatureDenominator: ${timeSignatureDenominator},
 tracks: ${tracks},
 isLoading: ${isLoading},
+isPlaying: ${isPlaying},
 errorMessage: ${errorMessage}
     ''';
   }

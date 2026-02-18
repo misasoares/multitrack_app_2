@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../domain/entities/track.dart';
@@ -18,9 +19,32 @@ class CreateMusicPage extends StatefulWidget {
 }
 
 class _CreateMusicPageState extends State<CreateMusicPage> {
+  // Reaction disposer
+  ReactionDisposer? _saveReaction;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen for save success
+    _saveReaction = reaction((_) => widget.store.saveSuccess, (success) {
+      if (success) {
+        // Verify if mounted to avoid errors
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Music saved to library!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
-    widget.store.disposeAudioEngine();
+    _saveReaction?.call();
     super.dispose();
   }
 

@@ -7,6 +7,7 @@ import 'features/player_mixer/data/models/music_model.dart';
 import 'features/player_mixer/data/repositories/isar_music_repository.dart';
 import 'features/player_mixer/domain/repositories/imusic_repository.dart';
 import 'features/player_mixer/presentation/stores/create_music_store.dart';
+import 'features/player_mixer/presentation/stores/music_library_store.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -14,6 +15,7 @@ Future<void> init() async {
   //! Features - Player Mixer
   // Store (receives both repository and audio engine via DI)
   sl.registerFactory(() => CreateMusicStore(sl(), sl()));
+  sl.registerFactory(() => MusicLibraryStore(sl()));
 
   // Repository
   sl.registerLazySingleton<IMusicRepository>(() => IsarMusicRepository(sl()));

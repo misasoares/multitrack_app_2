@@ -60,6 +60,11 @@ abstract class CreateMusicStoreBase with Store {
   ObservableMap<String, List<double>> waveformData =
       ObservableMap<String, List<double>>();
 
+  /// Set to true after a successful save —
+  /// the UI uses this to trigger navigation.
+  @observable
+  bool saveSuccess = false;
+
   // ─── Metadata Actions ─────────────────────────────────────────────
 
   @action
@@ -291,6 +296,8 @@ abstract class CreateMusicStoreBase with Store {
       );
 
       await _repository.saveMusic(music);
+
+      saveSuccess = true;
 
       // Reset form on success
       _resetForm();

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:multitracks_df_pro/features/player_mixer/presentation/pages/create_music_page.dart';
-import 'package:multitracks_df_pro/features/player_mixer/presentation/stores/create_music_store.dart';
+import 'package:multitracks_df_pro/features/player_mixer/presentation/pages/music_library_page.dart';
 import 'core/theme/app_theme.dart';
 import 'injection_container.dart' as di;
 
@@ -29,7 +28,7 @@ class MultitracksDFProApp extends StatelessWidget {
       title: 'Multitracks DF Pro',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme, // Apply the strict dark theme
-      home: CreateMusicPage(store: di.sl<CreateMusicStore>()),
+      home: const MusicLibraryPage(),
     );
   }
 }

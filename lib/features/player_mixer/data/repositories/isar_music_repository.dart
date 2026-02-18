@@ -16,4 +16,10 @@ class IsarMusicRepository implements IMusicRepository {
       await isar.musicModels.put(musicModel);
     });
   }
+
+  @override
+  Future<List<Music>> getAllMusic() async {
+    final models = await isar.musicModels.where().findAll();
+    return models.map((m) => m.toEntity()).toList();
+  }
 }

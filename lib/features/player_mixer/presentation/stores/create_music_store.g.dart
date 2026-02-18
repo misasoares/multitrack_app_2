@@ -203,6 +203,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$saveSuccessAtom =
+      Atom(name: 'CreateMusicStoreBase.saveSuccess', context: context);
+
+  @override
+  bool get saveSuccess {
+    _$saveSuccessAtom.reportRead();
+    return super.saveSuccess;
+  }
+
+  @override
+  set saveSuccess(bool value) {
+    _$saveSuccessAtom.reportWrite(value, super.saveSuccess, () {
+      super.saveSuccess = value;
+    });
+  }
+
   late final _$loadAndPlayPreviewAsyncAction =
       AsyncAction('CreateMusicStoreBase.loadAndPlayPreview', context: context);
 
@@ -402,7 +418,8 @@ tracks: ${tracks},
 isLoading: ${isLoading},
 isPlaying: ${isPlaying},
 errorMessage: ${errorMessage},
-waveformData: ${waveformData}
+waveformData: ${waveformData},
+saveSuccess: ${saveSuccess}
     ''';
   }
 }

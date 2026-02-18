@@ -601,7 +601,7 @@ class _SongCardState extends State<_SongCard> {
   String _formatDuration(Duration duration) {
     if (duration <= Duration.zero) return '--:--';
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final minutes = twoDigits(duration.inMinutes); // Support > 60 mins
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
   }

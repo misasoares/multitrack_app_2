@@ -10,6 +10,7 @@ class Track extends Equatable {
   final bool isSolo;
   final bool isClick;
   final int order; // Position index in the UI list
+  final Duration duration;
 
   const Track({
     required this.id,
@@ -21,6 +22,7 @@ class Track extends Equatable {
     this.isSolo = false,
     this.isClick = false,
     this.order = 0,
+    this.duration = Duration.zero,
   });
 
   Track copyWith({
@@ -33,6 +35,7 @@ class Track extends Equatable {
     bool? isSolo,
     bool? isClick,
     int? order,
+    Duration? duration,
   }) {
     return Track(
       id: id ?? this.id,
@@ -44,6 +47,7 @@ class Track extends Equatable {
       isSolo: isSolo ?? this.isSolo,
       isClick: isClick ?? this.isClick,
       order: order ?? this.order,
+      duration: duration ?? this.duration,
     );
   }
 
@@ -58,5 +62,6 @@ class Track extends Equatable {
     isSolo,
     isClick,
     order,
+    duration,
   ];
 }

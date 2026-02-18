@@ -14,6 +14,7 @@ class TrackModel {
   bool? isSolo;
   bool? isClick;
   int? order;
+  int? durationInMilliseconds;
 
   TrackModel({
     this.id,
@@ -25,6 +26,7 @@ class TrackModel {
     this.isSolo,
     this.isClick,
     this.order,
+    this.durationInMilliseconds,
   });
 
   factory TrackModel.fromEntity(Track track) {
@@ -38,6 +40,7 @@ class TrackModel {
       isSolo: track.isSolo,
       isClick: track.isClick,
       order: track.order,
+      durationInMilliseconds: track.duration.inMilliseconds,
     );
   }
 
@@ -52,6 +55,7 @@ class TrackModel {
       isSolo: isSolo ?? false,
       isClick: isClick ?? false,
       order: order ?? 0,
+      duration: Duration(milliseconds: durationInMilliseconds ?? 0),
     );
   }
 }

@@ -13,48 +13,53 @@ const TrackModelSchema = Schema(
   name: r'TrackModel',
   id: -624065756729765013,
   properties: {
-    r'filePath': PropertySchema(
+    r'durationInMilliseconds': PropertySchema(
       id: 0,
+      name: r'durationInMilliseconds',
+      type: IsarType.long,
+    ),
+    r'filePath': PropertySchema(
+      id: 1,
       name: r'filePath',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'id',
       type: IsarType.string,
     ),
     r'isClick': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'isClick',
       type: IsarType.bool,
     ),
     r'isMuted': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'isMuted',
       type: IsarType.bool,
     ),
     r'isSolo': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'isSolo',
       type: IsarType.bool,
     ),
     r'name': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'name',
       type: IsarType.string,
     ),
     r'order': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'order',
       type: IsarType.long,
     ),
     r'pan': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'pan',
       type: IsarType.double,
     ),
     r'volume': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'volume',
       type: IsarType.double,
     )
@@ -98,15 +103,16 @@ void _trackModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.filePath);
-  writer.writeString(offsets[1], object.id);
-  writer.writeBool(offsets[2], object.isClick);
-  writer.writeBool(offsets[3], object.isMuted);
-  writer.writeBool(offsets[4], object.isSolo);
-  writer.writeString(offsets[5], object.name);
-  writer.writeLong(offsets[6], object.order);
-  writer.writeDouble(offsets[7], object.pan);
-  writer.writeDouble(offsets[8], object.volume);
+  writer.writeLong(offsets[0], object.durationInMilliseconds);
+  writer.writeString(offsets[1], object.filePath);
+  writer.writeString(offsets[2], object.id);
+  writer.writeBool(offsets[3], object.isClick);
+  writer.writeBool(offsets[4], object.isMuted);
+  writer.writeBool(offsets[5], object.isSolo);
+  writer.writeString(offsets[6], object.name);
+  writer.writeLong(offsets[7], object.order);
+  writer.writeDouble(offsets[8], object.pan);
+  writer.writeDouble(offsets[9], object.volume);
 }
 
 TrackModel _trackModelDeserialize(
@@ -116,15 +122,16 @@ TrackModel _trackModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = TrackModel(
-    filePath: reader.readStringOrNull(offsets[0]),
-    id: reader.readStringOrNull(offsets[1]),
-    isClick: reader.readBoolOrNull(offsets[2]),
-    isMuted: reader.readBoolOrNull(offsets[3]),
-    isSolo: reader.readBoolOrNull(offsets[4]),
-    name: reader.readStringOrNull(offsets[5]),
-    order: reader.readLongOrNull(offsets[6]),
-    pan: reader.readDoubleOrNull(offsets[7]),
-    volume: reader.readDoubleOrNull(offsets[8]),
+    durationInMilliseconds: reader.readLongOrNull(offsets[0]),
+    filePath: reader.readStringOrNull(offsets[1]),
+    id: reader.readStringOrNull(offsets[2]),
+    isClick: reader.readBoolOrNull(offsets[3]),
+    isMuted: reader.readBoolOrNull(offsets[4]),
+    isSolo: reader.readBoolOrNull(offsets[5]),
+    name: reader.readStringOrNull(offsets[6]),
+    order: reader.readLongOrNull(offsets[7]),
+    pan: reader.readDoubleOrNull(offsets[8]),
+    volume: reader.readDoubleOrNull(offsets[9]),
   );
   return object;
 }
@@ -137,22 +144,24 @@ P _trackModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readBoolOrNull(offset)) as P;
     case 4:
       return (reader.readBoolOrNull(offset)) as P;
     case 5:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 6:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 7:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 8:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 9:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -161,6 +170,80 @@ P _trackModelDeserializeProp<P>(
 
 extension TrackModelQueryFilter
     on QueryBuilder<TrackModel, TrackModel, QFilterCondition> {
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'durationInMilliseconds',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'durationInMilliseconds',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'durationInMilliseconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'durationInMilliseconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'durationInMilliseconds',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      durationInMillisecondsBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'durationInMilliseconds',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> filePathIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(

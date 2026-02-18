@@ -103,9 +103,22 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
                             final music = _store.musicList[index];
                             return _SongCard(
                               music: music,
-                              onEdit: () {
-                                // TODO: Implement edit functionality
+                              onEdit: () async {
                                 debugPrint('Edit music: ${music.title}');
+                                final createStore = sl<CreateMusicStore>();
+                                await createStore.loadMusic(music);
+
+                                if (!context.mounted) return;
+
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        CreateMusicPage(store: createStore),
+                                  ),
+                                );
+                                // Refresh library on return
+                                _store.loadAllMusic();
                               },
                               onDelete: () {
                                 _showDeleteConfirmation(context, music);
@@ -370,7 +383,7 @@ class _FilterTab extends StatelessWidget {
 
 class _SongCard extends StatefulWidget {
   final Music music;
-  final VoidCallback onEdit;
+  final Future<void> Function() onEdit;
   final VoidCallback onDelete;
 
   const _SongCard({
@@ -385,6 +398,7 @@ class _SongCard extends StatefulWidget {
 
 class _SongCardState extends State<_SongCard> {
   bool isHovered = false;
+  bool isEditing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -414,15 +428,33 @@ class _SongCardState extends State<_SongCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.music.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: isHovered ? AppColors.primary : Colors.white,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.music.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.spaceGrotesk(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isHovered
+                                    ? AppColors.primary
+                                    : Colors.white,
+                              ),
+                            ),
+                          ),
+                          // Duration Display
+                          if (widget.music.tracks.isNotEmpty)
+                            Text(
+                              _formatDuration(widget.music.tracks[0].duration),
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 12,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -442,7 +474,19 @@ class _SongCardState extends State<_SongCard> {
                 // Actions (Edit/Delete)
                 Row(
                   children: [
-                    _IconBtn(Icons.edit, onTap: widget.onEdit),
+                    _IconBtn(
+                      Icons.edit,
+                      onTap: () async {
+                        if (isEditing) return;
+                        setState(() => isEditing = true);
+                        try {
+                          await widget.onEdit();
+                        } finally {
+                          if (mounted) setState(() => isEditing = false);
+                        }
+                      },
+                      isLoading: isEditing,
+                    ),
                     const SizedBox(width: 4),
                     _IconBtn(
                       Icons.delete,
@@ -467,10 +511,12 @@ class _SongCardState extends State<_SongCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: _StatBox(
                     label: 'DURATION',
-                    value: '00:00', // Mocked
+                    value: widget.music.tracks.isNotEmpty
+                        ? _formatDuration(widget.music.tracks[0].duration)
+                        : '--:--',
                   ),
                 ),
               ],
@@ -551,6 +597,14 @@ class _SongCardState extends State<_SongCard> {
       ),
     );
   }
+
+  String _formatDuration(Duration duration) {
+    if (duration <= Duration.zero) return '--:--';
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
 }
 
 class _StatBox extends StatelessWidget {
@@ -603,21 +657,36 @@ class _IconBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool isDestructive;
+  final bool isLoading;
 
-  const _IconBtn(this.icon, {required this.onTap, this.isDestructive = false});
+  const _IconBtn(
+    this.icon, {
+    required this.onTap,
+    this.isDestructive = false,
+    this.isLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: isLoading ? null : onTap,
       borderRadius: BorderRadius.circular(4),
       child: Padding(
         padding: const EdgeInsets.all(4.0),
-        child: Icon(
-          icon,
-          size: 18,
-          color: isDestructive ? Colors.red : AppColors.textMuted,
-        ),
+        child: isLoading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              )
+            : Icon(
+                icon,
+                size: 18,
+                color: isDestructive ? Colors.red : AppColors.textMuted,
+              ),
       ),
     );
   }

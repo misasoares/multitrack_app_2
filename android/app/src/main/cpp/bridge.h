@@ -1,5 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// bridge.h — C-API declarations for FFI (Dart ↔ Native)
+// bridge.h — C-API for Dart FFI
+// ─────────────────────────────────────────────────────────────────────────────
+// Exposes the native audio engine functions as extern "C" so they can be
+// called from Dart via dart:ffi.
 // ─────────────────────────────────────────────────────────────────────────────
 
 #ifndef BRIDGE_H
@@ -13,22 +16,25 @@ extern "C" {
 
 // ── Lifecycle ──
 void engine_init(int32_t sampleRate);
-void engine_dispose(void);
+void engine_dispose();
 
-// ── Track management ──
+// ── Track Management ──
 /// Loads raw interleaved PCM float data for a track.
-/// `pcmData` must point to `numFrames * numChannels` floats.
 void engine_load_track(const char* trackId,
                        const float* pcmData,
                        int64_t numFrames,
                        int32_t numChannels);
 
+/// Decodes an audio file (MP3/WAV/FLAC) and loads the PCM into the mixer.
+/// Returns 1 on success, 0 on failure.
+int32_t engine_load_file(const char* trackId, const char* filePath);
+
 void engine_remove_track(const char* trackId);
-void engine_remove_all_tracks(void);
+void engine_remove_all_tracks();
 
 // ── Transport ──
-void engine_play(void);
-void engine_pause(void);
+void engine_play();
+void engine_pause();
 void engine_seek_to(int64_t framePosition);
 
 // ── Per-track parameters ──
@@ -38,12 +44,10 @@ void engine_set_mute(const char* trackId, int32_t isMuted);
 void engine_set_solo(const char* trackId, int32_t isSolo);
 
 // ── DSP ──
-/// Processes `numFrames` and writes the stereo mix into `outputL` / `outputR`.
-/// The caller must allocate both buffers with at least `numFrames` floats.
 int32_t engine_process(float* outputL, float* outputR, int32_t numFrames);
 
 // ── State ──
-int32_t engine_is_playing(void);
+int32_t engine_is_playing();
 
 #ifdef __cplusplus
 }

@@ -25,13 +25,13 @@ OboePlayer::~OboePlayer() {
 bool OboePlayer::start() {
     // Build an Oboe output stream — stereo, float, low-latency
     oboe::AudioStreamBuilder builder;
-    builder.setDirection(oboe::Direction::Output)
-           .setPerformanceMode(oboe::PerformanceMode::LowLatency)
-           .setSharingMode(oboe::SharingMode::Exclusive)
-           .setFormat(oboe::AudioFormat::Float)
-           .setChannelCount(oboe::ChannelCount::Stereo)
-           .setDataCallback(this)
-           .setErrorCallback(this);
+    builder.setDirection(oboe::Direction::Output);
+    builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
+    builder.setSharingMode(oboe::SharingMode::Exclusive);
+    builder.setFormat(oboe::AudioFormat::Float);
+    builder.setChannelCount(oboe::ChannelCount::Stereo);
+    builder.setDataCallback(this);
+    builder.setErrorCallback(this);
 
     oboe::Result result = builder.openStream(stream_);
     if (result != oboe::Result::OK) {

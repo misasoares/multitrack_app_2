@@ -22,13 +22,22 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   // Reaction disposer
   ReactionDisposer? _saveReaction;
 
+  // Text Controllers
+  late TextEditingController _titleController;
+  late TextEditingController _artistController;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize controllers with store data (for edit mode)
+    _titleController = TextEditingController(text: widget.store.title);
+    _artistController = TextEditingController(text: widget.store.artist);
+
     // Listen for save success
     _saveReaction = reaction((_) => widget.store.saveSuccess, (success) {
       if (success) {
-        // Verify if mounted to avoid errors
+        // Verify if mounted to avoid functionality
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -44,6 +53,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
   @override
   void dispose() {
+    widget.store.pausePreview(); // Stop playback when leaving
+    _titleController.dispose();
+    _artistController.dispose();
     _saveReaction?.call();
     super.dispose();
   }
@@ -52,22 +64,24 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.rackBlack,
-      body: Column(
-        children: [
-          // ── Status Bar ──
-          _buildStatusBar(),
-          // ── Main Content ──
-          Expanded(
-            child: Row(
-              children: [
-                _buildLeftPanel(),
-                Expanded(child: _buildRightPanel()),
-              ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Status Bar ──
+            _buildStatusBar(),
+            // ── Main Content ──
+            Expanded(
+              child: Row(
+                children: [
+                  _buildLeftPanel(),
+                  Expanded(child: _buildRightPanel()),
+                ],
+              ),
             ),
-          ),
-          // ── Bottom Bar ──
-          _buildBottomBar(),
-        ],
+            // ── Bottom Bar ──
+            _buildBottomBar(),
+          ],
+        ),
       ),
     );
   }
@@ -146,9 +160,17 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
             const SizedBox(height: 24),
             _buildImportZone(),
             const SizedBox(height: 24),
-            _buildInputField('SONG TITLE', (v) => widget.store.setTitle(v)),
+            _buildInputField(
+              'SONG TITLE',
+              _titleController,
+              (v) => widget.store.setTitle(v),
+            ),
             const SizedBox(height: 16),
-            _buildInputField('ARTIST', (v) => widget.store.setArtist(v)),
+            _buildInputField(
+              'ARTIST',
+              _artistController,
+              (v) => widget.store.setArtist(v),
+            ),
             const SizedBox(height: 24),
             _buildBpmAndTimeSig(),
           ],
@@ -165,10 +187,12 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           type: FileType.audio,
         );
         if (result != null) {
-          for (var file in result.files) {
-            if (file.path != null) {
-              widget.store.addTrack(file.name, file.path!);
-            }
+          final files = result.files
+              .where((f) => f.path != null)
+              .map((f) => (name: f.name, path: f.path!))
+              .toList();
+          if (files.isNotEmpty) {
+            widget.store.importTracks(files);
           }
         }
       },
@@ -212,7 +236,11 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     );
   }
 
-  Widget _buildInputField(String label, Function(String) onChanged) {
+  Widget _buildInputField(
+    String label,
+    TextEditingController controller,
+    Function(String) onChanged,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -224,6 +252,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
         ),
         const SizedBox(height: 8),
         TextField(
+          controller: controller,
           onChanged: onChanged,
           style: AppTextStyles.bodyPrimary.copyWith(
             fontFamily: 'JetBrains Mono',
@@ -494,49 +523,71 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   Widget _buildTrackList() {
     return Observer(
       builder: (_) {
-        if (widget.store.tracks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.music_off,
-                  color: AppColors.textMuted.withValues(alpha: 0.3),
-                  size: 48,
-                ),
-                const SizedBox(height: 12),
-                Text('No tracks imported', style: AppTextStyles.bodyMuted),
-                const SizedBox(height: 4),
-                Text(
-                  'Import .WAV or .AIFF files to begin',
-                  style: AppTextStyles.trackLabel,
-                ),
-              ],
-            ),
-          );
-        }
+        final content = _buildTrackListContent();
 
-        return ReorderableListView.builder(
-          padding: const EdgeInsets.all(24),
-          proxyDecorator: (child, index, animation) {
-            return AnimatedBuilder(
-              animation: animation,
-              builder: (context, child) => Material(
-                color: Colors.transparent,
-                elevation: 8,
-                shadowColor: AppColors.primary.withValues(alpha: 0.3),
-                child: child,
+        return Stack(
+          children: [
+            content,
+            if (widget.store.isProcessingAudio)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
               ),
-              child: child,
-            );
-          },
-          onReorder: widget.store.reorderTracks,
-          itemCount: widget.store.tracks.length,
-          itemBuilder: (context, index) {
-            final track = widget.store.tracks[index];
-            return _buildTrackItem(track, index);
-          },
+          ],
         );
+      },
+    );
+  }
+
+  Widget _buildTrackListContent() {
+    if (widget.store.tracks.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.music_off,
+              color: AppColors.textMuted.withValues(alpha: 0.3),
+              size: 48,
+            ),
+            const SizedBox(height: 12),
+            Text('No tracks imported', style: AppTextStyles.bodyMuted),
+            const SizedBox(height: 4),
+            Text(
+              'Import .WAV or .AIFF files to begin',
+              style: AppTextStyles.trackLabel,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ReorderableListView.builder(
+      padding: const EdgeInsets.all(24),
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) => Material(
+            color: Colors.transparent,
+            elevation: 8,
+            shadowColor: AppColors.primary.withValues(alpha: 0.3),
+            child: child,
+          ),
+          child: child,
+        );
+      },
+      onReorder: widget.store.reorderTracks,
+      itemCount: widget.store.tracks.length,
+      itemBuilder: (context, index) {
+        final track = widget.store.tracks[index];
+        return _buildTrackItem(track, index);
       },
     );
   }
@@ -904,9 +955,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                           ),
                         )
                       : const Icon(Icons.save_alt),
-                  label: Text(
-                    widget.store.isLoading ? 'SAVING...' : 'SAVE TO LIBRARY',
-                  ),
+                  label: Text(widget.store.isLoading ? 'SAVING...' : 'SAVE'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.black,
@@ -923,44 +972,207 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
               ),
             ],
           ),
-          // Preview button — centered
-          Observer(
-            builder: (_) => ElevatedButton.icon(
-              onPressed: () {
-                if (widget.store.isPlaying) {
-                  widget.store.pausePreview();
-                } else {
-                  widget.store.loadAndPlayPreview();
-                }
+          // Timeline / Preview Controls
+          Positioned(
+            left: 200,
+            right: 200,
+            top: 12,
+            bottom: 12,
+            child: Observer(
+              builder: (_) {
+                final hasTracks = widget.store.tracks.isNotEmpty;
+
+                return Row(
+                  children: [
+                    // Play / Pause Button (Outside Timeline)
+                    InkWell(
+                      onTap: hasTracks
+                          ? () {
+                              if (widget.store.isPlaying) {
+                                widget.store.pausePreview();
+                              } else {
+                                widget.store.playPreview();
+                              }
+                            }
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: hasTracks
+                              ? AppColors.primary
+                              : AppColors.surfaceDark,
+                          shape: BoxShape.circle,
+                          boxShadow: hasTracks
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    blurRadius: 10,
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Icon(
+                          widget.store.isPlaying
+                              ? Icons.pause
+                              : Icons.play_arrow,
+                          color: hasTracks ? Colors.black : AppColors.textMuted,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Timeline Area
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          if (!hasTracks)
+                            Center(
+                              child: Text(
+                                'ADD TRACKS TO ENABLE TIMELINE',
+                                style: AppTextStyles.trackLabel.copyWith(
+                                  color: AppColors.textMuted.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            GestureDetector(
+                              onTapUp: (details) {
+                                _seekTo(details.localPosition.dx, context);
+                              },
+                              onHorizontalDragUpdate: (details) {
+                                _seekTo(details.localPosition.dx, context);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.rackDark,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Stack(
+                                    children: [
+                                      // Background Grid
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: _TimelineGridPainter(),
+                                        ),
+                                      ),
+                                      // Waveform
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: _UnifiedWaveformPainter(
+                                            waveform:
+                                                widget.store.unifiedWaveform,
+                                          ),
+                                        ),
+                                      ),
+                                      // Playhead
+                                      Positioned.fill(
+                                        child: CustomPaint(
+                                          painter: _PlayheadPainter(
+                                            position:
+                                                widget.store.currentPosition,
+                                            duration:
+                                                widget.store.totalDuration,
+                                          ),
+                                        ),
+                                      ),
+                                      // Time Display
+                                      Positioned(
+                                        right: 8,
+                                        top: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.7,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${_formatDuration(widget.store.currentPosition)} / ${_formatDuration(widget.store.totalDuration)}',
+                                            style: AppTextStyles.trackLabel
+                                                .copyWith(
+                                                  fontFamily: 'JetBrains Mono',
+                                                  color: AppColors.primary,
+                                                  fontSize: 10,
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                          // Loading Overlay
+                          if (widget.store.isProcessingAudio)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primary,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
               },
-              icon: Icon(
-                widget.store.isPlaying ? Icons.pause : Icons.play_arrow,
-                color: AppColors.primary,
-              ),
-              label: Text(
-                widget.store.isPlaying ? 'PAUSE' : 'PREVIEW',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surfaceDark,
-                foregroundColor: Colors.white,
-                side: BorderSide(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                ),
-                shape: const StadiumBorder(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 14,
-                ),
-              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _seekTo(double dx, BuildContext context) {
+    if (context.size == null) return;
+
+    // We need the width of the rendered timeline.
+    // Since we are inside a builder, we can try to get the size from the context
+    // or assume the width matches the available width minus margins.
+    // A safer way is to use LayoutBuilder, but for now let's use the context size of the gesture detector.
+
+    final RenderBox? box = context.findRenderObject() as RenderBox?;
+    if (box != null && widget.store.totalDuration > Duration.zero) {
+      final width = box.size.width;
+      final pct = (dx / width).clamp(0.0, 1.0);
+      final ms = (widget.store.totalDuration.inMilliseconds * pct).round();
+      widget.store.seekTo(Duration(milliseconds: ms));
+    }
+  }
+
+  // Helper
+  String _formatDuration(Duration d) {
+    final mm = d.inMinutes.toString().padLeft(2, '0');
+    final ss = (d.inSeconds % 60).toString().padLeft(2, '0');
+    final ms = (d.inMilliseconds % 1000 ~/ 100).toString();
+    return '$mm:$ss.$ms';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1065,6 +1277,109 @@ class _WaveformPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
       oldDelegate.peaks != peaks;
+}
+
+/// Unified Waveform across the entire timeline
+class _UnifiedWaveformPainter extends CustomPainter {
+  final List<double> waveform;
+
+  _UnifiedWaveformPainter({required this.waveform});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (waveform.isEmpty) return;
+
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.5)
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final center = size.height / 2;
+    final widthPerSample = size.width / waveform.length;
+
+    for (int i = 0; i < waveform.length; i++) {
+      final amplitude = waveform[i];
+      final height = amplitude * size.height * 0.8;
+      final x = i * widthPerSample;
+
+      canvas.drawLine(
+        Offset(x, center - height / 2),
+        Offset(x, center + height / 2),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _UnifiedWaveformPainter oldDelegate) =>
+      oldDelegate.waveform != waveform;
+}
+
+/// Playhead (cursor) painter
+class _PlayheadPainter extends CustomPainter {
+  final Duration position;
+  final Duration duration;
+
+  _PlayheadPainter({required this.position, required this.duration});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (duration == Duration.zero) return;
+
+    final progress = (position.inMilliseconds / duration.inMilliseconds).clamp(
+      0.0,
+      1.0,
+    );
+    final x = progress * size.width;
+
+    final paintLine = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.0;
+
+    canvas.drawLine(Offset(x, 0), Offset(x, size.height), paintLine);
+
+    // Draw triangle head
+    final path = Path()
+      ..moveTo(x - 6, 0)
+      ..lineTo(x + 6, 0)
+      ..lineTo(x, 8)
+      ..close();
+
+    canvas.drawPath(path, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlayheadPainter oldDelegate) =>
+      oldDelegate.position != position || oldDelegate.duration != duration;
+}
+
+/// Timeline Grid Background
+class _TimelineGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.1)
+      ..strokeWidth = 1.0;
+
+    // Draw vertical bars (every 10% roughly)
+    for (double i = 0; i <= 1.0; i += 0.1) {
+      final x = size.width * i;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Draw center line
+    final centerPaint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.05)
+      ..strokeWidth = 1.0;
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      centerPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// Draws a subtle dot grid background.

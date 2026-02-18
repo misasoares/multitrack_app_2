@@ -572,7 +572,8 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           ),
 
           // ── Waveform Placeholder ──
-          Expanded(
+          SizedBox(
+            width: 80,
             child: Container(
               height: 44,
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -675,8 +676,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           const SizedBox(width: 8),
 
           // ── Volume Slider ──
-          SizedBox(
-            width: 120,
+          Expanded(
             child: Row(
               children: [
                 const Icon(

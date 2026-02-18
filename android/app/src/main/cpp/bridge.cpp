@@ -160,3 +160,12 @@ extern "C" int32_t engine_is_playing() {
     if (!gMixer) return 0;
     return gMixer->isPlaying() ? 1 : 0;
 }
+
+// ─── Waveform ────────────────────────────────────────────────────────────────
+
+extern "C" int32_t engine_get_waveform_peaks(const char* trackId,
+                                              float* outPeaks,
+                                              int32_t numBins) {
+    if (!gMixer || !trackId || !outPeaks || numBins <= 0) return 0;
+    return gMixer->getWaveformPeaks(std::string(trackId), outPeaks, numBins);
+}

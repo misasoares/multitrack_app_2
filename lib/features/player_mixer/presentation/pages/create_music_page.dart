@@ -571,17 +571,25 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
             ),
           ),
 
-          // ── Waveform Placeholder ──
+          // ── Waveform ──
           SizedBox(
-            width: 100,
-            child: Container(
-              height: 44,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: CustomPaint(painter: _WaveformPainter()),
+            width: 300,
+            child: Observer(
+              builder: (_) {
+                final peaks = widget.store.waveformData[track.id];
+                return Container(
+                  height: 44,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: CustomPaint(painter: _WaveformPainter(peaks: peaks)),
+                  ),
+                );
+              },
             ),
           ),
 
@@ -972,32 +980,67 @@ class _BpmArcPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Stub waveform: draws random bars.
+/// Waveform painter — renders real peak data when available,
+/// falls back to random bars when no data is loaded.
 class _WaveformPainter extends CustomPainter {
+  final List<double>? peaks;
+
+  _WaveformPainter({this.peaks});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.textMuted.withValues(alpha: 0.3)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    final random = math.Random(42); // deterministic seed
     const barWidth = 2.0;
-    const gap = 2.0;
+    const gap = 1.5;
     final center = size.height / 2;
 
-    for (double x = 0; x < size.width; x += barWidth + gap) {
-      final h = random.nextDouble() * (size.height * 0.7);
-      canvas.drawLine(
-        Offset(x, center - h / 2),
-        Offset(x, center + h / 2),
-        paint,
+    final peakList = peaks;
+    if (peakList != null && peakList.isNotEmpty) {
+      // ── Real waveform from PCM peak data ──
+      final paintBar = Paint()
+        ..color = AppColors.primary.withValues(alpha: 0.7)
+        ..strokeWidth = barWidth
+        ..strokeCap = StrokeCap.round;
+
+      final totalBars = (size.width / (barWidth + gap)).floor().clamp(
+        1,
+        peakList.length,
       );
+      final step = peakList.length / totalBars;
+
+      for (int i = 0; i < totalBars; i++) {
+        final peakIdx = (i * step).floor().clamp(0, peakList.length - 1);
+        final amplitude = peakList[peakIdx].clamp(0.0, 1.0);
+        final h = amplitude * size.height * 0.85;
+        final x = i * (barWidth + gap);
+
+        canvas.drawLine(
+          Offset(x, center - h / 2),
+          Offset(x, center + h / 2),
+          paintBar,
+        );
+      }
+    } else {
+      // ── Fallback: deterministic random bars ──
+      final paintStub = Paint()
+        ..color = AppColors.textMuted.withValues(alpha: 0.3)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+
+      final random = math.Random(42);
+      for (double x = 0; x < size.width; x += barWidth + gap) {
+        final h = random.nextDouble() * (size.height * 0.7);
+        canvas.drawLine(
+          Offset(x, center - h / 2),
+          Offset(x, center + h / 2),
+          paintStub,
+        );
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _WaveformPainter oldDelegate) =>
+      oldDelegate.peaks != peaks;
 }
 
 /// Draws a subtle dot grid background.

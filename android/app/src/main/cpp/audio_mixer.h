@@ -106,6 +106,13 @@ public:
     // ── State queries ──
     bool isPlaying() const { return isPlaying_; }
 
+    /// Extracts downsampled peak amplitudes from a loaded track's PCM data.
+    /// Fills `outPeaks` with `numBins` values in [0.0, 1.0].
+    /// Returns the number of bins actually filled (0 if track not found).
+    int32_t getWaveformPeaks(const std::string& id,
+                              float* outPeaks,
+                              int32_t numBins) const;
+
 private:
     /// Recomputes the left/right pan gains for a track using constant-power
     /// panning (equal-power cosine/sine law).

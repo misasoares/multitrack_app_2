@@ -49,6 +49,13 @@ int32_t engine_process(float* outputL, float* outputR, int32_t numFrames);
 // ── State ──
 int32_t engine_is_playing();
 
+// ── Waveform ──
+/// Fills `outPeaks` with downsampled peak amplitudes for a loaded track.
+/// Returns the number of bins actually filled (0 if track not found).
+int32_t engine_get_waveform_peaks(const char* trackId,
+                                   float* outPeaks,
+                                   int32_t numBins);
+
 #ifdef __cplusplus
 }
 #endif

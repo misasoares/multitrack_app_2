@@ -167,6 +167,9 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  List<double> getWaveformData(String trackId, int numBins) => [];
+
+  @override
   void dispose() {
     _disposeAllPlayers();
   }

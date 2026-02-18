@@ -242,3 +242,37 @@ bool AudioMixer::isTrackAudible(const MixerTrack& track) const {
     if (hasSoloedTracks_ && !track.isSolo) return false;
     return true;
 }
+
+// ─── Waveform Peak Extraction ────────────────────────────────────────────────
+
+int32_t AudioMixer::getWaveformPeaks(const std::string& id,
+                                      float* outPeaks,
+                                      int32_t numBins) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    auto it = tracks_.find(id);
+    if (it == tracks_.end() || numBins <= 0 || outPeaks == nullptr) return 0;
+
+    const MixerTrack& track = it->second;
+    if (track.numFrames == 0) return 0;
+
+    const int32_t bins = std::min(numBins, static_cast<int32_t>(track.numFrames));
+    const double framesPerBin = static_cast<double>(track.numFrames) / bins;
+
+    for (int32_t b = 0; b < bins; ++b) {
+        const int64_t startFrame = static_cast<int64_t>(b * framesPerBin);
+        const int64_t endFrame   = static_cast<int64_t>((b + 1) * framesPerBin);
+
+        float peak = 0.0f;
+        for (int64_t f = startFrame; f < endFrame && f < track.numFrames; ++f) {
+            const int64_t idx = f * track.numChannels;
+            for (int32_t ch = 0; ch < track.numChannels; ++ch) {
+                const float absVal = std::abs(track.pcmData[idx + ch]);
+                if (absVal > peak) peak = absVal;
+            }
+        }
+        outPeaks[b] = std::min(peak, 1.0f);
+    }
+
+    return bins;
+}

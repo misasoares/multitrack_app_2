@@ -55,6 +55,11 @@ abstract class CreateMusicStoreBase with Store {
   @observable
   String? errorMessage;
 
+  /// Per-track waveform peak data (populated after loadPreview).
+  @observable
+  ObservableMap<String, List<double>> waveformData =
+      ObservableMap<String, List<double>>();
+
   // ─── Metadata Actions ─────────────────────────────────────────────
 
   @action
@@ -102,7 +107,7 @@ abstract class CreateMusicStoreBase with Store {
       name: name,
       filePath: filePath,
       volume: 1.0,
-      pan: 0.0, // Default: center
+      pan: 1.0, // Default: right
       isClick: isClick,
       order: tracks.length,
     );
@@ -219,6 +224,16 @@ abstract class CreateMusicStoreBase with Store {
 
     try {
       await _audioEngine.loadPreview(List<Track>.from(tracks));
+
+      // Extract waveform peaks for each track (150 bins).
+      waveformData.clear();
+      for (final t in tracks) {
+        final peaks = _audioEngine.getWaveformData(t.id, 150);
+        if (peaks.isNotEmpty) {
+          waveformData[t.id] = peaks;
+        }
+      }
+
       _audioEngine.playPreview();
       isPlaying = true;
     } catch (e) {

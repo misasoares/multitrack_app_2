@@ -187,6 +187,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$waveformDataAtom =
+      Atom(name: 'CreateMusicStoreBase.waveformData', context: context);
+
+  @override
+  ObservableMap<String, List<double>> get waveformData {
+    _$waveformDataAtom.reportRead();
+    return super.waveformData;
+  }
+
+  @override
+  set waveformData(ObservableMap<String, List<double>> value) {
+    _$waveformDataAtom.reportWrite(value, super.waveformData, () {
+      super.waveformData = value;
+    });
+  }
+
   late final _$loadAndPlayPreviewAsyncAction =
       AsyncAction('CreateMusicStoreBase.loadAndPlayPreview', context: context);
 
@@ -385,7 +401,8 @@ timeSignatureDenominator: ${timeSignatureDenominator},
 tracks: ${tracks},
 isLoading: ${isLoading},
 isPlaying: ${isPlaying},
-errorMessage: ${errorMessage}
+errorMessage: ${errorMessage},
+waveformData: ${waveformData}
     ''';
   }
 }

@@ -49,6 +49,16 @@ typedef _SetMuteDart = void Function(Pointer<Utf8> trackId, int isMuted);
 typedef _SetSoloNative = Void Function(Pointer<Utf8> trackId, Int32 isSolo);
 typedef _SetSoloDart = void Function(Pointer<Utf8> trackId, int isSolo);
 
+// ── Waveform ──
+typedef _GetWaveformPeaksNative =
+    Int32 Function(
+      Pointer<Utf8> trackId,
+      Pointer<Float> outPeaks,
+      Int32 numBins,
+    );
+typedef _GetWaveformPeaksDart =
+    int Function(Pointer<Utf8> trackId, Pointer<Float> outPeaks, int numBins);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +85,7 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _SetPanDart _setPan;
   late final _SetMuteDart _setMute;
   late final _SetSoloDart _setSolo;
+  late final _GetWaveformPeaksDart _getWaveformPeaks;
 
   // ── Volume cache ──
   // Stores the "real" slider volume for each track so mute/solo can
@@ -135,6 +146,12 @@ class NativeAudioEngine implements IAudioEngineService {
     _setSolo = lib
         .lookup<NativeFunction<_SetSoloNative>>('engine_set_solo')
         .asFunction<_SetSoloDart>();
+
+    _getWaveformPeaks = lib
+        .lookup<NativeFunction<_GetWaveformPeaksNative>>(
+          'engine_get_waveform_peaks',
+        )
+        .asFunction<_GetWaveformPeaksDart>();
 
     // Initialise the native engine + Oboe output stream.
     _engineInit(44100);
@@ -279,6 +296,22 @@ class NativeAudioEngine implements IAudioEngineService {
     final idPtr = trackId.toNativeUtf8();
     _setSolo(idPtr, isSolo ? 1 : 0);
     calloc.free(idPtr);
+  }
+
+  // ─── Waveform ──────────────────────────────────────────────────────────────
+
+  @override
+  List<double> getWaveformData(String trackId, int numBins) {
+    final idPtr = trackId.toNativeUtf8();
+    final peaksPtr = calloc<Float>(numBins);
+
+    final filled = _getWaveformPeaks(idPtr, peaksPtr, numBins);
+
+    final peaks = List<double>.generate(filled, (i) => peaksPtr[i]);
+
+    calloc.free(peaksPtr);
+    calloc.free(idPtr);
+    return peaks;
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────

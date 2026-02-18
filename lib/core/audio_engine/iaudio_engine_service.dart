@@ -67,6 +67,16 @@ abstract class IAudioEngineService {
   /// if any track has solo enabled, all non-soloed tracks are silenced.
   void setTrackSolo(String trackId, bool isSolo);
 
+  // ─── Waveform ───────────────────────────────────────────────────────
+
+  /// Returns downsampled peak amplitudes for a loaded track's audio data.
+  ///
+  /// [trackId] is the unique identifier for the track.
+  /// [numBins] is the desired number of amplitude bins.
+  /// Returns a list of values in [0.0, 1.0] representing max amplitude
+  /// per bin.  Returns an empty list if the track is not loaded.
+  List<double> getWaveformData(String trackId, int numBins);
+
   // ─── Lifecycle ─────────────────────────────────────────────────────
 
   /// Releases all native audio resources.

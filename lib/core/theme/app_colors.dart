@@ -14,7 +14,7 @@ class AppColors {
   static const Color surfaceHighlight = Color(0xFF222222);
 
   // Primary - Amber
-  static const Color primary = Color(0xFFFFB000);
+  static const Color primary = Color(0xFFF9AC06);
   static const Color primaryDim = Color(0xFF4A3600);
 
   // Text

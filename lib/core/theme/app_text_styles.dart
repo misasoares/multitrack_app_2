@@ -24,11 +24,18 @@ class AppTextStyles {
     color: AppColors.textPrimary,
   );
 
-  static final TextStyle h1 = GoogleFonts.inter(
+  static final TextStyle h1 = GoogleFonts.spaceGrotesk(
     fontSize: 24,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
-    letterSpacing: 1.2,
+    letterSpacing: -0.5,
+  );
+
+  static final TextStyle displayLarge = GoogleFonts.spaceGrotesk(
+    fontSize: 32,
+    fontWeight: FontWeight.bold,
+    color: AppColors.textPrimary,
+    letterSpacing: -1.0,
   );
 
   static final TextStyle bodyM = GoogleFonts.inter(

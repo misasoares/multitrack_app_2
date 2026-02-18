@@ -266,15 +266,25 @@ abstract class CreateMusicStoreBase with Store {
       return;
     }
 
-    final bpmInt = int.tryParse(bpm) ?? 0;
-    if (bpmInt <= 0) {
-      errorMessage = 'A valid BPM is required';
-      return;
-    }
+    int bpmInt = int.tryParse(bpm) ?? 0;
+    int tsNum = timeSignatureNumerator;
+    int tsDen = timeSignatureDenominator;
 
-    if (timeSignatureNumerator <= 0 || timeSignatureDenominator <= 0) {
-      errorMessage = 'A valid time signature is required';
-      return;
+    // Strict validation only if NO tracks are present
+    if (tracks.isEmpty) {
+      if (bpmInt <= 0) {
+        errorMessage = 'A valid BPM is required (since no tracks are added)';
+        return;
+      }
+      if (tsNum <= 0 || tsDen <= 0) {
+        errorMessage = 'A valid time signature is required';
+        return;
+      }
+    } else {
+      // Relaxed validation: use defaults if missing
+      if (bpmInt <= 0) bpmInt = 120; // Default to 120 if invalid/empty
+      if (tsNum <= 0) tsNum = 4;
+      if (tsDen <= 0) tsDen = 4;
     }
 
     try {
@@ -289,8 +299,8 @@ abstract class CreateMusicStoreBase with Store {
         title: title,
         artist: artist,
         bpm: bpmInt,
-        timeSignatureNumerator: timeSignatureNumerator,
-        timeSignatureDenominator: timeSignatureDenominator,
+        timeSignatureNumerator: tsNum,
+        timeSignatureDenominator: tsDen,
         key: key,
         tracks: List<Track>.from(tracks),
       );

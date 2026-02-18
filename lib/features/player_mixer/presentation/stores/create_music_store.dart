@@ -545,6 +545,7 @@ abstract class CreateMusicStoreBase with Store {
 
   void _resetForm() {
     editingMusicId = null;
+    saveSuccess = false; // Reset success flag
     title = '';
     artist = '';
     bpm = '';

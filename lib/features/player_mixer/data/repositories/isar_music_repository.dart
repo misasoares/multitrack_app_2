@@ -22,4 +22,11 @@ class IsarMusicRepository implements IMusicRepository {
     final models = await isar.musicModels.where().findAll();
     return models.map((m) => m.toEntity()).toList();
   }
+
+  @override
+  Future<void> deleteMusic(String id) async {
+    await isar.writeTxn(() async {
+      await isar.musicModels.filter().domainIdEqualTo(id).deleteAll();
+    });
+  }
 }

@@ -35,4 +35,18 @@ abstract class MusicLibraryStoreBase with Store {
       isLoading = false;
     }
   }
+
+  @action
+  Future<void> deleteMusic(String id) async {
+    try {
+      isLoading = true;
+      errorMessage = null;
+      await _repository.deleteMusic(id);
+      await loadAllMusic();
+    } catch (e) {
+      errorMessage = 'Failed to delete music: $e';
+    } finally {
+      isLoading = false;
+    }
+  }
 }

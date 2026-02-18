@@ -65,6 +65,14 @@ mixin _$MusicLibraryStore on MusicLibraryStoreBase, Store {
     return _$loadAllMusicAsyncAction.run(() => super.loadAllMusic());
   }
 
+  late final _$deleteMusicAsyncAction =
+      AsyncAction('MusicLibraryStoreBase.deleteMusic', context: context);
+
+  @override
+  Future<void> deleteMusic(String id) {
+    return _$deleteMusicAsyncAction.run(() => super.deleteMusic(id));
+  }
+
   @override
   String toString() {
     return '''

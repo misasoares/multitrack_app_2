@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
@@ -55,6 +58,9 @@ abstract class CreateMusicStoreBase with Store {
   @observable
   String? errorMessage;
 
+  @observable
+  bool isProcessingAudio = false;
+
   /// Per-track waveform peak data (populated after loadPreview).
   @observable
   ObservableMap<String, List<double>> waveformData =
@@ -103,31 +109,146 @@ abstract class CreateMusicStoreBase with Store {
     timeSignatureDenominator = value;
   }
 
+  // ─── Timeline State ───────────────────────────────────────────────
+
+  @observable
+  Duration currentPosition = Duration.zero;
+
+  @computed
+  Duration get totalDuration {
+    if (tracks.isEmpty) return Duration.zero;
+    return tracks.map((t) => t.duration).reduce((a, b) => a > b ? a : b);
+  }
+
+  /// Unified waveform data (merged peaks from all tracks)
+  @computed
+  List<double> get unifiedWaveform {
+    if (tracks.isEmpty) return [];
+
+    // If no waveform data loaded yet, return empty
+    if (waveformData.isEmpty) return [];
+
+    // Combine all track waveforms into one.
+    // Logic: normalize all to same length (150 bins) and take max at each point.
+    // In a real DAW, this would be complex mixing. Here we simplify for UI.
+    const int numBins = 150;
+    final List<double> combined = List.filled(numBins, 0.0);
+
+    for (final track in tracks) {
+      final peaks = waveformData[track.id];
+      if (peaks != null && peaks.length == numBins) {
+        for (int i = 0; i < numBins; i++) {
+          if (peaks[i] > combined[i]) {
+            combined[i] = peaks[i];
+          }
+        }
+      }
+    }
+    return combined;
+  }
+
+  ReactionDisposer? _tickerReaction;
+
   // ─── Track Management Actions ─────────────────────────────────────
 
   @action
-  void addTrack(String name, String filePath, {bool isClick = false}) {
-    final newTrack = Track(
-      id: _uuid.v4(),
-      name: name,
-      filePath: filePath,
-      volume: 1.0,
-      pan: 1.0, // Default: right
-      isClick: isClick,
-      order: tracks.length,
-    );
-    tracks.add(newTrack);
+  Future<void> importTracks(List<({String name, String path})> files) async {
+    if (files.isEmpty) return;
+
+    isProcessingAudio = true;
+    try {
+      final player = AudioPlayer();
+
+      for (final file in files) {
+        Duration duration = Duration.zero;
+        try {
+          await player.setFilePath(file.path);
+          duration = player.duration ?? Duration.zero;
+        } catch (e) {
+          debugPrint('Error getting duration for ${file.path}: $e');
+        }
+
+        final newTrack = Track(
+          id: _uuid.v4(),
+          name: file.name,
+          filePath: file.path,
+          volume: 1.0,
+          pan: 1.0,
+          isClick: file.name.toLowerCase().contains('click'),
+          order: tracks.length,
+          duration: duration,
+        );
+        tracks.add(newTrack);
+      }
+      await player.dispose();
+
+      // Auto-load preview data to update timeline
+      await _reloadPreviewData();
+    } finally {
+      isProcessingAudio = false;
+    }
   }
 
   @action
-  void removeTrack(String trackId) {
+  Future<void> addTrack(
+    String name,
+    String filePath, {
+    bool isClick = false,
+  }) async {
+    isProcessingAudio = true;
+    try {
+      // Attempt to get duration using a temporary player
+      Duration duration = Duration.zero;
+      try {
+        final player = AudioPlayer(); // from just_audio
+        await player.setFilePath(filePath);
+        duration = player.duration ?? Duration.zero;
+        await player.dispose();
+      } catch (e) {
+        debugPrint('Error getting duration for $filePath: $e');
+      }
+
+      final newTrack = Track(
+        id: _uuid.v4(),
+        name: name,
+        filePath: filePath,
+        volume: 1.0,
+        pan: 1.0, // Default: right
+        isClick: isClick,
+        order: tracks.length,
+        duration: duration,
+      );
+      tracks.add(newTrack);
+
+      // Auto-load preview data to update timeline
+      await _reloadPreviewData();
+    } finally {
+      isProcessingAudio = false;
+    }
+  }
+
+  @action
+  Future<void> removeTrack(String trackId) async {
     tracks.removeWhere((t) => t.id == trackId);
     _reindexTrackOrder();
+
+    // Update timeline
+    if (tracks.isNotEmpty) {
+      isProcessingAudio = true;
+      try {
+        await _reloadPreviewData();
+      } finally {
+        isProcessingAudio = false;
+      }
+    } else {
+      waveformData.clear();
+      currentPosition = Duration.zero;
+      _stopTicker();
+    }
   }
 
   // ─── Mixing Actions ───────────────────────────────────────────────
-  // Each action updates the local observable state AND delegates to
-  // the audio engine for real-time changes.
+  // ... (Mixing actions unchanged)
 
   @action
   void updateVolume(String trackId, double newVolume) {
@@ -155,8 +276,6 @@ abstract class CreateMusicStoreBase with Store {
     final current = tracks[index];
     final newMuted = !current.isMuted;
 
-    // Mute and Solo are mutually exclusive —
-    // activating mute must deactivate solo on the same track.
     tracks[index] = current.copyWith(
       isMuted: newMuted,
       isSolo: newMuted ? false : current.isSolo,
@@ -176,8 +295,6 @@ abstract class CreateMusicStoreBase with Store {
     final current = tracks[index];
     final newSolo = !current.isSolo;
 
-    // Solo and Mute are mutually exclusive —
-    // activating solo must deactivate mute on the same track.
     tracks[index] = current.copyWith(
       isSolo: newSolo,
       isMuted: newSolo ? false : current.isMuted,
@@ -188,8 +305,6 @@ abstract class CreateMusicStoreBase with Store {
       _audioEngine.setTrackMute(trackId, false);
     }
 
-    // Solo group rule: if ALL tracks are now soloed, treat as none soloed
-    // (normal playback for everyone).
     final allSoloed = tracks.every((t) => t.isSolo);
     if (allSoloed) {
       for (int i = 0; i < tracks.length; i++) {
@@ -200,11 +315,10 @@ abstract class CreateMusicStoreBase with Store {
   }
 
   // ─── Reorder Action (Drag & Drop) ─────────────────────────────────
+  // ... (Reorder actions unchanged)
 
   @action
   void reorderTracks(int oldIndex, int newIndex) {
-    // ReorderableListView passes newIndex that accounts for removal,
-    // so we adjust when moving downward.
     if (newIndex > oldIndex) newIndex--;
 
     final track = tracks.removeAt(oldIndex);
@@ -213,8 +327,6 @@ abstract class CreateMusicStoreBase with Store {
     _reindexTrackOrder();
   }
 
-  /// Updates the `order` property of every track to match its current
-  /// position in the list (0..N-1).
   void _reindexTrackOrder() {
     tracks.asMap().forEach((index, track) {
       tracks[index] = track.copyWith(order: index);
@@ -223,10 +335,8 @@ abstract class CreateMusicStoreBase with Store {
 
   // ─── Preview Actions ──────────────────────────────────────────────
 
-  @action
-  Future<void> loadAndPlayPreview() async {
-    if (tracks.isEmpty) return;
-
+  /// Loads tracks into engine and extracts waveforms, without starting playback.
+  Future<void> _reloadPreviewData() async {
     try {
       await _audioEngine.loadPreview(List<Track>.from(tracks));
 
@@ -238,11 +348,39 @@ abstract class CreateMusicStoreBase with Store {
           waveformData[t.id] = peaks;
         }
       }
+      // Restore position if valid
+      await _audioEngine.seekTo(currentPosition);
+    } catch (e) {
+      errorMessage = 'Error loading preview: $e';
+    }
+  }
 
+  @action
+  Future<void> playPreview() async {
+    if (tracks.isEmpty) return;
+
+    // If we haven't loaded waveforms yet, strictly we should load.
+    // But since we auto-load on add/remove, we assume engine is ready.
+    // However, to be safe, if waveformData.isEmpty, we force reload.
+    if (waveformData.isEmpty) {
+      isProcessingAudio = true;
+      await _reloadPreviewData();
+      isProcessingAudio = false;
+    } else {
+      // Ensure engine is at the correct position before playing
+      try {
+        await _audioEngine.seekTo(currentPosition);
+      } catch (e) {
+        debugPrint('Seek error before play: $e');
+      }
+    }
+
+    try {
       _audioEngine.playPreview();
       isPlaying = true;
+      _startTicker();
     } catch (e) {
-      errorMessage = 'Preview error: $e';
+      errorMessage = 'Playback error: $e';
     }
   }
 
@@ -250,13 +388,104 @@ abstract class CreateMusicStoreBase with Store {
   void pausePreview() {
     _audioEngine.pausePreview();
     isPlaying = false;
+    _stopTicker();
+  }
+
+  @action
+  Future<void> seekTo(Duration position) async {
+    currentPosition = position;
+    if (isPlaying) {
+      await _audioEngine.seekTo(position);
+    }
+  }
+
+  void _startTicker() {
+    _stopTicker();
+    _tickerReaction = reaction((_) => isPlaying, (playing) {
+      // Logic to update position roughly every 16ms or so
+      // Since logic is complex in mobx reaction, using a Stream/Timer is easier
+    });
+
+    // Simple timer for updates
+    // In a real app we'd sync with audio engine's reported position
+    // Here we simulate progress
+    _tickerTimer?.cancel();
+    _tickerTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (isPlaying) {
+        final newPos = currentPosition + const Duration(milliseconds: 50);
+        if (newPos >= totalDuration && totalDuration > Duration.zero) {
+          currentPosition = totalDuration;
+          pausePreview();
+          currentPosition = Duration.zero; // Reset on finish
+        } else {
+          currentPosition = newPos;
+        }
+      }
+    });
+  }
+
+  Timer? _tickerTimer;
+
+  void _stopTicker() {
+    _tickerTimer?.cancel();
+    _tickerTimer = null;
+  }
+
+  // ─── Edit Mode State ──────────────────────────────────────────────
+  @observable
+  String? editingMusicId;
+
+  @action
+  Future<void> loadMusic(Music music) async {
+    _resetForm(); // Clear any previous state
+
+    editingMusicId = music.id;
+    title = music.title;
+    artist = music.artist;
+    bpm = music.bpm.toString();
+    manualBpm = music.bpm;
+    key = music.key;
+    timeSignatureNumerator = music.timeSignatureNumerator;
+    timeSignatureDenominator = music.timeSignatureDenominator;
+
+    // Recalculate durations since not persisted
+    isProcessingAudio = true;
+    try {
+      final player = AudioPlayer();
+      final loadedTracks = <Track>[];
+
+      for (final t in music.tracks) {
+        Duration duration = t.duration;
+        // Only recalculate if duration is missing (legacy data)
+        if (duration <= Duration.zero) {
+          try {
+            await player.setFilePath(t.filePath);
+            duration = player.duration ?? Duration.zero;
+          } catch (e) {
+            debugPrint('Error getting duration for ${t.filePath}: $e');
+          }
+        }
+        loadedTracks.add(t.copyWith(duration: duration));
+      }
+      await player.dispose();
+
+      tracks = ObservableList.of(loadedTracks);
+
+      // Auto-load preview for the timeline
+      if (tracks.isNotEmpty) {
+        await _reloadPreviewData();
+      }
+    } finally {
+      isProcessingAudio = false;
+    }
   }
 
   // ─── Save Action ──────────────────────────────────────────────────
+  // ... (Save logic unchanged)
 
   @action
   Future<void> saveMusicConfig() async {
-    // ── Validation ──
+    // ... validation ...
     if (title.isEmpty) {
       errorMessage = 'Song title is required';
       return;
@@ -270,7 +499,6 @@ abstract class CreateMusicStoreBase with Store {
     int tsNum = timeSignatureNumerator;
     int tsDen = timeSignatureDenominator;
 
-    // Strict validation only if NO tracks are present
     if (tracks.isEmpty) {
       if (bpmInt <= 0) {
         errorMessage = 'A valid BPM is required (since no tracks are added)';
@@ -281,8 +509,7 @@ abstract class CreateMusicStoreBase with Store {
         return;
       }
     } else {
-      // Relaxed validation: use defaults if missing
-      if (bpmInt <= 0) bpmInt = 120; // Default to 120 if invalid/empty
+      if (bpmInt <= 0) bpmInt = 120;
       if (tsNum <= 0) tsNum = 4;
       if (tsDen <= 0) tsDen = 4;
     }
@@ -291,11 +518,10 @@ abstract class CreateMusicStoreBase with Store {
       isLoading = true;
       errorMessage = null;
 
-      // Ensure track order is up-to-date before saving
       _reindexTrackOrder();
 
       final music = Music(
-        id: _uuid.v4(),
+        id: editingMusicId ?? _uuid.v4(), // Use existing ID if editing
         title: title,
         artist: artist,
         bpm: bpmInt,
@@ -309,7 +535,6 @@ abstract class CreateMusicStoreBase with Store {
 
       saveSuccess = true;
 
-      // Reset form on success
       _resetForm();
     } catch (e) {
       errorMessage = e.toString();
@@ -319,6 +544,7 @@ abstract class CreateMusicStoreBase with Store {
   }
 
   void _resetForm() {
+    editingMusicId = null;
     title = '';
     artist = '';
     bpm = '';
@@ -327,10 +553,15 @@ abstract class CreateMusicStoreBase with Store {
     timeSignatureNumerator = 4;
     timeSignatureDenominator = 4;
     tracks.clear();
+    currentPosition = Duration.zero;
+    _stopTicker();
+    waveformData.clear();
   }
 
   /// Releases audio engine resources. Call from the widget's dispose().
   void disposeAudioEngine() {
+    _stopTicker();
+    _tickerReaction?.call();
     _audioEngine.dispose();
   }
 }

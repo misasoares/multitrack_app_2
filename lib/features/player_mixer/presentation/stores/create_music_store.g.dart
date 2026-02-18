@@ -9,6 +9,21 @@ part of 'create_music_store.dart';
 // ignore_for_file: non_constant_identifier_names, unnecessary_brace_in_string_interps, unnecessary_lambdas, prefer_expression_function_bodies, lines_longer_than_80_chars, avoid_as, avoid_annotating_with_dynamic, no_leading_underscores_for_local_identifiers
 
 mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
+  Computed<Duration>? _$totalDurationComputed;
+
+  @override
+  Duration get totalDuration =>
+      (_$totalDurationComputed ??= Computed<Duration>(() => super.totalDuration,
+              name: 'CreateMusicStoreBase.totalDuration'))
+          .value;
+  Computed<List<double>>? _$unifiedWaveformComputed;
+
+  @override
+  List<double> get unifiedWaveform => (_$unifiedWaveformComputed ??=
+          Computed<List<double>>(() => super.unifiedWaveform,
+              name: 'CreateMusicStoreBase.unifiedWaveform'))
+      .value;
+
   late final _$titleAtom =
       Atom(name: 'CreateMusicStoreBase.title', context: context);
 
@@ -187,6 +202,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$isProcessingAudioAtom =
+      Atom(name: 'CreateMusicStoreBase.isProcessingAudio', context: context);
+
+  @override
+  bool get isProcessingAudio {
+    _$isProcessingAudioAtom.reportRead();
+    return super.isProcessingAudio;
+  }
+
+  @override
+  set isProcessingAudio(bool value) {
+    _$isProcessingAudioAtom.reportWrite(value, super.isProcessingAudio, () {
+      super.isProcessingAudio = value;
+    });
+  }
+
   late final _$waveformDataAtom =
       Atom(name: 'CreateMusicStoreBase.waveformData', context: context);
 
@@ -219,13 +250,85 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
-  late final _$loadAndPlayPreviewAsyncAction =
-      AsyncAction('CreateMusicStoreBase.loadAndPlayPreview', context: context);
+  late final _$currentPositionAtom =
+      Atom(name: 'CreateMusicStoreBase.currentPosition', context: context);
 
   @override
-  Future<void> loadAndPlayPreview() {
-    return _$loadAndPlayPreviewAsyncAction
-        .run(() => super.loadAndPlayPreview());
+  Duration get currentPosition {
+    _$currentPositionAtom.reportRead();
+    return super.currentPosition;
+  }
+
+  @override
+  set currentPosition(Duration value) {
+    _$currentPositionAtom.reportWrite(value, super.currentPosition, () {
+      super.currentPosition = value;
+    });
+  }
+
+  late final _$editingMusicIdAtom =
+      Atom(name: 'CreateMusicStoreBase.editingMusicId', context: context);
+
+  @override
+  String? get editingMusicId {
+    _$editingMusicIdAtom.reportRead();
+    return super.editingMusicId;
+  }
+
+  @override
+  set editingMusicId(String? value) {
+    _$editingMusicIdAtom.reportWrite(value, super.editingMusicId, () {
+      super.editingMusicId = value;
+    });
+  }
+
+  late final _$importTracksAsyncAction =
+      AsyncAction('CreateMusicStoreBase.importTracks', context: context);
+
+  @override
+  Future<void> importTracks(List<({String name, String path})> files) {
+    return _$importTracksAsyncAction.run(() => super.importTracks(files));
+  }
+
+  late final _$addTrackAsyncAction =
+      AsyncAction('CreateMusicStoreBase.addTrack', context: context);
+
+  @override
+  Future<void> addTrack(String name, String filePath, {bool isClick = false}) {
+    return _$addTrackAsyncAction
+        .run(() => super.addTrack(name, filePath, isClick: isClick));
+  }
+
+  late final _$removeTrackAsyncAction =
+      AsyncAction('CreateMusicStoreBase.removeTrack', context: context);
+
+  @override
+  Future<void> removeTrack(String trackId) {
+    return _$removeTrackAsyncAction.run(() => super.removeTrack(trackId));
+  }
+
+  late final _$playPreviewAsyncAction =
+      AsyncAction('CreateMusicStoreBase.playPreview', context: context);
+
+  @override
+  Future<void> playPreview() {
+    return _$playPreviewAsyncAction.run(() => super.playPreview());
+  }
+
+  late final _$seekToAsyncAction =
+      AsyncAction('CreateMusicStoreBase.seekTo', context: context);
+
+  @override
+  Future<void> seekTo(Duration position) {
+    return _$seekToAsyncAction.run(() => super.seekTo(position));
+  }
+
+  late final _$loadMusicAsyncAction =
+      AsyncAction('CreateMusicStoreBase.loadMusic', context: context);
+
+  @override
+  Future<void> loadMusic(Music music) {
+    return _$loadMusicAsyncAction.run(() => super.loadMusic(music));
   }
 
   late final _$saveMusicConfigAsyncAction =
@@ -317,28 +420,6 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
-  void addTrack(String name, String filePath, {bool isClick = false}) {
-    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
-        name: 'CreateMusicStoreBase.addTrack');
-    try {
-      return super.addTrack(name, filePath, isClick: isClick);
-    } finally {
-      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
-    }
-  }
-
-  @override
-  void removeTrack(String trackId) {
-    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
-        name: 'CreateMusicStoreBase.removeTrack');
-    try {
-      return super.removeTrack(trackId);
-    } finally {
-      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
-    }
-  }
-
-  @override
   void updateVolume(String trackId, double newVolume) {
     final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
         name: 'CreateMusicStoreBase.updateVolume');
@@ -418,8 +499,13 @@ tracks: ${tracks},
 isLoading: ${isLoading},
 isPlaying: ${isPlaying},
 errorMessage: ${errorMessage},
+isProcessingAudio: ${isProcessingAudio},
 waveformData: ${waveformData},
-saveSuccess: ${saveSuccess}
+saveSuccess: ${saveSuccess},
+currentPosition: ${currentPosition},
+editingMusicId: ${editingMusicId},
+totalDuration: ${totalDuration},
+unifiedWaveform: ${unifiedWaveform}
     ''';
   }
 }

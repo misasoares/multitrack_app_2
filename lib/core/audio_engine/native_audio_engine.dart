@@ -18,23 +18,10 @@ typedef _EngineDisposeNative = Void Function();
 typedef _EngineDisposeDart = void Function();
 
 // ── Track Management ──
-typedef _LoadTrackNative =
-    Void Function(
-      Pointer<Utf8> trackId,
-      Pointer<Float> pcmData,
-      Int64 numFrames,
-      Int32 numChannels,
-    );
-typedef _LoadTrackDart =
-    void Function(
-      Pointer<Utf8> trackId,
-      Pointer<Float> pcmData,
-      int numFrames,
-      int numChannels,
-    );
-
-typedef _RemoveTrackNative = Void Function(Pointer<Utf8> trackId);
-typedef _RemoveTrackDart = void Function(Pointer<Utf8> trackId);
+typedef _LoadFileNative =
+    Int32 Function(Pointer<Utf8> trackId, Pointer<Utf8> filePath);
+typedef _LoadFileDart =
+    int Function(Pointer<Utf8> trackId, Pointer<Utf8> filePath);
 
 typedef _RemoveAllTracksNative = Void Function();
 typedef _RemoveAllTracksDart = void Function();
@@ -62,30 +49,24 @@ typedef _SetMuteDart = void Function(Pointer<Utf8> trackId, int isMuted);
 typedef _SetSoloNative = Void Function(Pointer<Utf8> trackId, Int32 isSolo);
 typedef _SetSoloDart = void Function(Pointer<Utf8> trackId, int isSolo);
 
-// NOTE: _ProcessNative/_ProcessDart and _IsPlayingNative/_IsPlayingDart
-// typedefs will be added when the Oboe audio callback integration is
-// implemented. They are not needed until the process() loop is driven
-// from the native audio thread.
-
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Production audio engine backed by a C++ mixer library (libaudio_engine.so).
+/// Production audio engine backed by a C++ mixer + Oboe output.
 ///
-/// Key improvements over the prototype JustAudioEngine:
+/// Key capabilities:
 /// - Single-buffer mix (no multi-player drift)
 /// - Per-sample gain smoothing (no clicks/pops)
 /// - Constant-power stereo panning
 /// - Proper volume caching for mute/solo restore
+/// - Low-latency playback via Oboe
 class NativeAudioEngine implements IAudioEngineService {
   // ── FFI function pointers ──
   late final _EngineInitDart _engineInit;
   late final _EngineDisposeDart _engineDispose;
-  // ignore: unused_field — will be used when native PCM decoder is wired
-  late final _LoadTrackDart _loadTrack;
-  // ignore: unused_field — will be used when native PCM decoder is wired
-  late final _RemoveTrackDart _removeTrack;
+  late final _LoadFileDart _loadFile;
+
   late final _RemoveAllTracksDart _removeAllTracks;
   late final _PlayDart _play;
   late final _PauseDart _pause;
@@ -117,13 +98,9 @@ class NativeAudioEngine implements IAudioEngineService {
         .lookup<NativeFunction<_EngineDisposeNative>>('engine_dispose')
         .asFunction<_EngineDisposeDart>();
 
-    _loadTrack = lib
-        .lookup<NativeFunction<_LoadTrackNative>>('engine_load_track')
-        .asFunction<_LoadTrackDart>();
-
-    _removeTrack = lib
-        .lookup<NativeFunction<_RemoveTrackNative>>('engine_remove_track')
-        .asFunction<_RemoveTrackDart>();
+    _loadFile = lib
+        .lookup<NativeFunction<_LoadFileNative>>('engine_load_file')
+        .asFunction<_LoadFileDart>();
 
     _removeAllTracks = lib
         .lookup<NativeFunction<_RemoveAllTracksNative>>(
@@ -159,7 +136,7 @@ class NativeAudioEngine implements IAudioEngineService {
         .lookup<NativeFunction<_SetSoloNative>>('engine_set_solo')
         .asFunction<_SetSoloDart>();
 
-    // Initialise the native engine with standard CD sample rate.
+    // Initialise the native engine + Oboe output stream.
     _engineInit(44100);
   }
 
@@ -209,21 +186,26 @@ class NativeAudioEngine implements IAudioEngineService {
     _allTrackIds.clear();
 
     for (final track in tracks) {
-      // TODO: In a future step, decode the audio file at `track.filePath`
-      // into raw PCM float data using a native decoder (e.g. MediaCodec on
-      // Android).  For now, we register the track metadata so the FFI
-      // bridge and volume/pan/mute/solo pipeline can be validated end-to-end
-      // once the decoder is wired up.
-      //
-      // Placeholder: we'll load an empty buffer so the track is registered.
       _allTrackIds.add(track.id);
       _volumeCache[track.id] = track.volume;
 
-      // Apply initial volume
+      // Decode audio file and load PCM into the native mixer.
       final idPtr = track.id.toNativeUtf8();
+      final pathPtr = track.filePath.toNativeUtf8();
+
+      final result = _loadFile(idPtr, pathPtr);
+      calloc.free(pathPtr);
+
+      if (result == 0) {
+        // Decoding failed — skip this track but free the id pointer
+        calloc.free(idPtr);
+        continue;
+      }
+
+      // Apply initial volume
       _setVolume(idPtr, track.volume);
 
-      // Apply initial pan (now correctly defaults to 0.0 = center)
+      // Apply initial pan
       _setPan(idPtr, track.pan);
 
       // Apply mute state

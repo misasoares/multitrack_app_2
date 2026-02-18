@@ -30,82 +30,134 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          _LibraryHeader(
-            onCreate: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      CreateMusicPage(store: sl<CreateMusicStore>()),
-                ),
-              );
-              _store.loadAllMusic();
-            },
-          ),
-          _FilterBar(),
-          Expanded(
-            child: Observer(
-              builder: (_) {
-                if (_store.isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  );
-                }
-
-                if (_store.errorMessage != null) {
-                  return Center(
-                    child: Text(
-                      _store.errorMessage!,
-                      style: AppTextStyles.bodyMuted.copyWith(
-                        color: AppColors.alert,
-                      ),
-                    ),
-                  );
-                }
-
-                if (_store.musicList.isEmpty) {
-                  return _EmptyState(
-                    onCreate: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              CreateMusicPage(store: sl<CreateMusicStore>()),
-                        ),
-                      );
-                      _store.loadAllMusic();
-                    },
-                  );
-                }
-
-                return CustomScrollView(
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.all(24),
-                      sliver: SliverGrid(
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 400,
-                              mainAxisExtent:
-                                  220, // Check height relative to design
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                            ),
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final music = _store.musicList[index];
-                          return _SongCard(music: music);
-                        }, childCount: _store.musicList.length),
-                      ),
-                    ),
-                    const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-                  ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            _LibraryHeader(
+              onCreate: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        CreateMusicPage(store: sl<CreateMusicStore>()),
+                  ),
                 );
+                _store.loadAllMusic();
               },
             ),
+            _FilterBar(),
+            Expanded(
+              child: Observer(
+                builder: (_) {
+                  if (_store.isLoading) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    );
+                  }
+
+                  if (_store.errorMessage != null) {
+                    return Center(
+                      child: Text(
+                        _store.errorMessage!,
+                        style: AppTextStyles.bodyMuted.copyWith(
+                          color: AppColors.alert,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (_store.musicList.isEmpty) {
+                    return _EmptyState(
+                      onCreate: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                CreateMusicPage(store: sl<CreateMusicStore>()),
+                          ),
+                        );
+                        _store.loadAllMusic();
+                      },
+                    );
+                  }
+
+                  return CustomScrollView(
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.all(24),
+                        sliver: SliverGrid(
+                          gridDelegate:
+                              const SliverGridDelegateWithMaxCrossAxisExtent(
+                                maxCrossAxisExtent: 400,
+                                mainAxisExtent:
+                                    300, // Increased to 300 to fix overflow
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                          delegate: SliverChildBuilderDelegate((
+                            context,
+                            index,
+                          ) {
+                            final music = _store.musicList[index];
+                            return _SongCard(
+                              music: music,
+                              onEdit: () {
+                                // TODO: Implement edit functionality
+                                debugPrint('Edit music: ${music.title}');
+                              },
+                              onDelete: () {
+                                _showDeleteConfirmation(context, music);
+                              },
+                            );
+                          }, childCount: _store.musicList.length),
+                        ),
+                      ),
+                      const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const _BottomNavBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, Music music) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: Text(
+          'Delete Song',
+          style: GoogleFonts.spaceGrotesk(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-          const _BottomNavBar(),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${music.title}"? This action cannot be undone.',
+          style: GoogleFonts.inter(color: AppColors.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'CANCEL',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _store.deleteMusic(music.id);
+            },
+            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
@@ -318,8 +370,14 @@ class _FilterTab extends StatelessWidget {
 
 class _SongCard extends StatefulWidget {
   final Music music;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-  const _SongCard({required this.music});
+  const _SongCard({
+    required this.music,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   State<_SongCard> createState() => _SongCardState();
@@ -343,7 +401,7 @@ class _SongCardState extends State<_SongCard> {
                 : const Color(0xFF2A2A2A),
           ),
         ),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16), // Reduced padding
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -381,49 +439,47 @@ class _SongCardState extends State<_SongCard> {
                     ],
                   ),
                 ),
-                // Actions (Edit/Delete) - Only show on hover for aesthetics
-                Opacity(
-                  opacity: isHovered ? 1.0 : 0.0,
-                  child: Row(
-                    children: [
-                      _IconBtn(Icons.edit, onTap: () {}),
-                      const SizedBox(width: 4),
-                      _IconBtn(Icons.delete, onTap: () {}, isDestructive: true),
-                    ],
-                  ),
+                // Actions (Edit/Delete)
+                Row(
+                  children: [
+                    _IconBtn(Icons.edit, onTap: widget.onEdit),
+                    const SizedBox(width: 4),
+                    _IconBtn(
+                      Icons.delete,
+                      onTap: widget.onDelete,
+                      isDestructive: true,
+                    ),
+                  ],
                 ),
               ],
             ),
 
-            const SizedBox(height: 16),
-
-            // Stats Grid
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 2.5,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _StatBox(
+            const SizedBox(height: 12), // Reduced spacing
+            // Stats Row (Replaced GridView)
+            Row(
+              children: [
+                Expanded(
+                  child: _StatBox(
                     label: 'TEMPO / SIG',
                     value:
                         '${widget.music.bpm} BPM | ${widget.music.timeSignatureNumerator}/${widget.music.timeSignatureDenominator}',
                     isAccent: true,
                   ),
-                  const _StatBox(
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: _StatBox(
                     label: 'DURATION',
                     value: '00:00', // Mocked
                   ),
-                  // Full width item handled by Row below instead of Grid span
-                ],
-              ),
+                ),
+              ],
             ),
 
+            const SizedBox(height: 12), // Reduced spacing
             // Configuration Box (Full Width)
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                 color: const Color(0xFF0A0A0A),
                 borderRadius: BorderRadius.circular(2),
@@ -465,8 +521,7 @@ class _SongCardState extends State<_SongCard> {
               ),
             ),
 
-            const SizedBox(height: 16),
-
+            const Spacer(), // Use spacer to push button to bottom
             // Action Button
             SizedBox(
               width: double.infinity,
@@ -512,7 +567,7 @@ class _StatBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
         borderRadius: BorderRadius.circular(2),

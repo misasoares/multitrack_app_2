@@ -141,7 +141,7 @@ void AudioMixer::loadTrack(const std::string& id,
     // ── SoundTouch Init ──
     track.soundTouchProcessor = new soundtouch::SoundTouch();
     track.soundTouchProcessor->setSampleRate(sampleRate_);
-    track.soundTouchProcessor->setChannels(numChannels);
+    track.soundTouchProcessor->setChannels(2); // Always output stereo for the mix bus
     // Optimise for performance (QuickSeek is good for music)
     track.soundTouchProcessor->setSetting(SETTING_USE_QUICKSEEK, 1);
     // Disable AA filter if percussive (optional, default false)
@@ -442,7 +442,18 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                         int64_t remaining = track.numFrames - track.playheadFrame;
                         int64_t feed = std::min((int64_t)kChunkSize, remaining);
                         
-                        st->putSamples(track.pcmData.data() + track.playheadFrame * track.numChannels, feed);
+                        // Force stereo feed since ST is configured for 2 channels
+                        if (track.numChannels == 2) {
+                            st->putSamples(track.pcmData.data() + track.playheadFrame * 2, feed);
+                        } else {
+                            std::vector<float> stInput(feed * 2);
+                            const float* pcm = track.pcmData.data() + track.playheadFrame;
+                            for (int i = 0; i < feed; ++i) {
+                                stInput[i * 2] = pcm[i];
+                                stInput[i * 2 + 1] = pcm[i];
+                            }
+                            st->putSamples(stInput.data(), feed);
+                        }
                         track.playheadFrame += feed;
                     } else {
                         // EOF reached - pad with silence to maintain exact sync

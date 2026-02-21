@@ -26,7 +26,7 @@ bool OboePlayer::start() {
     // Build an Oboe output stream — stereo, float, low-latency
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output);
-    builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
+    builder.setPerformanceMode(oboe::PerformanceMode::None);
     builder.setSharingMode(oboe::SharingMode::Exclusive);
     builder.setFormat(oboe::AudioFormat::Float);
     builder.setChannelCount(oboe::ChannelCount::Stereo);
@@ -40,9 +40,14 @@ bool OboePlayer::start() {
     }
 
     sampleRate_ = stream_->getSampleRate();
-    LOGD("Oboe stream opened: %d Hz, %d ch, buffer=%d frames",
+    
+    // Increase buffer size to provide more CPU margin (stability over latency)
+    stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 4);
+
+    LOGD("Oboe stream opened: %d Hz, %d ch, buffer=%d frames, burst=%d",
          sampleRate_, stream_->getChannelCount(),
-         stream_->getBufferSizeInFrames());
+         stream_->getBufferSizeInFrames(),
+         stream_->getFramesPerBurst());
 
     // Re-initialise the mixer with the device's actual sample rate
     // so gain-smoothing ramp durations are correct.

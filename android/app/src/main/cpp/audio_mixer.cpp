@@ -352,16 +352,22 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
             case EngineCommand::SET_TEMPO: {
                 auto it = tracks_.find(cmd.trackId);
-                if (it != tracks_.end() && it->second.soundTouchProcessor) {
-                    it->second.soundTouchProcessor->setTempo(cmd.floatParam);
+                if (it != tracks_.end()) {
+                    it->second.tempoFactor = cmd.floatParam;
+                    if (it->second.soundTouchProcessor) {
+                        it->second.soundTouchProcessor->setTempo(it->second.tempoFactor);
+                    }
                 }
                 break;
             }
 
             case EngineCommand::SET_PITCH: {
                 auto it = tracks_.find(cmd.trackId);
-                if (it != tracks_.end() && it->second.soundTouchProcessor) {
-                    it->second.soundTouchProcessor->setPitchSemiTones(cmd.intParam);
+                if (it != tracks_.end()) {
+                    it->second.pitchSemiTones = cmd.intParam;
+                    if (it->second.soundTouchProcessor) {
+                        it->second.soundTouchProcessor->setPitchSemiTones(it->second.pitchSemiTones);
+                    }
                 }
                 break;
             }
@@ -378,111 +384,103 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
     for (auto& [id, track] : tracks_) {
         if (!isTrackAudible(track)) {
-           
+            // Even if not audible, we MUST advance the playhead to keep sync
+            // unless we are paused (but we checked isPlaying_ above).
+            // However, SoundTouch bypass vs non-bypass complicates silent advance.
+            // For stability, we advance playhead strictly based on numFrames.
+            if (track.tempoFactor == 1.0f && track.pitchSemiTones == 0) {
+                track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames);
+            } else {
+                // If using SoundTouch, we'd need to process and discard to maintain exact time,
+                // but since it's muted, we can approximate by advancing playhead by (numFrames * tempo).
+                track.playheadFrame = std::min(track.numFrames, 
+                    track.playheadFrame + static_cast<int64_t>(numFrames * track.tempoFactor));
+                if (track.soundTouchProcessor) track.soundTouchProcessor->clear();
+            }
             continue;
         }
 
-        // Determine if we need SoundTouch processing
-        // SoundTouch is needed if tempo != 1.0 OR pitch != 0
-        // But SoundTouch wrapper doesn't expose getters easily, so we might blindly run it 
-        // OR we trust the user logic. Ideally we check if effective rate is 1.0.
-        // For now, let's always run SoundTouch if initialized? No, that's heavy.
-        // Let's assume if it's default, we bypass.
-        // Actually, for simplicity and consistency (latency), maybe we should route ALL via SoundTouch?
-        // No, SoundTouch adds latency. 
-        // Let's check a flag? simpler: just use SoundTouch if present. 
-        // Optimization: checking internal ST settings is hard. 
-        // Let's always route through SoundTouch loop logic but bypass if params are default.
-        // But ST params are inside ST.
-        // Let's trust that SoundTouch is efficient at 1.0/0.
-        
-        // BUFFERING APPROACH:
-        // We need 'numFrames' of OUTPUT.
-        // SoundTouch produces variable output.
-        // Strategy: Pull from SoundTouch until we have 'numFrames'.
-        
-        std::vector<float> trackOutput(numFrames * 2, 0.0f); // Interleaved stereo max
+        std::vector<float> trackOutput(numFrames * 2, 0.0f); 
         int samplesReceived = 0;
-        
-        // We'll use a local buffer for SoundTouch IO
-        soundtouch::SoundTouch* st = track.soundTouchProcessor;
-        
-        // Check if effectively identity (optimization could go here)
-        // For this implementation, we will use the SoundTouch loop to ensure effects work.
-        
-        while (samplesReceived < numFrames) {
-            // Check if ST has samples ready
-            int gotten = st->receiveSamples(trackOutput.data() + samplesReceived * track.numChannels, 
-                                            numFrames - samplesReceived);
-            if (gotten > 0) {
-                samplesReceived += gotten;
-            } else {
-                // ST is empty, we need to feed it.
-               
-                // How much to feed?
-                // Just feed a chunk. ST handles buffering.
-                const int kChunkSize = 256; 
-                if (track.playheadFrame >= track.numFrames) {
-                    // EOF - Pad with zeros if we still need samples? 
-                    // Or just break and leave rest as silence.
-                     // IMPORTANT: Flush ST?
-                    st->flush();
-                    // Try receive again after flush
-                    gotten = st->receiveSamples(trackOutput.data() + samplesReceived * track.numChannels, 
-                                            numFrames - samplesReceived);
-                     if (gotten > 0) {
-                        samplesReceived += gotten;
-                        continue;
-                     }
-                    break; // Truly empty
-                }
 
-                // Feed chunk
-                int64_t remaining = track.numFrames - track.playheadFrame;
-                int64_t feed = std::min((int64_t)kChunkSize, remaining);
-                
-                st->putSamples(track.pcmData.data() + track.playheadFrame * track.numChannels, feed);
-                track.playheadFrame += feed;
+        // 1. ST Bypass Check
+        bool bypassST = (track.tempoFactor == 1.0f && track.pitchSemiTones == 0);
+
+        if (bypassST) {
+            // Direct PCM Copy Fast-Path
+            int64_t available = track.numFrames - track.playheadFrame;
+            int64_t toCopy = std::min((int64_t)numFrames, available);
+            
+            if (toCopy > 0) {
+                const float* pcm = track.pcmData.data() + track.playheadFrame * track.numChannels;
+                for (int i = 0; i < toCopy; ++i) {
+                    if (track.numChannels == 2) {
+                        trackOutput[i * 2] = pcm[i * 2];
+                        trackOutput[i * 2 + 1] = pcm[i * 2 + 1];
+                    } else {
+                        trackOutput[i * 2] = pcm[i];
+                        trackOutput[i * 2 + 1] = pcm[i];
+                    }
+                }
+                track.playheadFrame += toCopy;
             }
+            samplesReceived = numFrames; // Pad rest with zeros implicitly (std::vector init)
+        } else {
+            // 2. SoundTouch Loop (Strict Sync)
+            soundtouch::SoundTouch* st = track.soundTouchProcessor;
+            if (!st) continue;
+
+            while (samplesReceived < numFrames) {
+                int gotten = st->receiveSamples(trackOutput.data() + samplesReceived * 2, 
+                                                numFrames - samplesReceived);
+                if (gotten > 0) {
+                    samplesReceived += gotten;
+                } else {
+                    // FEED LOOP
+                    if (track.playheadFrame < track.numFrames) {
+                        const int kChunkSize = 1024; 
+                        int64_t remaining = track.numFrames - track.playheadFrame;
+                        int64_t feed = std::min((int64_t)kChunkSize, remaining);
+                        
+                        st->putSamples(track.pcmData.data() + track.playheadFrame * track.numChannels, feed);
+                        track.playheadFrame += feed;
+                    } else {
+                        // EOF reached - pad with silence to maintain exact sync
+                        // The loop will break because gotten=0 and playheadFrame >= numFrames.
+                        break; 
+                    }
+                }
+            }
+            // Ensure we return exactly numFrames (rest is already 0.0f)
+            samplesReceived = numFrames; 
         }
-        
 
         // MIXING LOOP
-        for (int32_t i = 0; i < samplesReceived; ++i) {
-             float sampleL, sampleR;
-             if (track.numChannels == 2) {
-                 sampleL = trackOutput[i * 2];
-                 sampleR = trackOutput[i * 2 + 1];
-             } else {
-                 sampleL = trackOutput[i];
-                 sampleR = sampleL;
-             }
+        for (int32_t i = 0; i < numFrames; ++i) {
+            float sampleL = trackOutput[i * 2];
+            float sampleR = trackOutput[i * 2 + 1];
 
-            // ── Parametric EQ (per-sample biquad chain) ──
+            // ── Parametric EQ ──
             for (auto& band : track.eqBands) {
-                if (!band.active) continue;
+                if (!band.active || std::abs(band.gainDb) < 0.01f) continue;
                 sampleL = band.processL(sampleL);
                 sampleR = band.processR(sampleR);
             }
 
-            // ── Apply gain ──
+            // ── Apply gain & pan ──
             sampleL *= track.currentGain;
             sampleR *= track.currentGain;
 
-             // ── Apply constant-power panning ──
             outputL[i] += sampleL * track.panGainL;
             outputR[i] += sampleR * track.panGainR;
         }
         
-        // Update gain ramp (once per buffer or per sample? Original was per sample)
-        // To be safe with block processing, let's just update 'currentGain' for the whole block?
-        // No, original was per-sample smooth. 
-        // Given we processed a block, we should advance the ramp by samplesReceived.
+        // Update gain ramp
         if (track.gainRampSamplesRemaining > 0) {
-            // Simplified block update for ramp to avoid complex interleaving in the mix loop above
-            float totalChange = track.gainIncrement * samplesReceived;
+            int processed = numFrames; 
+            float totalChange = track.gainIncrement * processed;
             track.currentGain += totalChange;
-            track.gainRampSamplesRemaining -= samplesReceived;
+            track.gainRampSamplesRemaining -= processed;
             if (track.gainRampSamplesRemaining <= 0) {
                 track.currentGain = track.targetGain;
                 track.gainRampSamplesRemaining = 0;
@@ -490,19 +488,27 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         }
     }
     
-    // ── Master Bus Processing ──
+    // ── Master Bus Processing (with Bypass) ──
+    bool skipMasterEq = true;
+    for (const auto& band : masterEqBands_) {
+        if (band.active && std::abs(band.gainDb) > 0.01f) {
+            skipMasterEq = false;
+            break;
+        }
+    }
+
     for (int32_t i = 0; i < numFrames; ++i) {
         float l = outputL[i];
         float r = outputR[i];
         
-        // Master EQ
-        for (auto& band : masterEqBands_) {
-            if (!band.active) continue;
-            l = band.processL(l);
-            r = band.processR(r);
+        if (!skipMasterEq) {
+            for (auto& band : masterEqBands_) {
+                if (!band.active) continue;
+                l = band.processL(l);
+                r = band.processR(r);
+            }
         }
         
-        // Master Volume
         l *= masterVolume_;
         r *= masterVolume_;
         

@@ -1,5 +1,6 @@
 import 'package:isar/isar.dart';
 import '../../domain/entities/track.dart';
+import 'eq_band_model.dart';
 
 part 'track_model.g.dart';
 
@@ -15,6 +16,7 @@ class TrackModel {
   bool? isClick;
   int? order;
   int? durationInMilliseconds;
+  List<EqBandModel>? eqBands;
 
   TrackModel({
     this.id,
@@ -27,6 +29,7 @@ class TrackModel {
     this.isClick,
     this.order,
     this.durationInMilliseconds,
+    this.eqBands,
   });
 
   factory TrackModel.fromEntity(Track track) {
@@ -41,6 +44,9 @@ class TrackModel {
       isClick: track.isClick,
       order: track.order,
       durationInMilliseconds: track.duration.inMilliseconds,
+      eqBands: track.eqBands.isNotEmpty
+          ? track.eqBands.map((b) => EqBandModel.fromEntity(b)).toList()
+          : null,
     );
   }
 
@@ -56,6 +62,7 @@ class TrackModel {
       isClick: isClick ?? false,
       order: order ?? 0,
       duration: Duration(milliseconds: durationInMilliseconds ?? 0),
+      eqBands: eqBands?.map((b) => b.toEntity()).toList() ?? const [],
     );
   }
 }

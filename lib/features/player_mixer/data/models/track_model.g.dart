@@ -18,48 +18,54 @@ const TrackModelSchema = Schema(
       name: r'durationInMilliseconds',
       type: IsarType.long,
     ),
-    r'filePath': PropertySchema(
+    r'eqBands': PropertySchema(
       id: 1,
+      name: r'eqBands',
+      type: IsarType.objectList,
+      target: r'EqBandModel',
+    ),
+    r'filePath': PropertySchema(
+      id: 2,
       name: r'filePath',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'id',
       type: IsarType.string,
     ),
     r'isClick': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'isClick',
       type: IsarType.bool,
     ),
     r'isMuted': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'isMuted',
       type: IsarType.bool,
     ),
     r'isSolo': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'isSolo',
       type: IsarType.bool,
     ),
     r'name': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'name',
       type: IsarType.string,
     ),
     r'order': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'order',
       type: IsarType.long,
     ),
     r'pan': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'pan',
       type: IsarType.double,
     ),
     r'volume': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'volume',
       type: IsarType.double,
     )
@@ -76,6 +82,20 @@ int _trackModelEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final list = object.eqBands;
+    if (list != null) {
+      bytesCount += 3 + list.length * 3;
+      {
+        final offsets = allOffsets[EqBandModel]!;
+        for (var i = 0; i < list.length; i++) {
+          final value = list[i];
+          bytesCount +=
+              EqBandModelSchema.estimateSize(value, offsets, allOffsets);
+        }
+      }
+    }
+  }
   {
     final value = object.filePath;
     if (value != null) {
@@ -104,15 +124,21 @@ void _trackModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeLong(offsets[0], object.durationInMilliseconds);
-  writer.writeString(offsets[1], object.filePath);
-  writer.writeString(offsets[2], object.id);
-  writer.writeBool(offsets[3], object.isClick);
-  writer.writeBool(offsets[4], object.isMuted);
-  writer.writeBool(offsets[5], object.isSolo);
-  writer.writeString(offsets[6], object.name);
-  writer.writeLong(offsets[7], object.order);
-  writer.writeDouble(offsets[8], object.pan);
-  writer.writeDouble(offsets[9], object.volume);
+  writer.writeObjectList<EqBandModel>(
+    offsets[1],
+    allOffsets,
+    EqBandModelSchema.serialize,
+    object.eqBands,
+  );
+  writer.writeString(offsets[2], object.filePath);
+  writer.writeString(offsets[3], object.id);
+  writer.writeBool(offsets[4], object.isClick);
+  writer.writeBool(offsets[5], object.isMuted);
+  writer.writeBool(offsets[6], object.isSolo);
+  writer.writeString(offsets[7], object.name);
+  writer.writeLong(offsets[8], object.order);
+  writer.writeDouble(offsets[9], object.pan);
+  writer.writeDouble(offsets[10], object.volume);
 }
 
 TrackModel _trackModelDeserialize(
@@ -123,15 +149,21 @@ TrackModel _trackModelDeserialize(
 ) {
   final object = TrackModel(
     durationInMilliseconds: reader.readLongOrNull(offsets[0]),
-    filePath: reader.readStringOrNull(offsets[1]),
-    id: reader.readStringOrNull(offsets[2]),
-    isClick: reader.readBoolOrNull(offsets[3]),
-    isMuted: reader.readBoolOrNull(offsets[4]),
-    isSolo: reader.readBoolOrNull(offsets[5]),
-    name: reader.readStringOrNull(offsets[6]),
-    order: reader.readLongOrNull(offsets[7]),
-    pan: reader.readDoubleOrNull(offsets[8]),
-    volume: reader.readDoubleOrNull(offsets[9]),
+    eqBands: reader.readObjectList<EqBandModel>(
+      offsets[1],
+      EqBandModelSchema.deserialize,
+      allOffsets,
+      EqBandModel(),
+    ),
+    filePath: reader.readStringOrNull(offsets[2]),
+    id: reader.readStringOrNull(offsets[3]),
+    isClick: reader.readBoolOrNull(offsets[4]),
+    isMuted: reader.readBoolOrNull(offsets[5]),
+    isSolo: reader.readBoolOrNull(offsets[6]),
+    name: reader.readStringOrNull(offsets[7]),
+    order: reader.readLongOrNull(offsets[8]),
+    pan: reader.readDoubleOrNull(offsets[9]),
+    volume: reader.readDoubleOrNull(offsets[10]),
   );
   return object;
 }
@@ -146,22 +178,29 @@ P _trackModelDeserializeProp<P>(
     case 0:
       return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readObjectList<EqBandModel>(
+        offset,
+        EqBandModelSchema.deserialize,
+        allOffsets,
+        EqBandModel(),
+      )) as P;
     case 2:
       return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 4:
       return (reader.readBoolOrNull(offset)) as P;
     case 5:
       return (reader.readBoolOrNull(offset)) as P;
     case 6:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 7:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 9:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 10:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -241,6 +280,111 @@ extension TrackModelQueryFilter
         upper: upper,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> eqBandsIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'eqBands',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'eqBands',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> eqBandsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      eqBandsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'eqBands',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -996,4 +1140,11 @@ extension TrackModelQueryFilter
 }
 
 extension TrackModelQueryObject
-    on QueryBuilder<TrackModel, TrackModel, QFilterCondition> {}
+    on QueryBuilder<TrackModel, TrackModel, QFilterCondition> {
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition> eqBandsElement(
+      FilterQuery<EqBandModel> q) {
+    return QueryBuilder.apply(this, (query) {
+      return query.object(q, r'eqBands');
+    });
+  }
+}

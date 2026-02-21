@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import '../../domain/entities/music.dart';
 import 'track_model.dart';
+import 'eq_band_model.dart';
 import 'marker_model.dart';
 
 part 'music_model.g.dart';
@@ -22,6 +23,9 @@ class MusicModel {
   List<TrackModel>? tracks;
   List<MarkerModel>? markers;
 
+  DateTime? createdAt;
+  DateTime? updatedAt;
+
   MusicModel({
     this.domainId,
     this.title,
@@ -32,6 +36,8 @@ class MusicModel {
     this.key,
     this.tracks,
     this.markers,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory MusicModel.fromEntity(Music music) {
@@ -45,6 +51,8 @@ class MusicModel {
       key: music.key,
       tracks: music.tracks.map((t) => TrackModel.fromEntity(t)).toList(),
       markers: music.markers.map((m) => MarkerModel.fromEntity(m)).toList(),
+      createdAt: music.createdAt,
+      updatedAt: music.updatedAt,
     );
   }
 
@@ -59,6 +67,8 @@ class MusicModel {
       key: key ?? '',
       tracks: tracks?.map((t) => t.toEntity()).toList() ?? [],
       markers: markers?.map((m) => m.toEntity()).toList() ?? [],
+      createdAt: createdAt,
+      updatedAt: updatedAt,
     );
   }
 }

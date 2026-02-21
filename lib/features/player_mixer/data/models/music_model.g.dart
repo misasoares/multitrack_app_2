@@ -27,42 +27,52 @@ const MusicModelSchema = CollectionSchema(
       name: r'bpm',
       type: IsarType.long,
     ),
-    r'domainId': PropertySchema(
+    r'createdAt': PropertySchema(
       id: 2,
+      name: r'createdAt',
+      type: IsarType.dateTime,
+    ),
+    r'domainId': PropertySchema(
+      id: 3,
       name: r'domainId',
       type: IsarType.string,
     ),
     r'key': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'key',
       type: IsarType.string,
     ),
     r'markers': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'markers',
       type: IsarType.objectList,
       target: r'MarkerModel',
     ),
     r'timeSignatureDenominator': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'timeSignatureDenominator',
       type: IsarType.long,
     ),
     r'timeSignatureNumerator': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'timeSignatureNumerator',
       type: IsarType.long,
     ),
     r'title': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'title',
       type: IsarType.string,
     ),
     r'tracks': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'tracks',
       type: IsarType.objectList,
       target: r'TrackModel',
+    ),
+    r'updatedAt': PropertySchema(
+      id: 10,
+      name: r'updatedAt',
+      type: IsarType.dateTime,
     )
   },
   estimateSize: _musicModelEstimateSize,
@@ -88,6 +98,7 @@ const MusicModelSchema = CollectionSchema(
   links: {},
   embeddedSchemas: {
     r'TrackModel': TrackModelSchema,
+    r'EqBandModel': EqBandModelSchema,
     r'MarkerModel': MarkerModelSchema
   },
   getId: _musicModelGetId,
@@ -165,23 +176,25 @@ void _musicModelSerialize(
 ) {
   writer.writeString(offsets[0], object.artist);
   writer.writeLong(offsets[1], object.bpm);
-  writer.writeString(offsets[2], object.domainId);
-  writer.writeString(offsets[3], object.key);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeString(offsets[3], object.domainId);
+  writer.writeString(offsets[4], object.key);
   writer.writeObjectList<MarkerModel>(
-    offsets[4],
+    offsets[5],
     allOffsets,
     MarkerModelSchema.serialize,
     object.markers,
   );
-  writer.writeLong(offsets[5], object.timeSignatureDenominator);
-  writer.writeLong(offsets[6], object.timeSignatureNumerator);
-  writer.writeString(offsets[7], object.title);
+  writer.writeLong(offsets[6], object.timeSignatureDenominator);
+  writer.writeLong(offsets[7], object.timeSignatureNumerator);
+  writer.writeString(offsets[8], object.title);
   writer.writeObjectList<TrackModel>(
-    offsets[8],
+    offsets[9],
     allOffsets,
     TrackModelSchema.serialize,
     object.tracks,
   );
+  writer.writeDateTime(offsets[10], object.updatedAt);
 }
 
 MusicModel _musicModelDeserialize(
@@ -193,23 +206,25 @@ MusicModel _musicModelDeserialize(
   final object = MusicModel(
     artist: reader.readStringOrNull(offsets[0]),
     bpm: reader.readLongOrNull(offsets[1]),
-    domainId: reader.readStringOrNull(offsets[2]),
-    key: reader.readStringOrNull(offsets[3]),
+    createdAt: reader.readDateTimeOrNull(offsets[2]),
+    domainId: reader.readStringOrNull(offsets[3]),
+    key: reader.readStringOrNull(offsets[4]),
     markers: reader.readObjectList<MarkerModel>(
-      offsets[4],
+      offsets[5],
       MarkerModelSchema.deserialize,
       allOffsets,
       MarkerModel(),
     ),
-    timeSignatureDenominator: reader.readLongOrNull(offsets[5]),
-    timeSignatureNumerator: reader.readLongOrNull(offsets[6]),
-    title: reader.readStringOrNull(offsets[7]),
+    timeSignatureDenominator: reader.readLongOrNull(offsets[6]),
+    timeSignatureNumerator: reader.readLongOrNull(offsets[7]),
+    title: reader.readStringOrNull(offsets[8]),
     tracks: reader.readObjectList<TrackModel>(
-      offsets[8],
+      offsets[9],
       TrackModelSchema.deserialize,
       allOffsets,
       TrackModel(),
     ),
+    updatedAt: reader.readDateTimeOrNull(offsets[10]),
   );
   object.id = id;
   return object;
@@ -227,29 +242,33 @@ P _musicModelDeserializeProp<P>(
     case 1:
       return (reader.readLongOrNull(offset)) as P;
     case 2:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 3:
       return (reader.readStringOrNull(offset)) as P;
     case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
       return (reader.readObjectList<MarkerModel>(
         offset,
         MarkerModelSchema.deserialize,
         allOffsets,
         MarkerModel(),
       )) as P;
-    case 5:
-      return (reader.readLongOrNull(offset)) as P;
     case 6:
       return (reader.readLongOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
       return (reader.readObjectList<TrackModel>(
         offset,
         TrackModelSchema.deserialize,
         allOffsets,
         TrackModel(),
       )) as P;
+    case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -675,6 +694,78 @@ extension MusicModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'bpm',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      createdAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      createdAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'createdAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> createdAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      createdAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> createdAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'createdAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> createdAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'createdAt',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1537,6 +1628,78 @@ extension MusicModelQueryFilter
       );
     });
   }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      updatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      updatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'updatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> updatedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      updatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> updatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'updatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> updatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'updatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
 }
 
 extension MusicModelQueryObject
@@ -1582,6 +1745,18 @@ extension MusicModelQuerySortBy
   QueryBuilder<MusicModel, MusicModel, QAfterSortBy> sortByBpmDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'bpm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> sortByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> sortByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
@@ -1648,6 +1823,18 @@ extension MusicModelQuerySortBy
       return query.addSortBy(r'title', Sort.desc);
     });
   }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> sortByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> sortByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
 }
 
 extension MusicModelQuerySortThenBy
@@ -1673,6 +1860,18 @@ extension MusicModelQuerySortThenBy
   QueryBuilder<MusicModel, MusicModel, QAfterSortBy> thenByBpmDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'bpm', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> thenByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> thenByCreatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
@@ -1751,6 +1950,18 @@ extension MusicModelQuerySortThenBy
       return query.addSortBy(r'title', Sort.desc);
     });
   }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> thenByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterSortBy> thenByUpdatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'updatedAt', Sort.desc);
+    });
+  }
 }
 
 extension MusicModelQueryWhereDistinct
@@ -1765,6 +1976,12 @@ extension MusicModelQueryWhereDistinct
   QueryBuilder<MusicModel, MusicModel, QDistinct> distinctByBpm() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'bpm');
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QDistinct> distinctByCreatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'createdAt');
     });
   }
 
@@ -1802,6 +2019,12 @@ extension MusicModelQueryWhereDistinct
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
     });
   }
+
+  QueryBuilder<MusicModel, MusicModel, QDistinct> distinctByUpdatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'updatedAt');
+    });
+  }
 }
 
 extension MusicModelQueryProperty
@@ -1821,6 +2044,12 @@ extension MusicModelQueryProperty
   QueryBuilder<MusicModel, int?, QQueryOperations> bpmProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'bpm');
+    });
+  }
+
+  QueryBuilder<MusicModel, DateTime?, QQueryOperations> createdAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'createdAt');
     });
   }
 
@@ -1867,6 +2096,12 @@ extension MusicModelQueryProperty
       tracksProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'tracks');
+    });
+  }
+
+  QueryBuilder<MusicModel, DateTime?, QQueryOperations> updatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'updatedAt');
     });
   }
 }

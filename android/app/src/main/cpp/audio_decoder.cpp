@@ -43,12 +43,21 @@ static std::string getFileExtension(const std::string& path) {
 
 // ─── MP3 Decoder ─────────────────────────────────────────────────────────────
 
-static DecodedAudio decodeMp3(const std::string& filePath) {
+// ─── MP3 Decoder ─────────────────────────────────────────────────────────────
+
+static DecodedAudio decodeMp3(const std::string& filePath, std::atomic<bool>* shouldCancel) {
     DecodedAudio result;
 
     mp3dec_t mp3d;
     mp3dec_file_info_t info;
     std::memset(&info, 0, sizeof(info));
+
+    // minimp3_ex doesn't easily support collaborative cancellation in a single call.
+    // However, we can check before loading.
+    if (shouldCancel && shouldCancel->load()) {
+        result.error = "Decoding cancelled";
+        return result;
+    }
 
     int ret = mp3dec_load(&mp3d, filePath.c_str(), &info, nullptr, nullptr);
     if (ret != 0 || info.samples == 0) {
@@ -61,20 +70,16 @@ static DecodedAudio decodeMp3(const std::string& filePath) {
     result.sampleRate  = info.hz;
     result.numFrames   = static_cast<int64_t>(info.samples) / info.channels;
 
-    // minimp3 with MINIMP3_FLOAT_OUTPUT gives us float samples directly
     result.pcmData.assign(info.buffer, info.buffer + info.samples);
     free(info.buffer);
 
     result.success = true;
-    LOGD("Decoded MP3: %s — %lld frames, %d ch, %d Hz",
-         filePath.c_str(), (long long)result.numFrames,
-         result.numChannels, result.sampleRate);
     return result;
 }
 
 // ─── WAV Decoder ─────────────────────────────────────────────────────────────
 
-static DecodedAudio decodeWav(const std::string& filePath) {
+static DecodedAudio decodeWav(const std::string& filePath, std::atomic<bool>* shouldCancel) {
     DecodedAudio result;
 
     drwav wav;
@@ -91,59 +96,85 @@ static DecodedAudio decodeWav(const std::string& filePath) {
     size_t totalSamples = static_cast<size_t>(result.numFrames * result.numChannels);
     result.pcmData.resize(totalSamples);
 
-    drwav_read_pcm_frames_f32(&wav, wav.totalPCMFrameCount, result.pcmData.data());
-    drwav_uninit(&wav);
+    const drwav_uint64 chunkSize = 4096;
+    drwav_uint64 framesProcessed = 0;
+    while (framesProcessed < wav.totalPCMFrameCount) {
+        if (shouldCancel && shouldCancel->load()) {
+            drwav_uninit(&wav);
+            result.success = false;
+            result.error = "Decoding cancelled";
+            return result;
+        }
 
+        drwav_uint64 framesToRead = std::min(chunkSize, wav.totalPCMFrameCount - framesProcessed);
+        drwav_read_pcm_frames_f32(&wav, framesToRead, result.pcmData.data() + (framesProcessed * result.numChannels));
+        framesProcessed += framesToRead;
+    }
+
+    drwav_uninit(&wav);
     result.success = true;
-    LOGD("Decoded WAV: %s — %lld frames, %d ch, %d Hz",
-         filePath.c_str(), (long long)result.numFrames,
-         result.numChannels, result.sampleRate);
     return result;
 }
 
 // ─── FLAC Decoder ────────────────────────────────────────────────────────────
 
-static DecodedAudio decodeFlac(const std::string& filePath) {
+static DecodedAudio decodeFlac(const std::string& filePath, std::atomic<bool>* shouldCancel) {
     DecodedAudio result;
 
-    unsigned int channels, sampleRate;
-    drflac_uint64 totalPCMFrameCount;
-
-    float* pSamples = drflac_open_file_and_read_pcm_frames_f32(
-        filePath.c_str(), &channels, &sampleRate, &totalPCMFrameCount, nullptr);
-
-    if (pSamples == nullptr) {
+    drflac* pFlac = drflac_open_file(filePath.c_str(), nullptr);
+    if (pFlac == nullptr) {
         result.error = "Failed to decode FLAC: " + filePath;
         LOGE("%s", result.error.c_str());
         return result;
     }
 
-    result.numChannels = static_cast<int32_t>(channels);
-    result.sampleRate  = static_cast<int32_t>(sampleRate);
-    result.numFrames   = static_cast<int64_t>(totalPCMFrameCount);
+    result.numChannels = static_cast<int32_t>(pFlac->channels);
+    result.sampleRate  = static_cast<int32_t>(pFlac->sampleRate);
+    result.numFrames   = static_cast<int64_t>(pFlac->totalPCMFrameCount);
 
     size_t totalSamples = static_cast<size_t>(result.numFrames * result.numChannels);
-    result.pcmData.assign(pSamples, pSamples + totalSamples);
-    drflac_free(pSamples, nullptr);
+    result.pcmData.resize(totalSamples);
 
+    const drflac_uint64 chunkSize = 4096;
+    drflac_uint64 framesProcessed = 0;
+    while (framesProcessed < pFlac->totalPCMFrameCount) {
+        if (shouldCancel && shouldCancel->load()) {
+            drflac_close(pFlac);
+            result.success = false;
+            result.error = "Decoding cancelled";
+            return result;
+        }
+
+        drflac_uint64 framesToRead = std::min(chunkSize, pFlac->totalPCMFrameCount - framesProcessed);
+        drflac_read_pcm_frames_f32(pFlac, framesToRead, result.pcmData.data() + (framesProcessed * result.numChannels));
+        framesProcessed += framesToRead;
+    }
+
+    drflac_close(pFlac);
     result.success = true;
-    LOGD("Decoded FLAC: %s — %lld frames, %d ch, %d Hz",
-         filePath.c_str(), (long long)result.numFrames,
-         result.numChannels, result.sampleRate);
     return result;
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-DecodedAudio decodeAudioFile(const std::string& filePath) {
+DecodedAudio decodeAudioFile(const std::string& filePath, std::atomic<bool>* shouldCancel) {
     std::string ext = getFileExtension(filePath);
-
-    if (ext == ".mp3") return decodeMp3(filePath);
-    if (ext == ".wav") return decodeWav(filePath);
-    if (ext == ".flac") return decodeFlac(filePath);
-
     DecodedAudio result;
-    result.error = "Unsupported audio format: " + ext;
-    LOGE("%s", result.error.c_str());
+
+    if (ext == ".mp3") result = decodeMp3(filePath, shouldCancel);
+    else if (ext == ".wav") result = decodeWav(filePath, shouldCancel);
+    else if (ext == ".flac") result = decodeFlac(filePath, shouldCancel);
+    else {
+        result.error = "Unsupported audio format: " + ext;
+        LOGE("%s", result.error.c_str());
+        return result;
+    }
+
+    if (result.success) {
+        LOGD("Decoded %s: %lld frames, %d ch, %d Hz",
+             ext.c_str(), (long long)result.numFrames,
+             result.numChannels, result.sampleRate);
+    }
+    
     return result;
 }

@@ -1,16 +1,10 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// audio_decoder.h — Native Audio File Decoder
-// ─────────────────────────────────────────────────────────────────────────────
-// Decodes MP3, WAV, and FLAC files into interleaved float PCM data using
-// lightweight header-only C libraries (minimp3, dr_wav, dr_flac).
-// ─────────────────────────────────────────────────────────────────────────────
-
 #ifndef AUDIO_DECODER_H
 #define AUDIO_DECODER_H
 
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <atomic>
 
 /// Result of decoding an audio file to PCM.
 struct DecodedAudio {
@@ -25,6 +19,7 @@ struct DecodedAudio {
 /// Decodes an audio file at `filePath` into interleaved float PCM.
 /// Supports: .mp3, .wav, .flac
 /// The output sample rate matches the source file; caller may resample.
-DecodedAudio decodeAudioFile(const std::string& filePath);
+/// `shouldCancel` allows for collaborative cancellation during decoding.
+DecodedAudio decodeAudioFile(const std::string& filePath, std::atomic<bool>* shouldCancel = nullptr);
 
 #endif // AUDIO_DECODER_H

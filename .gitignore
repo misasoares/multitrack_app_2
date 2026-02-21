@@ -59,5 +59,7 @@ app.*.map.json
 *.secrets
 
 android/build/
+.cxx/
+.externalNativeBuild/
 create_song_landscape.*
 stitch_*.html

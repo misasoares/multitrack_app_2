@@ -46,7 +46,7 @@ bool OboePlayer::start() {
 
     // Re-initialise the mixer with the device's actual sample rate
     // so gain-smoothing ramp durations are correct.
-    mixer_.init(sampleRate_);
+    mixer_.setSampleRate(sampleRate_);
 
     result = stream_->requestStart();
     if (result != oboe::Result::OK) {
@@ -91,6 +91,11 @@ oboe::DataCallbackResult OboePlayer::onAudioReady(
     for (int32_t i = 0; i < numFrames; ++i) {
         output[i * 2]     = tempL_[i];
         output[i * 2 + 1] = tempR_[i];
+    }
+
+    static int oboe_log_counter = 0;
+    if (oboe_log_counter++ % 100 == 0) {
+        __android_log_print(ANDROID_LOG_DEBUG, "OboePlayer", "### onAudioReady %d frames [0]=%f", numFrames, output[0]);
     }
 
     return oboe::DataCallbackResult::Continue;

@@ -9,11 +9,15 @@
 #ifndef AUDIO_MIXER_H
 #define AUDIO_MIXER_H
 
+#include <array>
 #include <cstdint>
 #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+// ─── SoundTouch ──────────────────────────────────────────────────────────────
+#include "SoundTouch.h" // Requires target_include_directories to point to soundtouch/include
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -24,6 +28,41 @@ constexpr int32_t kDefaultSampleRate = 44100;
 /// At 44100 Hz this equals ~2205 samples — long enough to avoid clicks,
 /// short enough to feel instantaneous to the musician.
 constexpr float kGainSmoothingSeconds = 0.05f;
+
+/// Number of parametric EQ bands per track.
+constexpr int kNumEqBands = 3;
+
+// ─── Biquad Filter ───────────────────────────────────────────────────────────
+
+/// Second-order IIR biquad filter (Direct Form II Transposed).
+/// Used for parametric peaking EQ bands.
+struct BiquadFilter {
+    // Coefficients
+    float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+    float a1 = 0.0f, a2 = 0.0f;
+
+    // State (per-channel: L and R)
+    float z1L = 0.0f, z2L = 0.0f;
+    float z1R = 0.0f, z2R = 0.0f;
+
+    // Parameters
+    float frequency = 1000.0f;
+    float gainDb    = 0.0f;
+    float q         = 0.707f;
+    bool  active    = false;  // true once explicitly set from Flutter
+
+    /// Recompute coefficients for a peaking EQ filter.
+    void computeCoefficients(int32_t sampleRate);
+
+    /// Process a single sample (left channel).
+    float processL(float in);
+
+    /// Process a single sample (right channel).
+    float processR(float in);
+
+    /// Reset filter state (call on seek).
+    void resetState();
+};
 
 // ─── MixerTrack ──────────────────────────────────────────────────────────────
 
@@ -54,6 +93,17 @@ struct MixerTrack {
     bool isMuted = false;
     bool isSolo  = false;
 
+    // ── Parametric EQ ──
+    std::array<BiquadFilter, kNumEqBands> eqBands{};
+
+    // ── Time/Pitch (SoundTouch) ──
+    // We use a pointer to avoid including SoundTouch.h in the header if we could fwd declare,
+    // but here we include it. Pointer isolates the instance lifecycle.
+    soundtouch::SoundTouch* soundTouchProcessor = nullptr;
+
+    // Helps SoundTouch optimization (e.g. disable AA filter for percussive sounds)
+    bool isPercussive = false;
+
     // ── Playback ──
     int64_t playheadFrame = 0;    // Current read position in frames
 };
@@ -73,6 +123,7 @@ public:
 
     // ── Lifecycle ──
     void init(int32_t sampleRate);
+    void setSampleRate(int32_t sampleRate);
     void dispose();
 
     // ── Track management ──
@@ -96,6 +147,26 @@ public:
     void setPan(const std::string& id, float pan);
     void setMute(const std::string& id, bool muted);
     void setSolo(const std::string& id, bool solo);
+
+    /// Set a parametric EQ band for a track.
+    void setTrackEq(const std::string& id,
+                    int bandIndex,
+                    float frequency,
+                    float gainDb,
+                    float q);
+
+    /// Set a parametric EQ band for the Master Output.
+    void setMasterEq(int bandIndex,
+                     float frequency,
+                     float gainDb,
+                     float q);
+
+    /// Set the Master Volume (0.0 to 1.0).
+    void setMasterVolume(float volume);
+
+    // ── Time/Pitch ──
+    void setTrackTempo(const std::string& id, float tempo);
+    void setTrackPitch(const std::string& id, int semitones);
 
     // ── DSP ──
     /// Fills `outputL` and `outputR` with `numFrames` mixed samples.
@@ -129,6 +200,10 @@ private:
     int32_t gainSmoothSamples_  = 0;   // Computed from rate + constant
     bool    isPlaying_          = false;
     bool    hasSoloedTracks_    = false; // Cached flag for solo routing
+
+    // ── Master FX ──
+    float masterVolume_         = 1.0f;
+    std::vector<BiquadFilter> masterEqBands_;
 };
 
 #endif // AUDIO_MIXER_H

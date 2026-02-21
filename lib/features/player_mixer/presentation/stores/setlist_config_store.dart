@@ -179,6 +179,7 @@ abstract class SetlistConfigStoreBase with Store {
     // If clicking the currently playing item, just toggle pause/stop
     if (playingItemId == itemId && isPlaying) {
       await _audioEngine.pause();
+      _audioEngine.clearAllTracks(); // Clear tracks to avoid memory leak
       isPlaying = false;
       return;
     }
@@ -252,6 +253,7 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   void dispose() {
+    _audioEngine.clearAllTracks();
     _audioEngine.pause();
     isPlaying = false;
     currentSetlist = null;

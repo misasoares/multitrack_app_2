@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:isar/isar.dart';
 import '../../domain/entities/music.dart';
 import '../../domain/repositories/imusic_repository.dart';
@@ -27,6 +28,27 @@ class IsarMusicRepository implements IMusicRepository {
 
   @override
   Future<void> deleteMusic(String id) async {
+    // Delete physical files first
+    final models = await isar.musicModels
+        .filter()
+        .domainIdEqualTo(id)
+        .findAll();
+    for (final model in models) {
+      final music = model.toEntity();
+      for (final track in music.tracks) {
+        if (track.filePath.isNotEmpty) {
+          try {
+            final file = File(track.filePath);
+            if (file.existsSync()) {
+              file.deleteSync();
+            }
+          } catch (e) {
+            // ignore failure
+          }
+        }
+      }
+    }
+
     await isar.writeTxn(() async {
       await isar.musicModels.filter().domainIdEqualTo(id).deleteAll();
     });

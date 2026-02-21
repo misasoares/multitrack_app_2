@@ -4,6 +4,7 @@ import '../../domain/entities/setlist.dart';
 import '../../domain/entities/setlist_item.dart';
 import '../../domain/entities/eq_band_data.dart';
 import '../../../../../core/audio_engine/iaudio_engine_service.dart';
+import 'dart:developer' as developer;
 
 part 'setlist_config_store.g.dart';
 
@@ -11,11 +12,7 @@ class SetlistConfigStore = SetlistConfigStoreBase with _$SetlistConfigStore;
 
 abstract class SetlistConfigStoreBase with Store {
   final IAudioEngineService _audioEngine;
-  Timer? _statusTimer;
-
-  SetlistConfigStoreBase(this._audioEngine) {
-    _startStatusTimer();
-  }
+  SetlistConfigStoreBase(this._audioEngine);
 
   @observable
   Setlist? currentSetlist;
@@ -25,10 +22,6 @@ abstract class SetlistConfigStoreBase with Store {
 
   @observable
   bool isPlaying = false;
-
-  /// Map of trackId -> status for UI feedback
-  @observable
-  ObservableMap<String, PreloadStatus> preloadingStatuses = ObservableMap();
 
   Stream<Duration> get previewPosition => _audioEngine.onPreviewPosition;
 
@@ -69,30 +62,6 @@ abstract class SetlistConfigStoreBase with Store {
       if (playingItemId == itemId) {
         _applyMastering(updatedItem);
       }
-    }
-  }
-
-  bool isItemReady(String itemId) {
-    if (currentSetlist == null) return false;
-    try {
-      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
-      return item.originalMusic.tracks.every(
-        (t) => preloadingStatuses[t.id] == PreloadStatus.ready,
-      );
-    } catch (_) {
-      return false;
-    }
-  }
-
-  bool isItemLoading(String itemId) {
-    if (currentSetlist == null) return false;
-    try {
-      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
-      return item.originalMusic.tracks.any(
-        (t) => preloadingStatuses[t.id] == PreloadStatus.loading,
-      );
-    } catch (_) {
-      return false;
     }
   }
 
@@ -211,7 +180,7 @@ abstract class SetlistConfigStoreBase with Store {
     // If clicking the currently playing item, just toggle pause/stop
     if (playingItemId == itemId && isPlaying) {
       await _audioEngine.pause();
-      _audioEngine.clearAllTracks(); // Clear tracks to avoid memory leak
+      _audioEngine.clearAllTracks(); // Clear tracks to avoid memory usage
       isPlaying = false;
       return;
     }
@@ -233,9 +202,7 @@ abstract class SetlistConfigStoreBase with Store {
       try {
         final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
 
-        // Simulate a small delay if needed or just wait for load
-        // await Future.delayed(Duration(milliseconds: 100));
-
+        // Load tracks (this now handles direct decoding in C++)
         await _audioEngine.loadPreview(item.originalMusic.tracks);
         _applyMastering(item); // Apply tempo/pitch/volume
 
@@ -244,8 +211,7 @@ abstract class SetlistConfigStoreBase with Store {
         _audioEngine.playPreview();
         isPlaying = true;
       } catch (e) {
-        // Handle error, maybe show snackbar?
-        print('Error loading preview: $e');
+        developer.log('Error loading preview: $e', name: 'SetlistConfigStore');
       } finally {
         previewLoadingItemId = null;
       }
@@ -254,70 +220,6 @@ abstract class SetlistConfigStoreBase with Store {
       // Just resume
       _audioEngine.playPreview();
       isPlaying = true;
-    }
-  }
-
-  void _startStatusTimer() {
-    _statusTimer?.cancel();
-    _statusTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
-      _updatePreloadStatuses();
-    });
-  }
-
-  @action
-  void _updatePreloadStatuses() {
-    if (currentSetlist == null) return;
-
-    // Check status of everything in the preloadingStatuses map
-    for (final trackId in preloadingStatuses.keys.toList()) {
-      final status = _audioEngine.getPreloadStatus(trackId);
-      final currentStatus = preloadingStatuses[trackId];
-      if (currentStatus != status) {
-        preloadingStatuses[trackId] = status;
-
-        // If a track finished loading (READY or FAILED), or was evicted (became NONE),
-        // check if we can queue another
-        if (status == PreloadStatus.ready ||
-            status == PreloadStatus.failed ||
-            (currentStatus == PreloadStatus.ready &&
-                status == PreloadStatus.none)) {
-          queuePreloading();
-        }
-      }
-    }
-  }
-
-  @action
-  void queuePreloading() {
-    if (currentSetlist == null) return;
-
-    // 1. Count how many are currently LOADING
-    final loadingCount = preloadingStatuses.values
-        .where((s) => s == PreloadStatus.loading)
-        .length;
-
-    if (loadingCount >= 3) return; // Already at limit
-
-    // 2. Find tracks that are NONE or haven't been queued yet
-    final allTracks = currentSetlist!.items
-        .expand((item) => item.originalMusic.tracks)
-        .toList();
-
-    for (final track in allTracks) {
-      final status = preloadingStatuses[track.id] ?? PreloadStatus.none;
-      if (status == PreloadStatus.none) {
-        // Start preloading this one
-        preloadingStatuses[track.id] = PreloadStatus.loading;
-        _audioEngine.preloadTrack(track.id, track.filePath);
-
-        // If we hit the concurrency limit, stop for now
-        final currentLoading = preloadingStatuses.values
-            .where((s) => s == PreloadStatus.loading)
-            .length;
-        if (currentLoading >= 3) {
-          break;
-        }
-      }
     }
   }
 
@@ -349,12 +251,10 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   void dispose() {
-    _statusTimer?.cancel();
     _audioEngine.clearAllTracks();
     _audioEngine.pause();
     isPlaying = false;
     currentSetlist = null;
     playingItemId = null;
-    preloadingStatuses.clear();
   }
 }

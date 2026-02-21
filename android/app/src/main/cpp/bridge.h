@@ -18,6 +18,20 @@ extern "C" {
 void engine_init(int32_t sampleRate);
 void engine_dispose();
 
+// ── Offline Rendering ──
+void engine_render_track_offline(const char* trackId,
+                                 const char* inputPath,
+                                 const char* outputPath,
+                                 float tempo,
+                                 float pitch,
+                                 float eqLow,
+                                 float eqMid,
+                                 float eqHigh);
+
+float engine_get_render_progress(const char* trackId);
+void engine_cancel_render(const char* trackId);
+
+
 // ── Track Management ──
 /// Loads raw interleaved PCM float data for a track.
 void engine_load_track(const char* trackId,

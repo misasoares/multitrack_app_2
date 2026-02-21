@@ -11,6 +11,7 @@
 #include "audio_decoder.h"
 
 #include <string>
+#include "audio_renderer.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -26,7 +27,7 @@
 static AudioMixer*  gMixer  = nullptr;
 static OboePlayer*  gPlayer = nullptr;
 
-#include "audio_preloader.h"
+
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
@@ -49,7 +50,6 @@ extern "C" void engine_init(int32_t sampleRate) {
 }
 
 extern "C" void engine_dispose() {
-    AudioPreloader::getInstance().cancelAll();
     if (gPlayer) {
         gPlayer->stop();
         delete gPlayer;
@@ -78,22 +78,8 @@ extern "C" int32_t engine_load_file(const char* trackId,
     if (!gMixer || !trackId || !filePath) return 0;
 
     std::string idStr(trackId);
-    DecodedAudio cachedAudio;
     
-    // 1. Check if we have this track pre-loaded in cache
-    if (AudioPreloader::getInstance().consume(idStr, cachedAudio)) {
-        LOGD("engine_load_file: using cached version for track %s", trackId);
-        gMixer->loadTrack(
-            idStr,
-            cachedAudio.pcmData.data(),
-            cachedAudio.numFrames,
-            cachedAudio.numChannels
-        );
-        return 1;
-    }
-
-    // 2. Not in cache — decode synchronously as usual
-    LOGD("engine_load_file: decoding %s for track %s (cache miss)", filePath, trackId);
+    LOGD("engine_load_file: decoding %s for track %s", filePath, trackId);
 
     DecodedAudio audio = decodeAudioFile(std::string(filePath));
     if (!audio.success) {
@@ -113,15 +99,7 @@ extern "C" int32_t engine_load_file(const char* trackId,
     return 1;
 }
 
-extern "C" void engine_preload_file(const char* trackId, const char* filePath) {
-    if (!trackId || !filePath) return;
-    AudioPreloader::getInstance().preload(std::string(trackId), std::string(filePath));
-}
 
-extern "C" int32_t engine_get_preload_status(const char* trackId) {
-    if (!trackId) return (int32_t)PreloadStatus::NONE;
-    return (int32_t)AudioPreloader::getInstance().getStatus(std::string(trackId));
-}
 
 extern "C" void engine_remove_track(const char* trackId) {
     if (!gMixer || !trackId) return;
@@ -129,13 +107,11 @@ extern "C" void engine_remove_track(const char* trackId) {
 }
 
 extern "C" void engine_remove_all_tracks() {
-    AudioPreloader::getInstance().clear();
     if (!gMixer) return;
     gMixer->removeAllTracks();
 }
 
 extern "C" void engine_clear_all_tracks() {
-    AudioPreloader::getInstance().clear();
     if (!gMixer) return;
     gMixer->removeAllTracks();
 }
@@ -255,4 +231,39 @@ extern "C" void engine_set_master_eq(int32_t bandIndex,
 extern "C" void engine_set_master_volume(float volume) {
     if (!gMixer) return;
     gMixer->setMasterVolume(volume);
+}
+
+// ─── Offline Rendering ───────────────────────────────────────────────────────
+
+extern "C" void engine_render_track_offline(const char* trackId,
+                                            const char* inputPath,
+                                            const char* outputPath,
+                                            float tempo,
+                                            float pitch,
+                                            float eqLow,
+                                            float eqMid,
+                                            float eqHigh) {
+    if (!trackId || !inputPath || !outputPath) return;
+
+    std::vector<EqBand> eqBands;
+    eqBands.push_back({100.0f, eqLow, 0.707f});
+    eqBands.push_back({1000.0f, eqMid, 0.707f});
+    eqBands.push_back({5000.0f, eqHigh, 0.707f});
+
+    renderTrackOffline(std::string(trackId),
+                       std::string(inputPath),
+                       std::string(outputPath),
+                       tempo,
+                       pitch,
+                       eqBands);
+}
+
+extern "C" float engine_get_render_progress(const char* trackId) {
+    if (!trackId) return 0.0f;
+    return getRenderProgress(std::string(trackId));
+}
+
+extern "C" void engine_cancel_render(const char* trackId) {
+    if (!trackId) return;
+    cancelRender(std::string(trackId));
 }

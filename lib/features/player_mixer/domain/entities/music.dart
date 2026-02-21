@@ -12,8 +12,10 @@ class Music extends Equatable {
   final String key; // e.g., "C", "Am"
   final List<Track> tracks;
   final List<Marker> markers;
+  final DateTime createdAt;
+  final DateTime updatedAt;
 
-  const Music({
+  Music({
     required this.id,
     required this.title,
     this.artist = '',
@@ -23,7 +25,12 @@ class Music extends Equatable {
     this.key = '',
     this.tracks = const [],
     this.markers = const [],
-  });
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) : createdAt =
+           createdAt ??
+           DateTime.fromMicrosecondsSinceEpoch(0), // Default for existing
+       updatedAt = updatedAt ?? DateTime.fromMicrosecondsSinceEpoch(0);
 
   @override
   List<Object?> get props => [
@@ -36,5 +43,13 @@ class Music extends Equatable {
     key,
     tracks,
     markers,
+    createdAt,
+    updatedAt,
+    updatedAt,
   ];
+
+  Duration get duration {
+    if (tracks.isEmpty) return Duration.zero;
+    return tracks.map((t) => t.duration).reduce((a, b) => a > b ? a : b);
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'eq_band_data.dart';
 
 class Track extends Equatable {
   final String id;
@@ -11,6 +12,7 @@ class Track extends Equatable {
   final bool isClick;
   final int order; // Position index in the UI list
   final Duration duration;
+  final List<EqBandData> eqBands; // Parametric EQ state (persisted on save)
 
   const Track({
     required this.id,
@@ -23,6 +25,7 @@ class Track extends Equatable {
     this.isClick = false,
     this.order = 0,
     this.duration = Duration.zero,
+    this.eqBands = const [],
   });
 
   Track copyWith({
@@ -36,6 +39,7 @@ class Track extends Equatable {
     bool? isClick,
     int? order,
     Duration? duration,
+    List<EqBandData>? eqBands,
   }) {
     return Track(
       id: id ?? this.id,
@@ -48,6 +52,7 @@ class Track extends Equatable {
       isClick: isClick ?? this.isClick,
       order: order ?? this.order,
       duration: duration ?? this.duration,
+      eqBands: eqBands ?? this.eqBands,
     );
   }
 
@@ -63,5 +68,6 @@ class Track extends Equatable {
     isClick,
     order,
     duration,
+    eqBands,
   ];
 }

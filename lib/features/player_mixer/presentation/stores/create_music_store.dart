@@ -4,6 +4,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:mobx/mobx.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
+import '../../domain/entities/eq_band_data.dart';
 import '../../domain/entities/music.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/repositories/imusic_repository.dart';
@@ -18,6 +19,10 @@ abstract class CreateMusicStoreBase with Store {
   final Uuid _uuid = const Uuid();
 
   CreateMusicStoreBase(this._repository, this._audioEngine);
+
+  /// Yields one frame so the UI can render (spinner, animations)
+  /// before heavy synchronous work begins.
+  Future<void> _yieldFrame() => Future.delayed(Duration.zero);
 
   // ─── Metadata Observables ──────────────────────────────────────────
 
@@ -41,6 +46,9 @@ abstract class CreateMusicStoreBase with Store {
 
   @observable
   int timeSignatureDenominator = 4;
+
+  @observable
+  DateTime? originalCreatedAt;
 
   // ─── Track List ────────────────────────────────────────────────────
 
@@ -136,8 +144,9 @@ abstract class CreateMusicStoreBase with Store {
 
     for (final track in tracks) {
       final peaks = waveformData[track.id];
-      if (peaks != null && peaks.length == numBins) {
-        for (int i = 0; i < numBins; i++) {
+      if (peaks != null && peaks.isNotEmpty) {
+        final length = peaks.length < numBins ? peaks.length : numBins;
+        for (int i = 0; i < length; i++) {
           if (peaks[i] > combined[i]) {
             combined[i] = peaks[i];
           }
@@ -156,6 +165,7 @@ abstract class CreateMusicStoreBase with Store {
     if (files.isEmpty) return;
 
     isProcessingAudio = true;
+    await _yieldFrame(); // Let Flutter render the spinner first
     try {
       final player = AudioPlayer();
 
@@ -173,12 +183,14 @@ abstract class CreateMusicStoreBase with Store {
           name: file.name,
           filePath: file.path,
           volume: 1.0,
-          pan: 1.0,
+          pan: 0.0,
           isClick: file.name.toLowerCase().contains('click'),
           order: tracks.length,
           duration: duration,
         );
         tracks.add(newTrack);
+
+        await _yieldFrame(); // Breathe between tracks
       }
       await player.dispose();
 
@@ -196,6 +208,7 @@ abstract class CreateMusicStoreBase with Store {
     bool isClick = false,
   }) async {
     isProcessingAudio = true;
+    await _yieldFrame(); // Let Flutter render the spinner first
     try {
       // Attempt to get duration using a temporary player
       Duration duration = Duration.zero;
@@ -213,7 +226,7 @@ abstract class CreateMusicStoreBase with Store {
         name: name,
         filePath: filePath,
         volume: 1.0,
-        pan: 1.0, // Default: right
+        pan: 0.0, // Default: center
         isClick: isClick,
         order: tracks.length,
         duration: duration,
@@ -235,6 +248,7 @@ abstract class CreateMusicStoreBase with Store {
     // Update timeline
     if (tracks.isNotEmpty) {
       isProcessingAudio = true;
+      await _yieldFrame(); // Let Flutter render the spinner first
       try {
         await _reloadPreviewData();
       } finally {
@@ -314,6 +328,39 @@ abstract class CreateMusicStoreBase with Store {
     }
   }
 
+  /// Updates an EQ band in memory and sends to C++ engine.
+  /// **No database call** — persisted only on global Save.
+  @action
+  void updateTrackEq(String trackId, EqBandData band) {
+    final index = tracks.indexWhere((t) => t.id == trackId);
+    if (index == -1) return;
+
+    final track = tracks[index];
+    final updatedBands = List<EqBandData>.from(track.eqBands);
+
+    // Upsert by bandIndex
+    final existing = updatedBands.indexWhere(
+      (b) => b.bandIndex == band.bandIndex,
+    );
+    if (existing != -1) {
+      updatedBands[existing] = band;
+    } else {
+      updatedBands.add(band);
+    }
+
+    // 1. Update in-memory state
+    tracks[index] = track.copyWith(eqBands: updatedBands);
+
+    // 2. Send to C++ engine (FFI) — NO database call
+    _audioEngine.setTrackEq(
+      trackId: trackId,
+      bandIndex: band.bandIndex,
+      frequency: band.frequency,
+      gain: band.gain,
+      q: band.q,
+    );
+  }
+
   // ─── Reorder Action (Drag & Drop) ─────────────────────────────────
   // ... (Reorder actions unchanged)
 
@@ -339,6 +386,7 @@ abstract class CreateMusicStoreBase with Store {
   Future<void> _reloadPreviewData() async {
     try {
       await _audioEngine.loadPreview(List<Track>.from(tracks));
+      await _yieldFrame(); // Breathe after heavy FFI decode
 
       // Extract waveform peaks for each track (150 bins).
       waveformData.clear();
@@ -347,6 +395,7 @@ abstract class CreateMusicStoreBase with Store {
         if (peaks.isNotEmpty) {
           waveformData[t.id] = peaks;
         }
+        await _yieldFrame(); // Yield between per-track waveform extraction
       }
       // Restore position if valid
       await _audioEngine.seekTo(currentPosition);
@@ -364,6 +413,7 @@ abstract class CreateMusicStoreBase with Store {
     // However, to be safe, if waveformData.isEmpty, we force reload.
     if (waveformData.isEmpty) {
       isProcessingAudio = true;
+      await _yieldFrame(); // Let Flutter render the spinner first
       await _reloadPreviewData();
       isProcessingAudio = false;
     } else {
@@ -376,7 +426,7 @@ abstract class CreateMusicStoreBase with Store {
     }
 
     try {
-      _audioEngine.playPreview();
+      await _audioEngine.play();
       isPlaying = true;
       _startTicker();
     } catch (e) {
@@ -447,9 +497,11 @@ abstract class CreateMusicStoreBase with Store {
     key = music.key;
     timeSignatureNumerator = music.timeSignatureNumerator;
     timeSignatureDenominator = music.timeSignatureDenominator;
+    originalCreatedAt = music.createdAt;
 
     // Recalculate durations since not persisted
     isProcessingAudio = true;
+    await _yieldFrame(); // Let Flutter render the spinner first
     try {
       final player = AudioPlayer();
       final loadedTracks = <Track>[];
@@ -466,6 +518,8 @@ abstract class CreateMusicStoreBase with Store {
           }
         }
         loadedTracks.add(t.copyWith(duration: duration));
+
+        await _yieldFrame(); // Breathe between tracks
       }
       await player.dispose();
 
@@ -474,6 +528,19 @@ abstract class CreateMusicStoreBase with Store {
       // Auto-load preview for the timeline
       if (tracks.isNotEmpty) {
         await _reloadPreviewData();
+
+        // Apply saved EQ to C++ engine BEFORE play is allowed
+        for (final track in tracks) {
+          for (final band in track.eqBands) {
+            _audioEngine.setTrackEq(
+              trackId: track.id,
+              bandIndex: band.bandIndex,
+              frequency: band.frequency,
+              gain: band.gain,
+              q: band.q,
+            );
+          }
+        }
       }
     } finally {
       isProcessingAudio = false;
@@ -517,6 +584,7 @@ abstract class CreateMusicStoreBase with Store {
     try {
       isLoading = true;
       errorMessage = null;
+      await _yieldFrame(); // Let Flutter render the loading state first
 
       _reindexTrackOrder();
 
@@ -529,11 +597,14 @@ abstract class CreateMusicStoreBase with Store {
         timeSignatureDenominator: tsDen,
         key: key,
         tracks: List<Track>.from(tracks),
+        createdAt: editingMusicId != null ? originalCreatedAt : DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
       await _repository.saveMusic(music);
 
       saveSuccess = true;
+      await _yieldFrame(); // Let MobX reaction fire (Navigator.pop) before reset
 
       _resetForm();
     } catch (e) {

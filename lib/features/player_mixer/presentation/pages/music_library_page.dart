@@ -6,8 +6,10 @@ import '../../../../../core/theme/app_text_styles.dart';
 import '../../../../../injection_container.dart';
 import '../../domain/entities/music.dart';
 import '../stores/music_library_store.dart';
+import '../enums/music_sort_type.dart';
 import '../stores/create_music_store.dart';
 import 'create_music_page.dart';
+import 'setlist_library_page.dart';
 
 class MusicLibraryPage extends StatefulWidget {
   const MusicLibraryPage({super.key});
@@ -18,6 +20,7 @@ class MusicLibraryPage extends StatefulWidget {
 
 class _MusicLibraryPageState extends State<MusicLibraryPage> {
   late final MusicLibraryStore _store;
+  bool _isGlobalLoading = false; // For full-screen loading during edit
 
   @override
   void initState() {
@@ -31,109 +34,134 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _LibraryHeader(
-              onCreate: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        CreateMusicPage(store: sl<CreateMusicStore>()),
-                  ),
-                );
-                _store.loadAllMusic();
-              },
-            ),
-            _FilterBar(),
-            Expanded(
-              child: Observer(
-                builder: (_) {
-                  if (_store.isLoading) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
+            Column(
+              children: [
+                _LibraryHeader(
+                  onCreate: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CreateMusicPage(store: sl<CreateMusicStore>()),
                       ),
                     );
-                  }
-
-                  if (_store.errorMessage != null) {
-                    return Center(
-                      child: Text(
-                        _store.errorMessage!,
-                        style: AppTextStyles.bodyMuted.copyWith(
-                          color: AppColors.alert,
-                        ),
-                      ),
-                    );
-                  }
-
-                  if (_store.musicList.isEmpty) {
-                    return _EmptyState(
-                      onCreate: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                CreateMusicPage(store: sl<CreateMusicStore>()),
+                    _store.loadAllMusic();
+                  },
+                ),
+                _FilterBar(),
+                Expanded(
+                  child: Observer(
+                    builder: (_) {
+                      if (_store.isLoading) {
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
                           ),
                         );
-                        _store.loadAllMusic();
-                      },
-                    );
-                  }
+                      }
 
-                  return CustomScrollView(
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.all(24),
-                        sliver: SliverGrid(
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 400,
-                                mainAxisExtent:
-                                    300, // Increased to 300 to fix overflow
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
+                      if (_store.errorMessage != null) {
+                        return Center(
+                          child: Text(
+                            _store.errorMessage!,
+                            style: AppTextStyles.bodyMuted.copyWith(
+                              color: AppColors.alert,
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (_store.filteredMusicList.isEmpty) {
+                        return _EmptyState(
+                          onCreate: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CreateMusicPage(
+                                  store: sl<CreateMusicStore>(),
+                                ),
                               ),
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final music = _store.musicList[index];
-                            return _SongCard(
-                              music: music,
-                              onEdit: () async {
-                                debugPrint('Edit music: ${music.title}');
-                                final createStore = sl<CreateMusicStore>();
-                                await createStore.loadMusic(music);
-
-                                if (!context.mounted) return;
-
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        CreateMusicPage(store: createStore),
-                                  ),
-                                );
-                                // Refresh library on return
-                                _store.loadAllMusic();
-                              },
-                              onDelete: () {
-                                _showDeleteConfirmation(context, music);
-                              },
                             );
-                          }, childCount: _store.musicList.length),
-                        ),
-                      ),
-                      const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
-                    ],
-                  );
-                },
-              ),
+                            _store.loadAllMusic();
+                          },
+                        );
+                      }
+
+                      return CustomScrollView(
+                        slivers: [
+                          SliverPadding(
+                            padding: const EdgeInsets.all(24),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithMaxCrossAxisExtent(
+                                    maxCrossAxisExtent: 400,
+                                    mainAxisExtent:
+                                        300, // Increased to 300 to fix overflow
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                  ),
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final music = _store.filteredMusicList[index];
+                                return _SongCard(
+                                  music: music,
+                                  onEdit: () async {
+                                    debugPrint('Edit music: ${music.title}');
+                                    setState(() => _isGlobalLoading = true);
+                                    try {
+                                      final createStore =
+                                          sl<CreateMusicStore>();
+                                      await createStore.loadMusic(music);
+
+                                      if (!context.mounted) return;
+
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => CreateMusicPage(
+                                            store: createStore,
+                                          ),
+                                        ),
+                                      );
+                                      // Refresh library on return
+                                      _store.loadAllMusic();
+                                    } finally {
+                                      if (mounted) {
+                                        setState(
+                                          () => _isGlobalLoading = false,
+                                        );
+                                      }
+                                    }
+                                  },
+                                  onDelete: () {
+                                    _showDeleteConfirmation(context, music);
+                                  },
+                                );
+                              }, childCount: _store.filteredMusicList.length),
+                            ),
+                          ),
+                          const SliverPadding(
+                            padding: EdgeInsets.only(bottom: 80),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const _BottomNavBar(),
+              ],
             ),
-            const _BottomNavBar(),
+            if (_isGlobalLoading)
+              Container(
+                color: Colors.black.withOpacity(0.7),
+                child: const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+              ),
           ],
         ),
       ),
@@ -231,6 +259,8 @@ class _LibraryHeader extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      onChanged: (value) =>
+                          sl<MusicLibraryStore>().setSearchQuery(value),
                       style: GoogleFonts.jetBrainsMono(
                         color: Colors.white,
                         fontSize: 13,
@@ -303,6 +333,8 @@ class _LibraryHeader extends StatelessWidget {
 class _FilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final store = sl<MusicLibraryStore>();
+
     return Container(
       height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -318,6 +350,22 @@ class _FilterBar extends StatelessWidget {
           const SizedBox(width: 32),
           _FilterTab(label: 'Favorites', isActive: false),
           const Spacer(),
+          // Duration Filter Button
+          TextButton.icon(
+            onPressed: () => _showDurationFilterDialog(context, store),
+            icon: const Icon(Icons.timer, size: 16, color: AppColors.textMuted),
+            label: Text(
+              'DURATION',
+              style: GoogleFonts.jetBrainsMono(
+                color: AppColors.textMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Container(width: 1, height: 24, color: Color(0xFF2A2A2A)),
+          const SizedBox(width: 16),
           Text(
             'SORT BY:',
             style: GoogleFonts.jetBrainsMono(
@@ -327,25 +375,119 @@ class _FilterBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Row(
-            children: [
-              Text(
-                'DATE ADDED',
-                style: GoogleFonts.jetBrainsMono(
-                  color: const Color(0xFFCCCCCC),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Icon(
+          Observer(
+            builder: (_) => DropdownButton<MusicSortType>(
+              value: store.sortBy,
+              dropdownColor: const Color(0xFF1E1E1E),
+              underline: const SizedBox(),
+              icon: const Icon(
                 Icons.arrow_drop_down,
                 color: Color(0xFFCCCCCC),
                 size: 16,
               ),
-            ],
+              style: GoogleFonts.jetBrainsMono(
+                color: const Color(0xFFCCCCCC),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+              onChanged: (MusicSortType? newValue) {
+                if (newValue != null) {
+                  store.setSortBy(newValue);
+                }
+              },
+              items: MusicSortType.values.map((MusicSortType value) {
+                return DropdownMenuItem<MusicSortType>(
+                  value: value,
+                  child: Text(_getSortLabel(value)),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  String _getSortLabel(MusicSortType type) {
+    switch (type) {
+      case MusicSortType.dateDesc:
+        return 'DATE ADDED (NEWEST)';
+      case MusicSortType.dateAsc:
+        return 'DATE ADDED (OLDEST)';
+      case MusicSortType.alphaAsc:
+        return 'A-Z';
+      case MusicSortType.alphaDesc:
+        return 'Z-A';
+      case MusicSortType.durationDesc:
+        return 'DURATION (LONG)';
+      case MusicSortType.durationAsc:
+        return 'DURATION (SHORT)';
+    }
+  }
+
+  void _showDurationFilterDialog(
+    BuildContext context,
+    MusicLibraryStore store,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          title: Text(
+            'Filter by Duration',
+            style: GoogleFonts.spaceGrotesk(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Observer(
+            builder: (_) => SizedBox(
+              height: 100,
+              width: 300,
+              child: Column(
+                children: [
+                  RangeSlider(
+                    values: RangeValues(
+                      store.minDurationFilter,
+                      store.maxDurationFilter,
+                    ),
+                    min: 0,
+                    max: 20, // Max 20 minutes
+                    divisions: 20,
+                    labels: RangeLabels(
+                      '${store.minDurationFilter.round()}m',
+                      '${store.maxDurationFilter.round()}m',
+                    ),
+                    activeColor: AppColors.primary,
+                    inactiveColor: const Color(0xFF333333),
+                    onChanged: (RangeValues values) {
+                      store.setDurationRange(values.start, values.end);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${store.minDurationFilter.round()} min - ${store.maxDurationFilter.round()} min',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'DONE',
+                style: TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -705,13 +847,22 @@ class _BottomNavBar extends StatelessWidget {
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: const [
+        children: [
           _NavBarItem(
             icon: Icons.library_music,
             label: 'LIBRARY',
             isActive: true,
           ),
-          _NavBarItem(icon: Icons.queue_music, label: 'SETLISTS'),
+          _NavBarItem(
+            icon: Icons.queue_music,
+            label: 'SETLISTS',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SetlistLibraryPage()),
+              );
+            },
+          ),
           _NavBarItem(icon: Icons.equalizer, label: 'MIXER'),
           _NavBarItem(icon: Icons.settings, label: 'SYSTEM'),
           _NavBarItem(icon: Icons.account_circle, label: 'PROFILE'),
@@ -725,31 +876,36 @@ class _NavBarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final VoidCallback? onTap;
 
   const _NavBarItem({
     required this.icon,
     required this.label,
     this.isActive = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = isActive ? AppColors.primary : const Color(0xFF555555);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: color,
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

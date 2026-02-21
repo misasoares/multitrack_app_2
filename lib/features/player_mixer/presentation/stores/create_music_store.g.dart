@@ -138,6 +138,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$originalCreatedAtAtom =
+      Atom(name: 'CreateMusicStoreBase.originalCreatedAt', context: context);
+
+  @override
+  DateTime? get originalCreatedAt {
+    _$originalCreatedAtAtom.reportRead();
+    return super.originalCreatedAt;
+  }
+
+  @override
+  set originalCreatedAt(DateTime? value) {
+    _$originalCreatedAtAtom.reportWrite(value, super.originalCreatedAt, () {
+      super.originalCreatedAt = value;
+    });
+  }
+
   late final _$tracksAtom =
       Atom(name: 'CreateMusicStoreBase.tracks', context: context);
 
@@ -464,6 +480,17 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
+  void updateTrackEq(String trackId, EqBandData band) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.updateTrackEq');
+    try {
+      return super.updateTrackEq(trackId, band);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void reorderTracks(int oldIndex, int newIndex) {
     final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
         name: 'CreateMusicStoreBase.reorderTracks');
@@ -495,6 +522,7 @@ manualBpm: ${manualBpm},
 key: ${key},
 timeSignatureNumerator: ${timeSignatureNumerator},
 timeSignatureDenominator: ${timeSignatureDenominator},
+originalCreatedAt: ${originalCreatedAt},
 tracks: ${tracks},
 isLoading: ${isLoading},
 isPlaying: ${isPlaying},

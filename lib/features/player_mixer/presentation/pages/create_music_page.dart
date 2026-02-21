@@ -4,10 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
+import '../../../../core/audio_engine/audio_dsp_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../injection_container.dart';
 import '../../domain/entities/track.dart';
 import '../stores/create_music_store.dart';
+import '../widgets/eq/eq_interactive_dialog.dart';
 
 class CreateMusicPage extends StatefulWidget {
   final CreateMusicStore store;
@@ -811,6 +814,66 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           ),
 
           const SizedBox(width: 8),
+
+          // ── Track Options (Pencil) ──
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'equalizer') {
+                showDialog(
+                  context: context,
+                  builder: (_) => EqInteractiveDialog(
+                    trackId: track.id,
+                    dspService: sl<AudioDspService>(),
+                    initialBands: track.eqBands,
+                    onBandChanged: (band) =>
+                        widget.store.updateTrackEq(track.id, band),
+                  ),
+                );
+              }
+            },
+            offset: const Offset(0, 36),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(
+                color: AppColors.primary.withValues(alpha: 0.15),
+              ),
+            ),
+            color: const Color(0xFF1A1A1A),
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'equalizer',
+                height: 40,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.equalizer_rounded,
+                      color: AppColors.primary.withValues(alpha: 0.8),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Equalizer',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(
+                Icons.edit_outlined,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 4),
 
           // ── Delete ──
           InkWell(

@@ -59,6 +59,46 @@ typedef _GetWaveformPeaksNative =
 typedef _GetWaveformPeaksDart =
     int Function(Pointer<Utf8> trackId, Pointer<Float> outPeaks, int numBins);
 
+// ── Parametric EQ ──
+typedef _SetTrackEqNative =
+    Void Function(
+      Pointer<Utf8> trackId,
+      Int32 bandIndex,
+      Float frequency,
+      Float gainDb,
+      Float q,
+    );
+typedef _SetTrackEqDart =
+    void Function(
+      Pointer<Utf8> trackId,
+      int bandIndex,
+      double frequency,
+      double gainDb,
+      double q,
+    );
+
+// ── New Audio Effects & Master Control ──
+
+typedef _SetTrackTempoNative =
+    Void Function(Pointer<Utf8> trackId, Float tempo);
+typedef _SetTrackTempoDart = void Function(Pointer<Utf8> trackId, double tempo);
+
+typedef _SetTrackPitchNative =
+    Void Function(Pointer<Utf8> trackId, Int32 semitones);
+typedef _SetTrackPitchDart =
+    void Function(Pointer<Utf8> trackId, int semitones);
+
+typedef _SetMasterEqNative =
+    Void Function(Int32 bandIndex, Float frequency, Float gainDb, Float q);
+typedef _SetMasterEqDart =
+    void Function(int bandIndex, double frequency, double gainDb, double q);
+
+typedef _SetMasterVolumeNative = Void Function(Float volume);
+typedef _SetMasterVolumeDart = void Function(double volume);
+
+typedef _ClearAllTracksNative = Void Function();
+typedef _ClearAllTracksDart = void Function();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +127,18 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _SetSoloDart _setSolo;
   late final _GetWaveformPeaksDart _getWaveformPeaks;
 
+  // ── Lazy EQ binding (symbol may not exist in the native lib yet) ──
+  _SetTrackEqDart? _setTrackEq;
+  bool _eqLookupAttempted = false;
+
+  _SetTrackTempoDart? _setTrackTempo;
+  _SetTrackPitchDart? _setTrackPitch;
+  _SetMasterEqDart? _setMasterEq;
+  _SetMasterVolumeDart? _setMasterVolume;
+  _ClearAllTracksDart? _clearAllTracks;
+
+  late final DynamicLibrary _lib;
+
   // ── Volume cache ──
   // Stores the "real" slider volume for each track so mute/solo can
   // silence the track and later restore to the correct value — not 1.0.
@@ -99,7 +151,8 @@ class NativeAudioEngine implements IAudioEngineService {
   final Set<String> _allTrackIds = {};
 
   NativeAudioEngine() {
-    final DynamicLibrary lib = _loadLibrary();
+    _lib = _loadLibrary();
+    final DynamicLibrary lib = _lib;
 
     _engineInit = lib
         .lookup<NativeFunction<_EngineInitNative>>('engine_init')
@@ -152,6 +205,47 @@ class NativeAudioEngine implements IAudioEngineService {
           'engine_get_waveform_peaks',
         )
         .asFunction<_GetWaveformPeaksDart>();
+
+    // NOTE: engine_set_track_eq is looked up lazily in setTrackEq()
+    // because the C++ symbol may not exist in the native library yet.
+
+    // Lazy lookup other new functions to be safe, or look them up now if we are confident they exist.
+    // Let's look them up now since we just implemented them in bridge.cpp.
+    // If we fail here, the app might crash on startup if lib is old.
+    // Ideally we use try-catch block for these new symbols or lazy lookup.
+    // Given user env, let's use try-catch block here to be safe during dev.
+
+    try {
+      _setTrackTempo = lib
+          .lookup<NativeFunction<_SetTrackTempoNative>>(
+            'engine_set_track_tempo',
+          )
+          .asFunction<_SetTrackTempoDart>();
+
+      _setTrackPitch = lib
+          .lookup<NativeFunction<_SetTrackPitchNative>>(
+            'engine_set_track_pitch',
+          )
+          .asFunction<_SetTrackPitchDart>();
+
+      _setMasterEq = lib
+          .lookup<NativeFunction<_SetMasterEqNative>>('engine_set_master_eq')
+          .asFunction<_SetMasterEqDart>();
+
+      _setMasterVolume = lib
+          .lookup<NativeFunction<_SetMasterVolumeNative>>(
+            'engine_set_master_volume',
+          )
+          .asFunction<_SetMasterVolumeDart>();
+
+      _clearAllTracks = lib
+          .lookup<NativeFunction<_ClearAllTracksNative>>(
+            'engine_clear_all_tracks',
+          )
+          .asFunction<_ClearAllTracksDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: specific new symbols not found: $e');
+    }
 
     // Initialise the native engine + Oboe output stream.
     _engineInit(44100);
@@ -252,6 +346,9 @@ class NativeAudioEngine implements IAudioEngineService {
     _pause();
   }
 
+  @override
+  Stream<Duration> get onPreviewPosition => Stream.empty(); // TODO: Implement position stream from native
+
   // ─── Real-Time Mixing ─────────────────────────────────────────────────────
 
   @override
@@ -295,6 +392,90 @@ class NativeAudioEngine implements IAudioEngineService {
 
     final idPtr = trackId.toNativeUtf8();
     _setSolo(idPtr, isSolo ? 1 : 0);
+    calloc.free(idPtr);
+  }
+
+  // ─── Parametric EQ ────────────────────────────────────────────────────────
+
+  @override
+  void setTrackEq({
+    required String trackId,
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  }) {
+    // Lazy lookup: resolve the symbol only on first call.
+    if (!_eqLookupAttempted) {
+      _eqLookupAttempted = true;
+      try {
+        _setTrackEq = _lib
+            .lookup<NativeFunction<_SetTrackEqNative>>('engine_set_track_eq')
+            .asFunction<_SetTrackEqDart>();
+      } catch (_) {
+        // Symbol not available in the native library yet — EQ will be a no-op.
+        // ignore: avoid_print
+        print(
+          '[NativeAudioEngine] engine_set_track_eq not found — EQ disabled.',
+        );
+      }
+    }
+
+    final fn = _setTrackEq;
+    if (fn == null) return; // Native EQ not available yet.
+
+    final idPtr = trackId.toNativeUtf8();
+    fn(idPtr, bandIndex, frequency, gain, q);
+    calloc.free(idPtr);
+  }
+
+  // Helper for Master EQ (since interface doesn't strictly have it yet,
+  // but SetlistConfigStore likely calls a method that should end up here.
+  // Wait, IAudioEngineService interface doesn't have setMasterEq?
+  // Checking setlist_config_store.dart... it loops and does nothing currently.
+  // We need to implement abstract method if exists or just add it.
+  // The interface IAudioEngineService typically has setMasterEq?
+  // Let's check IAudioEngineService.dart to be sure.
+  // I will just add the method here and assume interface has it or I will add it to interface next.
+
+  @override
+  void setMasterEq({
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  }) {
+    if (_setMasterEq == null) return;
+    _setMasterEq!(bandIndex, frequency, gain, q);
+  }
+
+  @override
+  void setMasterVolume(double volume) {
+    if (_setMasterVolume == null) return;
+    _setMasterVolume!(volume);
+  }
+
+  @override
+  void clearAllTracks() {
+    if (_clearAllTracks == null) return;
+    _clearAllTracks!();
+  }
+
+  // ─── Time & Pitch ──────────────────────────────────────────────────────────
+
+  @override
+  void setTrackTempo(String trackId, double factor) {
+    if (_setTrackTempo == null) return;
+    final idPtr = trackId.toNativeUtf8();
+    _setTrackTempo!(idPtr, factor);
+    calloc.free(idPtr);
+  }
+
+  @override
+  void setTrackPitch(String trackId, int semitones) {
+    if (_setTrackPitch == null) return;
+    final idPtr = trackId.toNativeUtf8();
+    _setTrackPitch!(idPtr, semitones);
     calloc.free(idPtr);
   }
 

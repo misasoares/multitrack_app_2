@@ -26,11 +26,23 @@ abstract class IAudioEngineService {
   /// this should release the previous buffers before loading new ones.
   Future<void> loadPreview(List<Track> tracks);
 
+  /// Clears all tracks from the audio engine.
+  /// This is used to reset the engine state before loading a new set of tracks.
+  void clearAllTracks();
+
+  /// Starts playing the loaded preview from the current position.
+
   /// Starts playing the loaded preview from the current position.
   void playPreview();
 
   /// Pauses the preview playback without releasing the loaded buffers.
   void pausePreview();
+
+  /// Stream of current playback position for the preview.
+  ///
+  /// This should emit regular updates (e.g., every 16ms or 30ms)
+  /// while the preview is playing.
+  Stream<Duration> get onPreviewPosition;
 
   // ─── Real-Time Mixing ─────────────────────────────────────────────
 
@@ -66,6 +78,56 @@ abstract class IAudioEngineService {
   /// The engine must internally manage the solo group logic:
   /// if any track has solo enabled, all non-soloed tracks are silenced.
   void setTrackSolo(String trackId, bool isSolo);
+
+  // ─── Parametric EQ ─────────────────────────────────────────────────
+
+  // ─── Parametric EQ ─────────────────────────────────────────────────
+
+  /// Sets a parametric EQ band for a specific track.
+  ///
+  /// [trackId] is the unique identifier for the track.
+  /// [bandIndex] is the band to modify (0 = Low, 1 = Mid, 2 = High).
+  /// [frequency] is the center frequency in Hz.
+  /// [gain] is the gain in dB (typically -24 to +24).
+  /// [q] is the quality factor (bandwidth).
+  void setTrackEq({
+    required String trackId,
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  });
+
+  // ─── Time & Pitch ──────────────────────────────────────────────────
+
+  /// Sets the time-stretch factor for a specific track.
+  ///
+  /// [trackId] is the unique identifier for the track.
+  /// [factor] is the playback rate multiplier.
+  /// 1.0 is normal speed. 0.5 is half speed. 2.0 is double speed.
+  /// This should strictly preserve pitch (Time Stretching).
+  void setTrackTempo(String trackId, double factor);
+
+  /// Sets the pitch shift in semitones for a specific track.
+  ///
+  /// [trackId] is the unique identifier for the track.
+  /// [semitones] is the pitch shift amount (offset).
+  /// 0 is original pitch. +12 is an octave up. -12 is an octave down.
+  /// This should strictly preserve duration (Pitch Shifting).
+  void setTrackPitch(String trackId, int semitones);
+
+  // ─── Master FX ───
+
+  /// Sets the Master Volume (0.0 to 1.0).
+  void setMasterVolume(double volume);
+
+  /// Sets a parametric EQ band for the Master Output.
+  void setMasterEq({
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  });
 
   // ─── Waveform ───────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:just_audio/just_audio.dart';
 import '../../features/player_mixer/domain/entities/track.dart';
 import 'iaudio_engine_service.dart';
@@ -55,6 +56,23 @@ class JustAudioEngine implements IAudioEngineService {
 
     // Apply solo logic after all tracks are loaded
     _applySoloRouting();
+  }
+
+  @override
+  void clearAllTracks() async {
+    await _disposeAllPlayers();
+    _allTrackIds.clear();
+    _soloedTrackIds.clear();
+    _mutedTrackIds.clear();
+  }
+
+  @override
+  Stream<Duration> get onPreviewPosition {
+    if (_players.isEmpty) return Stream.empty();
+    // Return the position of the first player (master)
+    // In a real scenario we'd want a master clock, but just_audio
+    // players drift slightly anyway.
+    return _players.values.first.positionStream;
   }
 
   @override
@@ -164,6 +182,53 @@ class JustAudioEngine implements IAudioEngineService {
         player.setVolume(0.0);
       }
     }
+  }
+
+  @override
+  void setTrackEq({
+    required String trackId,
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  }) {
+    // Parametric EQ is only supported by the native C++ engine.
+    // This is a no-op for the just_audio fallback.
+  }
+
+  @override
+  void setMasterEq({
+    required int bandIndex,
+    required double frequency,
+    required double gain,
+    required double q,
+  }) {
+    // Master EQ is only supported by the native C++ engine.
+  }
+
+  @override
+  void setMasterVolume(double volume) {
+    // Master Volume is only supported by the native C++ engine.
+    // (Or could iterate all players, but that scales poorly).
+  }
+
+  @override
+  void setTrackTempo(String trackId, double factor) {
+    final player = _players[trackId];
+    if (player == null) return;
+    // just_audio's setSpeed changes speed while attempting to preserve pitch.
+    player.setSpeed(factor);
+  }
+
+  @override
+  void setTrackPitch(String trackId, int semitones) {
+    final player = _players[trackId];
+    if (player == null) return;
+
+    // just_audio's setPitch changes pitch while preserving duration.
+    // Convert semitones to pitch factor: 2^(semitones/12)
+    final pitchFactor = pow(2, semitones / 12.0).toDouble();
+    player.setPitch(pitchFactor);
   }
 
   @override

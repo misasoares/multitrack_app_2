@@ -104,7 +104,7 @@ class _TransposeConfigDialogState extends State<TransposeConfigDialog> {
                         Text(
                           'SEMITONES',
                           style: GoogleFonts.jetBrainsMono(
-                            color: AppColors.textMuted,
+                            color: Colors.white.withValues(alpha: 0.1),
                             fontSize: 12,
                           ),
                         ),

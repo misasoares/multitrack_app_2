@@ -102,6 +102,9 @@ struct MixerTrack {
     // but here we include it. Pointer isolates the instance lifecycle.
     soundtouch::SoundTouch* soundTouchProcessor = nullptr;
 
+    float tempoFactor = 1.0f;     // Current stretch factor
+    int pitchSemiTones = 0;       // Current pitch shift
+
     // Helps SoundTouch optimization (e.g. disable AA filter for percussive sounds)
     bool isPercussive = false;
 

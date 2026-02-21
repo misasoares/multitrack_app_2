@@ -31,6 +31,9 @@ abstract class CreateSetlistStoreBase with Store {
   bool isLoading = false;
 
   @observable
+  String? existingId;
+
+  @observable
   String? errorMessage;
 
   @observable
@@ -76,6 +79,14 @@ abstract class CreateSetlistStoreBase with Store {
   }
 
   @action
+  void initFromSetlist(Setlist setlist) {
+    existingId = setlist.id;
+    name = setlist.name;
+    description = setlist.description;
+    selectedItems = ObservableList<SetlistItem>.of(setlist.items);
+  }
+
+  @action
   void addMusic(Music music) {
     // Create a SetlistItem from the selected music
     final item = SetlistItem.fromMusic(music);
@@ -110,7 +121,7 @@ abstract class CreateSetlistStoreBase with Store {
       errorMessage = null;
 
       final setlist = Setlist(
-        id: _uuid.v4(),
+        id: existingId ?? _uuid.v4(),
         name: name,
         description: description,
         items: selectedItems.toList(),

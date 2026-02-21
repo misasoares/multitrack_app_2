@@ -161,8 +161,17 @@ class _SetlistLibraryPageState extends State<SetlistLibraryPage> {
                             return _SetlistGridCard(
                               setlist: item,
                               previewMusics: previewMusics,
-                              onTap: () {
-                                // TODO: Edit/Play
+                              onTap: () async {
+                                final editStore = sl<CreateSetlistStore>();
+                                editStore.initFromSetlist(item);
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        CreateSetlistPage(store: editStore),
+                                  ),
+                                );
+                                _store.loadAllSetlists();
                               },
                               onDelete: () => _store.deleteSetlist(item.id),
                             );
@@ -296,143 +305,146 @@ class _SetlistGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF161616),
-        borderRadius: BorderRadius.circular(2),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    setlist.name.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.spaceGrotesk(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: onDelete,
-                  child: const Icon(
-                    Icons.more_horiz,
-                    color: AppColors.textMuted,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Preview Content
-          Expanded(
-            child: Padding(
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF161616),
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: const Color(0xFF2A2A2A)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Header
+            Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'SET PREVIEW',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: AppColors.textMuted.withValues(alpha: 0.5),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
+                  Expanded(
+                    child: Text(
+                      setlist.name.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.spaceGrotesk(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  if (previewMusics.isEmpty)
-                    Text(
-                      'No tracks added',
-                      style: GoogleFonts.inter(
-                        color: const Color(0xFF444444),
-                        fontSize: 13,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    )
-                  else
-                    ...previewMusics.asMap().entries.map((entry) {
-                      final index = entry.key + 1;
-                      final music = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          children: [
-                            Text(
-                              index.toString().padLeft(2, '0'),
-                              style: GoogleFonts.jetBrainsMono(
-                                color: AppColors.primary,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                music.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  color: const Color(0xFFCCCCCC),
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
+                  GestureDetector(
+                    onTap: onDelete,
+                    child: const Icon(
+                      Icons.more_horiz,
+                      color: AppColors.textMuted,
+                      size: 20,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
 
-          // Footer
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF121212),
-              border: Border(top: BorderSide(color: Color(0xFF222222))),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.format_list_numbered,
-                  size: 14,
-                  color: AppColors.textMuted,
+            // Preview Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SET PREVIEW',
+                      style: GoogleFonts.jetBrainsMono(
+                        color: AppColors.textMuted.withValues(alpha: 0.5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (previewMusics.isEmpty)
+                      Text(
+                        'No tracks added',
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFF444444),
+                          fontSize: 13,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    else
+                      ...previewMusics.asMap().entries.map((entry) {
+                        final index = entry.key + 1;
+                        final music = entry.value;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Text(
+                                index.toString().padLeft(2, '0'),
+                                style: GoogleFonts.jetBrainsMono(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  music.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    color: const Color(0xFFCCCCCC),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  '${setlist.items.length} TRACKS',
-                  style: GoogleFonts.jetBrainsMono(
+              ),
+            ),
+
+            // Footer
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                color: Color(0xFF121212),
+                border: Border(top: BorderSide(color: Color(0xFF222222))),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.format_list_numbered,
+                    size: 14,
                     color: AppColors.textMuted,
-                    fontSize: 11,
                   ),
-                ),
-                const Spacer(),
-                // Placeholder for total duration calculation if available
-                Icon(
-                  Icons.timer_outlined,
-                  size: 14,
-                  color: AppColors.textMuted,
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    '${setlist.items.length} TRACKS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Placeholder for total duration calculation if available
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 14,
+                    color: AppColors.textMuted,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

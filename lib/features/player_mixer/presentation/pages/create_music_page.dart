@@ -28,6 +28,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   // Text Controllers
   late TextEditingController _titleController;
   late TextEditingController _artistController;
+  late TextEditingController _bpmController;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     // Initialize controllers with store data (for edit mode)
     _titleController = TextEditingController(text: widget.store.title);
     _artistController = TextEditingController(text: widget.store.artist);
+    _bpmController = TextEditingController(text: widget.store.bpm);
 
     // Listen for save success
     _saveReaction = reaction((_) => widget.store.saveSuccess, (success) {
@@ -59,6 +61,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
     widget.store.pausePreview(); // Stop playback when leaving
     _titleController.dispose();
     _artistController.dispose();
+    _bpmController.dispose();
     _saveReaction?.call();
     super.dispose();
   }
@@ -174,6 +177,15 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
               _artistController,
               (v) => widget.store.setArtist(v),
             ),
+            const SizedBox(height: 16),
+            _buildInputField('TEMPO (BPM)', _bpmController, (v) {
+              final val = int.tryParse(v);
+              if (val != null) {
+                widget.store.setManualBpm(val);
+              } else {
+                widget.store.setBpm(v);
+              }
+            }, keyboardType: TextInputType.number),
             const SizedBox(height: 24),
             _buildBpmAndTimeSig(),
           ],
@@ -242,8 +254,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   Widget _buildInputField(
     String label,
     TextEditingController controller,
-    Function(String) onChanged,
-  ) {
+    Function(String) onChanged, {
+    TextInputType? keyboardType,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -257,6 +270,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
         TextField(
           controller: controller,
           onChanged: onChanged,
+          keyboardType: keyboardType,
           style: AppTextStyles.bodyPrimary.copyWith(
             fontFamily: 'JetBrains Mono',
           ),

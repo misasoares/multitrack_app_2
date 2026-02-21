@@ -56,6 +56,14 @@ int32_t engine_get_waveform_peaks(const char* trackId,
                                    float* outPeaks,
                                    int32_t numBins);
 
+// ── EQ ──
+/// Set parametric EQ parameters for a single band on a track.
+void engine_set_track_eq(const char* trackId,
+                         int32_t bandIndex,
+                         float frequency,
+                         float gainDb,
+                         float q);
+
 #ifdef __cplusplus
 }
 #endif

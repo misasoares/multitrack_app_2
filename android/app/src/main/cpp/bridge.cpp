@@ -101,6 +101,12 @@ extern "C" void engine_remove_track(const char* trackId) {
 
 extern "C" void engine_remove_all_tracks() {
     if (!gMixer) return;
+    if (!gMixer) return;
+    gMixer->removeAllTracks();
+}
+
+extern "C" void engine_clear_all_tracks() {
+    if (!gMixer) return;
     gMixer->removeAllTracks();
 }
 
@@ -146,6 +152,16 @@ extern "C" void engine_set_solo(const char* trackId, int32_t isSolo) {
     gMixer->setSolo(std::string(trackId), isSolo != 0);
 }
 
+extern "C" void engine_set_track_tempo(const char* trackId, float tempo) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackTempo(std::string(trackId), tempo);
+}
+
+extern "C" void engine_set_track_pitch(const char* trackId, int semitones) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackPitch(std::string(trackId), semitones);
+}
+
 // ─── DSP ─────────────────────────────────────────────────────────────────────
 
 extern "C" int32_t engine_process(float* outputL, float* outputR,
@@ -168,4 +184,35 @@ extern "C" int32_t engine_get_waveform_peaks(const char* trackId,
                                               int32_t numBins) {
     if (!gMixer || !trackId || !outPeaks || numBins <= 0) return 0;
     return gMixer->getWaveformPeaks(std::string(trackId), outPeaks, numBins);
+}
+
+// ─── EQ ──────────────────────────────────────────────────────────────────────
+
+extern "C" void engine_set_track_eq(const char* trackId,
+                                     int32_t bandIndex,
+                                     float frequency,
+                                     float gainDb,
+                                     float q) {
+    LOGD("## Set EQ Track: %s, Band: %d, Freq: %.1f, Gain: %.2f, Q: %.2f",
+         trackId ? trackId : "(null)", bandIndex, frequency, gainDb, q);
+
+    if (!gMixer || !trackId) {
+        LOGE("## Set EQ FAILED — gMixer=%p, trackId=%s",
+             (void*)gMixer, trackId ? trackId : "(null)");
+        return;
+    }
+    gMixer->setTrackEq(std::string(trackId), bandIndex, frequency, gainDb, q);
+}
+
+extern "C" void engine_set_master_eq(int32_t bandIndex,
+                                     float frequency,
+                                     float gainDb,
+                                     float q) {
+    if (!gMixer) return;
+    gMixer->setMasterEq(bandIndex, frequency, gainDb, q);
+}
+
+extern "C" void engine_set_master_volume(float volume) {
+    if (!gMixer) return;
+    gMixer->setMasterVolume(volume);
 }

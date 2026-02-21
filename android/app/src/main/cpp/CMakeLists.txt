@@ -41,6 +41,7 @@ target_compile_options(audio_engine PRIVATE
     -Wall
     -Wextra
     -Wno-unused-parameter
+    -DSOUNDTOUCH_DISABLE_X86_OPTIMIZATIONS
 )
 
 # ── Link dependencies ──
@@ -48,3 +49,28 @@ target_link_libraries(audio_engine PRIVATE
     oboe
     log
 )
+
+# ── SoundTouch Support ──
+# We explicitly list generic sources to avoid architecture-specific issues (MMX/SSE) on ARM.
+target_sources(audio_engine PRIVATE
+    soundtouch/source/AAFilter.cpp
+    soundtouch/source/BPMDetect.cpp
+    soundtouch/source/FIFOSampleBuffer.cpp
+    soundtouch/source/FIRFilter.cpp
+    soundtouch/source/InterpolateCubic.cpp
+    soundtouch/source/InterpolateLinear.cpp
+    soundtouch/source/InterpolateShannon.cpp
+    soundtouch/source/PeakFinder.cpp
+    soundtouch/source/RateTransposer.cpp
+    soundtouch/source/SoundTouch.cpp
+    soundtouch/source/TDStretch.cpp
+    soundtouch/source/cpu_detect_stub.cpp
+)
+
+target_include_directories(audio_engine PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/soundtouch/include
+)
+
+# Add ST_NO_EXCEPTION_HANDLING to avoid try-catch overhead if desired,
+# but default is usually fine.
+

@@ -9,6 +9,7 @@ import 'eq/eq_interactive_dialog.dart';
 import 'preview_timeline.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../../core/audio_engine/audio_dsp_service.dart';
+import '../../../../../core/audio_engine/iaudio_engine_service.dart';
 
 class SetlistSongConfigTile extends StatelessWidget {
   final SetlistItem item;
@@ -75,15 +76,22 @@ class SetlistSongConfigTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      item.originalMusic.title.toUpperCase(),
-                      style: GoogleFonts.spaceGrotesk(
-                        color: isPlaying
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.9),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.originalMusic.title.toUpperCase(),
+                          style: GoogleFonts.spaceGrotesk(
+                            color: isPlaying
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.9),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        _buildPreloadStatusBadge(),
+                      ],
                     ),
                   ),
                   Column(
@@ -227,27 +235,9 @@ class SetlistSongConfigTile extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // Preview Timeline
+              // Preview Timeline / Interaction Logic
               if (isLoadingPreview)
-                Container(
-                  height: 48, // Match button height
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F0F0F),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: const Color(0xFF333333)),
-                  ),
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
-                      ),
-                    ),
-                  ),
-                )
+                _buildLoadingState('CARREGANDO DA DISCO...')
               else if (isPlaying)
                 PreviewTimeline(
                   totalDuration: item.originalMusic.duration,
@@ -256,17 +246,76 @@ class SetlistSongConfigTile extends StatelessWidget {
                   onSeek: onSeek,
                   isPlaying: isPlaying,
                 )
-              else
-                _buildActionButton(
-                  context,
-                  icon: Icons.play_circle_outline,
-                  label: 'PREVIEW SONG',
-                  onTap: onPreviewToggle,
+              else ...[
+                Builder(
+                  builder: (context) {
+                    final isReady = store.isItemReady(item.id);
+                    final isPreloading = store.isItemLoading(item.id);
+
+                    if (isReady) {
+                      return _buildActionButton(
+                        context,
+                        icon: Icons.play_circle_outline,
+                        label: 'PREVIEW SONG',
+                        onTap: onPreviewToggle,
+                      );
+                    } else if (isPreloading) {
+                      return _buildActionButton(
+                        context,
+                        icon: null,
+                        showSpinner: true,
+                        label: 'CARREGANDO...',
+                        onTap: null, // Disabled
+                      );
+                    } else {
+                      return _buildActionButton(
+                        context,
+                        icon: Icons.access_time,
+                        label: 'NA FILA',
+                        onTap: null, // Disabled
+                      );
+                    }
+                  },
                 ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildLoadingState(String label) {
+    return Container(
+      height: 48,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0F0F),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF333333)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: GoogleFonts.jetBrainsMono(
+              color: AppColors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -309,9 +358,10 @@ class SetlistSongConfigTile extends StatelessWidget {
 
   Widget _buildActionButton(
     BuildContext context, {
-    required IconData icon,
+    IconData? icon,
+    bool showSpinner = false,
     required String label,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
     return InkWell(
       onTap: onTap,
@@ -326,12 +376,26 @@ class SetlistSongConfigTile extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppColors.textMuted, size: 16),
-            const SizedBox(width: 8),
+            if (showSpinner) ...[
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ] else if (icon != null) ...[
+              Icon(icon, color: AppColors.textMuted, size: 16),
+              const SizedBox(width: 8),
+            ],
             Text(
               label,
               style: GoogleFonts.jetBrainsMono(
-                color: AppColors.textMuted,
+                color: onTap == null
+                    ? AppColors.textMuted.withValues(alpha: 0.5)
+                    : AppColors.textMuted,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -342,7 +406,59 @@ class SetlistSongConfigTile extends StatelessWidget {
     );
   }
 
+  Widget _buildPreloadStatusBadge() {
+    // Get status for all tracks in this item
+    final statuses = item.originalMusic.tracks
+        .map((t) => store.preloadingStatuses[t.id] ?? PreloadStatus.none)
+        .toList();
+
+    if (statuses.isEmpty) return const SizedBox.shrink();
+
+    final isAllReady = statuses.every((s) => s == PreloadStatus.ready);
+    final isAnyLoading = statuses.any((s) => s == PreloadStatus.loading);
+    final isAnyFailed = statuses.any((s) => s == PreloadStatus.failed);
+
+    String text;
+    Color color;
+    IconData icon;
+
+    if (isAllReady) {
+      text = 'PRONTO (MEMÓRIA)';
+      color = Colors.greenAccent.withValues(alpha: 0.8);
+      icon = Icons.memory;
+    } else if (isAnyLoading) {
+      text = 'CARREGANDO...';
+      color = AppColors.primary;
+      icon = Icons.downloading;
+    } else if (isAnyFailed) {
+      text = 'ERRO AO CARREGAR';
+      color = Colors.redAccent;
+      icon = Icons.error_outline;
+    } else {
+      text = 'NA FILA';
+      color = AppColors.textMuted;
+      icon = Icons.access_time;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 10, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: GoogleFonts.jetBrainsMono(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
   String _formatDb(double volume) {
+    // ...
     if (volume == 0) return '-∞';
     // Rough approx for display: 1.0 = 0dB.
     // Let's just show relative value for now or standard log conversion

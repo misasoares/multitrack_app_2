@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:mobx/mobx.dart';
 import '../../domain/entities/setlist.dart';
 import '../../domain/entities/setlist_item.dart';
@@ -10,8 +11,11 @@ class SetlistConfigStore = SetlistConfigStoreBase with _$SetlistConfigStore;
 
 abstract class SetlistConfigStoreBase with Store {
   final IAudioEngineService _audioEngine;
+  Timer? _statusTimer;
 
-  SetlistConfigStoreBase(this._audioEngine);
+  SetlistConfigStoreBase(this._audioEngine) {
+    _startStatusTimer();
+  }
 
   @observable
   Setlist? currentSetlist;
@@ -21,6 +25,10 @@ abstract class SetlistConfigStoreBase with Store {
 
   @observable
   bool isPlaying = false;
+
+  /// Map of trackId -> status for UI feedback
+  @observable
+  ObservableMap<String, PreloadStatus> preloadingStatuses = ObservableMap();
 
   Stream<Duration> get previewPosition => _audioEngine.onPreviewPosition;
 
@@ -61,6 +69,30 @@ abstract class SetlistConfigStoreBase with Store {
       if (playingItemId == itemId) {
         _applyMastering(updatedItem);
       }
+    }
+  }
+
+  bool isItemReady(String itemId) {
+    if (currentSetlist == null) return false;
+    try {
+      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
+      return item.originalMusic.tracks.every(
+        (t) => preloadingStatuses[t.id] == PreloadStatus.ready,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool isItemLoading(String itemId) {
+    if (currentSetlist == null) return false;
+    try {
+      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
+      return item.originalMusic.tracks.any(
+        (t) => preloadingStatuses[t.id] == PreloadStatus.loading,
+      );
+    } catch (_) {
+      return false;
     }
   }
 
@@ -225,6 +257,70 @@ abstract class SetlistConfigStoreBase with Store {
     }
   }
 
+  void _startStatusTimer() {
+    _statusTimer?.cancel();
+    _statusTimer = Timer.periodic(const Duration(milliseconds: 200), (_) {
+      _updatePreloadStatuses();
+    });
+  }
+
+  @action
+  void _updatePreloadStatuses() {
+    if (currentSetlist == null) return;
+
+    // Check status of everything in the preloadingStatuses map
+    for (final trackId in preloadingStatuses.keys.toList()) {
+      final status = _audioEngine.getPreloadStatus(trackId);
+      final currentStatus = preloadingStatuses[trackId];
+      if (currentStatus != status) {
+        preloadingStatuses[trackId] = status;
+
+        // If a track finished loading (READY or FAILED), or was evicted (became NONE),
+        // check if we can queue another
+        if (status == PreloadStatus.ready ||
+            status == PreloadStatus.failed ||
+            (currentStatus == PreloadStatus.ready &&
+                status == PreloadStatus.none)) {
+          queuePreloading();
+        }
+      }
+    }
+  }
+
+  @action
+  void queuePreloading() {
+    if (currentSetlist == null) return;
+
+    // 1. Count how many are currently LOADING
+    final loadingCount = preloadingStatuses.values
+        .where((s) => s == PreloadStatus.loading)
+        .length;
+
+    if (loadingCount >= 3) return; // Already at limit
+
+    // 2. Find tracks that are NONE or haven't been queued yet
+    final allTracks = currentSetlist!.items
+        .expand((item) => item.originalMusic.tracks)
+        .toList();
+
+    for (final track in allTracks) {
+      final status = preloadingStatuses[track.id] ?? PreloadStatus.none;
+      if (status == PreloadStatus.none) {
+        // Start preloading this one
+        preloadingStatuses[track.id] = PreloadStatus.loading;
+        _audioEngine.preloadTrack(track.id, track.filePath);
+
+        // If we hit the concurrency limit, stop for now
+        final currentLoading = preloadingStatuses.values
+            .where((s) => s == PreloadStatus.loading)
+            .length;
+        if (currentLoading >= 3) {
+          break;
+        }
+      }
+    }
+  }
+
   void _applyMastering(SetlistItem item) {
     for (final track in item.originalMusic.tracks) {
       _audioEngine.setTrackTempo(track.id, item.tempoFactor);
@@ -253,10 +349,12 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   void dispose() {
+    _statusTimer?.cancel();
     _audioEngine.clearAllTracks();
     _audioEngine.pause();
     isPlaying = false;
     currentSetlist = null;
     playingItemId = null;
+    preloadingStatuses.clear();
   }
 }

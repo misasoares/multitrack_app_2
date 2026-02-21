@@ -283,6 +283,42 @@ class NativeAudioEngine implements IAudioEngineService {
     );
   }
 
+  late final _preloadFile = _lib
+      .lookupFunction<
+        Void Function(Pointer<Utf8>, Pointer<Utf8>),
+        void Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('engine_preload_file');
+
+  late final _getPreloadStatus = _lib
+      .lookupFunction<
+        Int32 Function(Pointer<Utf8>),
+        int Function(Pointer<Utf8>)
+      >('engine_get_preload_status');
+
+  @override
+  void preloadTrack(String trackId, String filePath) {
+    final trackIdPointer = trackId.toNativeUtf8();
+    final filePathPointer = filePath.toNativeUtf8();
+    try {
+      _preloadFile(trackIdPointer, filePathPointer);
+    } finally {
+      calloc.free(trackIdPointer);
+      calloc.free(filePathPointer);
+    }
+  }
+
+  @override
+  PreloadStatus getPreloadStatus(String trackId) {
+    final trackIdPointer = trackId.toNativeUtf8();
+    try {
+      final statusInt = _getPreloadStatus(trackIdPointer);
+      // Map C++ PreloadStatus enum to Dart PreloadStatus
+      return PreloadStatus.values[statusInt];
+    } finally {
+      calloc.free(trackIdPointer);
+    }
+  }
+
   // ─── Playback ──────────────────────────────────────────────────────────────
 
   @override

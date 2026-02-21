@@ -9,7 +9,6 @@ import 'eq/eq_interactive_dialog.dart';
 import 'preview_timeline.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../../core/audio_engine/audio_dsp_service.dart';
-import '../../../../../core/audio_engine/iaudio_engine_service.dart';
 
 class SetlistSongConfigTile extends StatelessWidget {
   final SetlistItem item;
@@ -90,7 +89,6 @@ class SetlistSongConfigTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        _buildPreloadStatusBadge(),
                       ],
                     ),
                   ),
@@ -246,38 +244,13 @@ class SetlistSongConfigTile extends StatelessWidget {
                   onSeek: onSeek,
                   isPlaying: isPlaying,
                 )
-              else ...[
-                Builder(
-                  builder: (context) {
-                    final isReady = store.isItemReady(item.id);
-                    final isPreloading = store.isItemLoading(item.id);
-
-                    if (isReady) {
-                      return _buildActionButton(
-                        context,
-                        icon: Icons.play_circle_outline,
-                        label: 'PREVIEW SONG',
-                        onTap: onPreviewToggle,
-                      );
-                    } else if (isPreloading) {
-                      return _buildActionButton(
-                        context,
-                        icon: null,
-                        showSpinner: true,
-                        label: 'CARREGANDO...',
-                        onTap: null, // Disabled
-                      );
-                    } else {
-                      return _buildActionButton(
-                        context,
-                        icon: Icons.access_time,
-                        label: 'NA FILA',
-                        onTap: null, // Disabled
-                      );
-                    }
-                  },
+              else
+                _buildActionButton(
+                  context,
+                  icon: Icons.play_circle_outline,
+                  label: 'PREVIEW SONG',
+                  onTap: onPreviewToggle,
                 ),
-              ],
             ],
           ),
         );
@@ -403,57 +376,6 @@ class SetlistSongConfigTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPreloadStatusBadge() {
-    // Get status for all tracks in this item
-    final statuses = item.originalMusic.tracks
-        .map((t) => store.preloadingStatuses[t.id] ?? PreloadStatus.none)
-        .toList();
-
-    if (statuses.isEmpty) return const SizedBox.shrink();
-
-    final isAllReady = statuses.every((s) => s == PreloadStatus.ready);
-    final isAnyLoading = statuses.any((s) => s == PreloadStatus.loading);
-    final isAnyFailed = statuses.any((s) => s == PreloadStatus.failed);
-
-    String text;
-    Color color;
-    IconData icon;
-
-    if (isAllReady) {
-      text = 'PRONTO (MEMÓRIA)';
-      color = Colors.greenAccent.withValues(alpha: 0.8);
-      icon = Icons.memory;
-    } else if (isAnyLoading) {
-      text = 'CARREGANDO...';
-      color = AppColors.primary;
-      icon = Icons.downloading;
-    } else if (isAnyFailed) {
-      text = 'ERRO AO CARREGAR';
-      color = Colors.redAccent;
-      icon = Icons.error_outline;
-    } else {
-      text = 'NA FILA';
-      color = AppColors.textMuted;
-      icon = Icons.access_time;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 10, color: color),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: GoogleFonts.jetBrainsMono(
-            color: color,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 

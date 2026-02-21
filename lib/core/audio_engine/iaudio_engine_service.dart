@@ -1,20 +1,6 @@
 import '../../features/player_mixer/domain/entities/track.dart';
 
-/// Status of a track being preloaded in the native engine.
-enum PreloadStatus { none, loading, ready, failed }
-
-/// Contract for the native audio engine bridge.
 abstract class IAudioEngineService {
-  // ─── Preloading ───────────────────────────────────────────────────
-
-  /// Initiates asynchronous background preloading for a track.
-  ///
-  /// This should return immediately and handle decoding in a background thread.
-  void preloadTrack(String trackId, String filePath);
-
-  /// Returns the current preloading status for a track.
-  PreloadStatus getPreloadStatus(String trackId);
-
   // ─── Playback ──────────────────────────────────────────────────────
 
   /// Plays the current audio from the last seek position.

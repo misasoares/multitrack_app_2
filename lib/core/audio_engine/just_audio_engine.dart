@@ -20,17 +20,6 @@ class JustAudioEngine implements IAudioEngineService {
   final Set<String> _mutedTrackIds = {};
 
   @override
-  void preloadTrack(String trackId, String filePath) {
-    // just_audio doesn't support background pre-decoding in the same way.
-    // We'll just ignore it or load on demand.
-  }
-
-  @override
-  PreloadStatus getPreloadStatus(String trackId) {
-    return PreloadStatus.none;
-  }
-
-  @override
   Future<void> loadPreview(List<Track> tracks) async {
     // Dispose any existing players
     await _disposeAllPlayers();

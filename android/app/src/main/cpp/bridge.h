@@ -48,6 +48,8 @@ int32_t engine_process(float* outputL, float* outputR, int32_t numFrames);
 
 // ── State ──
 int32_t engine_is_playing();
+int64_t engine_get_position();
+int32_t engine_get_sample_rate();
 
 // ── Waveform ──
 /// Fills `outPeaks` with downsampled peak amplitudes for a loaded track.

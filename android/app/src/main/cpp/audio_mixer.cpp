@@ -58,8 +58,7 @@ AudioMixer::AudioMixer() = default;
 AudioMixer::~AudioMixer() { dispose(); }
 
 void AudioMixer::init(int32_t sampleRate) {
-    __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### AudioMixer::init() - sampleRate: %d", sampleRate);
-    std::lock_guard<std::mutex> lock(mutex_);
+       std::lock_guard<std::mutex> lock(mutex_);
     sampleRate_ = sampleRate > 0 ? sampleRate : kDefaultSampleRate;
     gainSmoothSamples_ =
         static_cast<int32_t>(kGainSmoothingSeconds * static_cast<float>(sampleRate_));
@@ -77,8 +76,7 @@ void AudioMixer::init(int32_t sampleRate) {
 }
 
 void AudioMixer::setSampleRate(int32_t sampleRate) {
-    __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### AudioMixer::setSampleRate() - sampleRate: %d", sampleRate);
-    std::lock_guard<std::mutex> lock(mutex_);
+      std::lock_guard<std::mutex> lock(mutex_);
     if (sampleRate <= 0 || sampleRate == sampleRate_) return;
 
     sampleRate_ = sampleRate;
@@ -169,19 +167,13 @@ void AudioMixer::removeTrack(const std::string& id) {
 }
 
 void AudioMixer::removeAllTracks() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (auto& [id, track] : tracks_) {
-        delete track.soundTouchProcessor;
-        track.soundTouchProcessor = nullptr;
-    }
-    tracks_.clear();
-    hasSoloedTracks_ = false;
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    commandQueue_.push({EngineCommand::CLEAR_TRACKS, "", 0.0f, 0});
 }
 
 // ─── Transport ───────────────────────────────────────────────────────────────
 
 void AudioMixer::play() {
-    __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### AudioMixer::play() - tracks count: %zu", tracks_.size());
     std::lock_guard<std::mutex> lock(mutex_);
     isPlaying_ = true;
 }
@@ -320,44 +312,73 @@ void AudioMixer::setMasterVolume(float volume) {
 // I will implement them here and I MUST update header.
 
 void AudioMixer::setTrackTempo(const std::string& id, float tempo) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = tracks_.find(id);
-    if (it == tracks_.end()) return;
-    if (it->second.soundTouchProcessor) {
-        it->second.soundTouchProcessor->setTempo(tempo);
-    }
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    commandQueue_.push({EngineCommand::SET_TEMPO, id, tempo, 0});
 }
 
 void AudioMixer::setTrackPitch(const std::string& id, int semitones) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = tracks_.find(id);
-    if (it == tracks_.end()) return;
-    if (it->second.soundTouchProcessor) {
-        it->second.soundTouchProcessor->setPitchSemiTones(semitones);
-    }
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    commandQueue_.push({EngineCommand::SET_PITCH, id, 0.0f, semitones});
 }
 
 // ─── DSP — Core Mix Loop ────────────────────────────────────────────────────
 
 int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     static int log_counter = 0;
+    
+    // ─── Process Command Queue (Lock-Free from Audio Thread perspective) ───
+    std::queue<CommandMessage> localQueue;
+    {
+        std::lock_guard<std::mutex> qLock(queueMutex_);
+        std::swap(localQueue, commandQueue_);
+    }
+
     std::lock_guard<std::mutex> lock(mutex_);
+
+    // Execute all pending commands
+    while (!localQueue.empty()) {
+        auto cmd = localQueue.front();
+        localQueue.pop();
+
+        switch (cmd.type) {
+            case EngineCommand::CLEAR_TRACKS:
+                for (auto& [id, track] : tracks_) {
+                    delete track.soundTouchProcessor;
+                    track.soundTouchProcessor = nullptr;
+                }
+                tracks_.clear();
+                hasSoloedTracks_ = false;
+                break;
+
+            case EngineCommand::SET_TEMPO: {
+                auto it = tracks_.find(cmd.trackId);
+                if (it != tracks_.end() && it->second.soundTouchProcessor) {
+                    it->second.soundTouchProcessor->setTempo(cmd.floatParam);
+                }
+                break;
+            }
+
+            case EngineCommand::SET_PITCH: {
+                auto it = tracks_.find(cmd.trackId);
+                if (it != tracks_.end() && it->second.soundTouchProcessor) {
+                    it->second.soundTouchProcessor->setPitchSemiTones(cmd.intParam);
+                }
+                break;
+            }
+        }
+    }
 
     // Zero output buffers
     std::memset(outputL, 0, sizeof(float) * numFrames);
     std::memset(outputR, 0, sizeof(float) * numFrames);
 
-    if (log_counter++ % 100 == 0) {
-        __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### process() - playing: %d, tracks.size: %zu", isPlaying_, tracks_.size());
-    }
+
 
     if (!isPlaying_ || tracks_.empty()) return numFrames;
 
     for (auto& [id, track] : tracks_) {
         if (!isTrackAudible(track)) {
-            if (log_counter % 100 == 0) {
-                __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### track %s is NOT audible (muted or solo missing)", id.c_str());
-            }
+           
             continue;
         }
 
@@ -425,10 +446,6 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             }
         }
         
-        if (log_counter % 100 == 0) {
-            __android_log_print(ANDROID_LOG_DEBUG, "AudioMixer", "### track %s : playhead %lld/%lld, samplesReceived %d, currentGain=%f", 
-                                id.c_str(), (long long)track.playheadFrame, (long long)track.numFrames, samplesReceived, track.currentGain);
-        }
 
         // MIXING LOOP
         for (int32_t i = 0; i < samplesReceived; ++i) {
@@ -518,6 +535,13 @@ bool AudioMixer::isTrackAudible(const MixerTrack& track) const {
     if (track.isMuted) return false;
     if (hasSoloedTracks_ && !track.isSolo) return false;
     return true;
+}
+
+int64_t AudioMixer::getPlaybackPosition() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (tracks_.empty()) return 0;
+    // Return the playhead of the first track as the master clock
+    return tracks_.begin()->second.playheadFrame;
 }
 
 // ─── Waveform Peak Extraction ────────────────────────────────────────────────

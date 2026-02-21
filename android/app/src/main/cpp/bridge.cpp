@@ -177,6 +177,16 @@ extern "C" int32_t engine_is_playing() {
     return gMixer->isPlaying() ? 1 : 0;
 }
 
+extern "C" int64_t engine_get_position() {
+    if (!gMixer) return 0;
+    return gMixer->getPlaybackPosition();
+}
+
+extern "C" int32_t engine_get_sample_rate() {
+    if (!gMixer) return 44100; // Safe default
+    return gMixer->getSampleRate();
+}
+
 // ─── Waveform ────────────────────────────────────────────────────────────────
 
 extern "C" int32_t engine_get_waveform_peaks(const char* trackId,

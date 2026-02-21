@@ -93,11 +93,6 @@ oboe::DataCallbackResult OboePlayer::onAudioReady(
         output[i * 2 + 1] = tempR_[i];
     }
 
-    static int oboe_log_counter = 0;
-    if (oboe_log_counter++ % 100 == 0) {
-        __android_log_print(ANDROID_LOG_DEBUG, "OboePlayer", "### onAudioReady %d frames [0]=%f", numFrames, output[0]);
-    }
-
     return oboe::DataCallbackResult::Continue;
 }
 

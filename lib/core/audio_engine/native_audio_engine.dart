@@ -99,6 +99,12 @@ typedef _SetMasterVolumeDart = void Function(double volume);
 typedef _ClearAllTracksNative = Void Function();
 typedef _ClearAllTracksDart = void Function();
 
+typedef _GetPositionNative = Int64 Function();
+typedef _GetPositionDart = int Function();
+
+typedef _GetSampleRateNative = Int32 Function();
+typedef _GetSampleRateDart = int Function();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +142,8 @@ class NativeAudioEngine implements IAudioEngineService {
   _SetMasterEqDart? _setMasterEq;
   _SetMasterVolumeDart? _setMasterVolume;
   _ClearAllTracksDart? _clearAllTracks;
+  late final _GetPositionDart _getPosition;
+  late final _GetSampleRateDart _getSampleRate;
 
   late final DynamicLibrary _lib;
 
@@ -247,6 +255,14 @@ class NativeAudioEngine implements IAudioEngineService {
       print('NativeAudioEngine Warning: specific new symbols not found: $e');
     }
 
+    _getPosition = lib
+        .lookup<NativeFunction<_GetPositionNative>>('engine_get_position')
+        .asFunction<_GetPositionDart>();
+
+    _getSampleRate = lib
+        .lookup<NativeFunction<_GetSampleRateNative>>('engine_get_sample_rate')
+        .asFunction<_GetSampleRateDart>();
+
     // Initialise the native engine + Oboe output stream.
     _engineInit(44100);
   }
@@ -347,7 +363,14 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   @override
-  Stream<Duration> get onPreviewPosition => Stream.empty(); // TODO: Implement position stream from native
+  Stream<Duration> get onPreviewPosition {
+    return Stream.periodic(const Duration(milliseconds: 16), (_) {
+      final frames = _getPosition();
+      final rate = _getSampleRate();
+      if (rate == 0) return Duration.zero;
+      return Duration(microseconds: (frames * 1000000 / rate).round());
+    });
+  }
 
   // ─── Real-Time Mixing ─────────────────────────────────────────────────────
 

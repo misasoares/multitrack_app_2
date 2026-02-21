@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <queue>
 
 // ─── SoundTouch ──────────────────────────────────────────────────────────────
 #include "SoundTouch.h" // Requires target_include_directories to point to soundtouch/include
@@ -108,6 +109,21 @@ struct MixerTrack {
     int64_t playheadFrame = 0;    // Current read position in frames
 };
 
+// ─── Command Queue ───────────────────────────────────────────────────────────
+
+enum class EngineCommand {
+    CLEAR_TRACKS,
+    SET_TEMPO,
+    SET_PITCH
+};
+
+struct CommandMessage {
+    EngineCommand type;
+    std::string trackId;
+    float floatParam = 0.0f;
+    int intParam = 0;
+};
+
 // ─── AudioMixer ──────────────────────────────────────────────────────────────
 
 /// Multi-track audio mixer with gain smoothing and constant-power panning.
@@ -173,9 +189,11 @@ public:
     /// Returns the number of frames actually written (may be less if all
     /// tracks have finished).
     int32_t process(float* outputL, float* outputR, int32_t numFrames);
-
+    
     // ── State queries ──
     bool isPlaying() const { return isPlaying_; }
+    int64_t getPlaybackPosition() const;
+    int32_t getSampleRate() const { return sampleRate_; }
 
     /// Extracts downsampled peak amplitudes from a loaded track's PCM data.
     /// Fills `outPeaks` with `numBins` values in [0.0, 1.0].
@@ -195,6 +213,10 @@ private:
 
     std::unordered_map<std::string, MixerTrack> tracks_;
     mutable std::mutex mutex_;
+
+    // Thread-safe command queue for rapid UI interaction without blocking
+    std::queue<CommandMessage> commandQueue_;
+    mutable std::mutex queueMutex_;
 
     int32_t sampleRate_         = kDefaultSampleRate;
     int32_t gainSmoothSamples_  = 0;   // Computed from rate + constant

@@ -81,6 +81,23 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
     });
   }
 
+  late final _$previewLoadingItemIdAtom = Atom(
+      name: 'SetlistConfigStoreBase.previewLoadingItemId', context: context);
+
+  @override
+  String? get previewLoadingItemId {
+    _$previewLoadingItemIdAtom.reportRead();
+    return super.previewLoadingItemId;
+  }
+
+  @override
+  set previewLoadingItemId(String? value) {
+    _$previewLoadingItemIdAtom.reportWrite(value, super.previewLoadingItemId,
+        () {
+      super.previewLoadingItemId = value;
+    });
+  }
+
   late final _$saveDraftAsyncAction =
       AsyncAction('SetlistConfigStoreBase.saveDraft', context: context);
 
@@ -164,12 +181,24 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
   }
 
   @override
+  void updateItemMasterEq(String itemId, EqBandData updatedBand) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateItemMasterEq');
+    try {
+      return super.updateItemMasterEq(itemId, updatedBand);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentSetlist: ${currentSetlist},
 playingItemId: ${playingItemId},
 isPlaying: ${isPlaying},
 isLoading: ${isLoading},
+previewLoadingItemId: ${previewLoadingItemId},
 totalDuration: ${totalDuration}
     ''';
   }

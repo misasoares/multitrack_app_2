@@ -80,6 +80,15 @@ class MockIAudioEngineService extends _i1.Mock
       ) as _i3.Future<void>);
 
   @override
+  void clearAllTracks() => super.noSuchMethod(
+        Invocation.method(
+          #clearAllTracks,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void playPreview() => super.noSuchMethod(
         Invocation.method(
           #playPreview,
@@ -212,6 +221,36 @@ class MockIAudioEngineService extends _i1.Mock
             trackId,
             semitones,
           ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setMasterVolume(double? volume) => super.noSuchMethod(
+        Invocation.method(
+          #setMasterVolume,
+          [volume],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setMasterEq({
+    required int? bandIndex,
+    required double? frequency,
+    required double? gain,
+    required double? q,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #setMasterEq,
+          [],
+          {
+            #bandIndex: bandIndex,
+            #frequency: frequency,
+            #gain: gain,
+            #q: q,
+          },
         ),
         returnValueForMissingStub: null,
       );

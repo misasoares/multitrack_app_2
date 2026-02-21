@@ -49,6 +49,7 @@ dependencies:
   just_audio: ^0.10.5
   ffi: ^2.2.0
   dotted_border: ^3.1.0
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:

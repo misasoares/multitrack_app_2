@@ -23,7 +23,7 @@ Future<void> init() async {
   sl.registerFactory(() => MusicLibraryStore(sl()));
   sl.registerFactory(() => SetlistLibraryStore(sl()));
   sl.registerFactory(() => CreateSetlistStore(sl(), sl()));
-  sl.registerFactory(() => SetlistConfigStore(sl()));
+  sl.registerFactory(() => SetlistConfigStore(sl(), sl()));
 
   // Repository
   sl.registerLazySingleton<IMusicRepository>(() => IsarMusicRepository(sl()));

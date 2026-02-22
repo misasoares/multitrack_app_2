@@ -232,6 +232,12 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  double getTrackVolumeDb(String trackId) => -60.0;
+
+  @override
+  double getMasterVolumeDb() => -60.0;
+
+  @override
   List<double> getWaveformData(String trackId, int numBins) => [];
 
   @override

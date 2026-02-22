@@ -105,6 +105,12 @@ typedef _GetPositionDart = int Function();
 typedef _GetSampleRateNative = Int32 Function();
 typedef _GetSampleRateDart = int Function();
 
+typedef _GetTrackDbNative = Float Function(Pointer<Utf8> trackId);
+typedef _GetTrackDbDart = double Function(Pointer<Utf8> trackId);
+
+typedef _GetMasterDbNative = Float Function();
+typedef _GetMasterDbDart = double Function();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +150,9 @@ class NativeAudioEngine implements IAudioEngineService {
   _ClearAllTracksDart? _clearAllTracks;
   late final _GetPositionDart _getPosition;
   late final _GetSampleRateDart _getSampleRate;
+
+  late final _GetTrackDbDart _getTrackDb;
+  late final _GetMasterDbDart _getMasterDb;
 
   late final DynamicLibrary _lib;
 
@@ -262,6 +271,14 @@ class NativeAudioEngine implements IAudioEngineService {
     _getSampleRate = lib
         .lookup<NativeFunction<_GetSampleRateNative>>('engine_get_sample_rate')
         .asFunction<_GetSampleRateDart>();
+
+    _getTrackDb = lib
+        .lookup<NativeFunction<_GetTrackDbNative>>('engine_get_track_db')
+        .asFunction<_GetTrackDbDart>();
+
+    _getMasterDb = lib
+        .lookup<NativeFunction<_GetMasterDbNative>>('engine_get_master_db')
+        .asFunction<_GetMasterDbDart>();
 
     // Initialise the native engine + Oboe output stream.
     _engineInit(44100);
@@ -476,6 +493,19 @@ class NativeAudioEngine implements IAudioEngineService {
   void setMasterVolume(double volume) {
     if (_setMasterVolume == null) return;
     _setMasterVolume!(volume);
+  }
+
+  @override
+  double getTrackVolumeDb(String trackId) {
+    final idPtr = trackId.toNativeUtf8();
+    final db = _getTrackDb(idPtr);
+    calloc.free(idPtr);
+    return db;
+  }
+
+  @override
+  double getMasterVolumeDb() {
+    return _getMasterDb();
   }
 
   @override

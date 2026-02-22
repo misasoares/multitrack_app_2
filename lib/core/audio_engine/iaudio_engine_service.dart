@@ -124,6 +124,16 @@ abstract class IAudioEngineService {
     required double q,
   });
 
+  // ─── Metering ──────────────────────────────────────────────────────
+
+  /// Returns the current peak volume in dB for a track.
+  /// Returns a value between -60.0 and 0.0.
+  double getTrackVolumeDb(String trackId);
+
+  /// Returns the current peak volume in dB for the master output.
+  /// Returns a value between -60.0 and 0.0.
+  double getMasterVolumeDb();
+
   // ─── Waveform ───────────────────────────────────────────────────────
 
   /// Returns downsampled peak amplitudes for a loaded track's audio data.

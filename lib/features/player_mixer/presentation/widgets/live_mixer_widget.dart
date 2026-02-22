@@ -1,8 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
 import '../../../../core/audio_engine/mixer_level_controller.dart';
 import '../../domain/entities/track.dart';
+import 'eq/eq_interactive_dialog.dart';
+import '../../../../../core/audio_engine/audio_dsp_service.dart';
+import 'package:get_it/get_it.dart';
 
 /// A full-screen or large dialog widget that provides a real-time audio mixer
 /// with vertical faders and VU meters, styled after the "Amber Stage Commander" design.
@@ -12,6 +16,7 @@ class LiveMixerWidget extends StatefulWidget {
   final IAudioEngineService audioEngine;
   final VoidCallback onReset;
   final VoidCallback onSave;
+  final Function(String trackId, dynamic band)? onTrackEqChanged;
 
   const LiveMixerWidget({
     super.key,
@@ -20,6 +25,7 @@ class LiveMixerWidget extends StatefulWidget {
     required this.audioEngine,
     required this.onReset,
     required this.onSave,
+    this.onTrackEqChanged,
   });
 
   @override
@@ -77,6 +83,7 @@ class _LiveMixerWidgetState extends State<LiveMixerWidget> {
                           track: track,
                           audioEngine: widget.audioEngine,
                           levelController: _levelController,
+                          onEqChanged: widget.onTrackEqChanged,
                         );
                       },
                     ),
@@ -262,12 +269,14 @@ class TrackChannelStrip extends StatelessWidget {
   final Track track;
   final IAudioEngineService audioEngine;
   final MixerLevelController levelController;
+  final Function(String trackId, dynamic band)? onEqChanged;
 
   const TrackChannelStrip({
     super.key,
     required this.track,
     required this.audioEngine,
     required this.levelController,
+    this.onEqChanged,
   });
 
   @override
@@ -338,6 +347,28 @@ class TrackChannelStrip extends StatelessWidget {
           ),
 
           const SizedBox(height: 12),
+
+          // EQ Button
+          _SmallButton(
+            label: 'EQ',
+            isActive: track.eqBands.any((b) => b.gain.abs() > 0.1),
+            activeColor: const Color(0xFFf9ac06),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => EqInteractiveDialog(
+                  trackId: track.id,
+                  dspService: GetIt.I<AudioDspService>(),
+                  initialBands: track.eqBands,
+                  onBandChanged: (band) {
+                    onEqChanged?.call(track.id, band);
+                  },
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(height: 8),
 
           // Mute / Solo
           Row(
@@ -495,7 +526,7 @@ class MasterChannelStrip extends StatelessWidget {
 }
 
 class _Fader extends StatefulWidget {
-  final double initialValue;
+  final double initialValue; // Linear [0.0, 1.0+]
   final bool isMaster;
   final ValueChanged<double> onChanged;
 
@@ -510,12 +541,22 @@ class _Fader extends StatefulWidget {
 }
 
 class _FaderState extends State<_Fader> {
-  late double _value;
+  late double _dbValue;
 
   @override
   void initState() {
     super.initState();
-    _value = widget.initialValue;
+    _dbValue = _linearToDb(widget.initialValue).clamp(-60.0, 15.0);
+  }
+
+  double _linearToDb(double lin) {
+    if (lin <= 0.00001) return -60.0;
+    return 20.0 * (math.log(lin) / math.ln10);
+  }
+
+  double _dbToLinear(double db) {
+    if (db <= -59.9) return 0.0; // Forced absolute silence
+    return math.pow(10.0, db / 20.0).toDouble();
   }
 
   @override
@@ -551,10 +592,12 @@ class _FaderState extends State<_Fader> {
                     overlayColor: Colors.transparent,
                   ),
                   child: Slider(
-                    value: _value,
-                    onChanged: (v) {
-                      setState(() => _value = v);
-                      widget.onChanged(v);
+                    value: _dbValue,
+                    min: -60.0,
+                    max: 15.0,
+                    onChanged: (db) {
+                      setState(() => _dbValue = db);
+                      widget.onChanged(_dbToLinear(db));
                     },
                   ),
                 ),

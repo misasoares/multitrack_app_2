@@ -269,6 +269,17 @@ class SetlistSongConfigTile extends StatelessWidget {
                                   }
                                 },
                                 onSave: () => Navigator.pop(context),
+                                onTrackEqChanged: (trackId, band) {
+                                  // Assuming 'store' is accessible in this scope, similar to how 'item' is.
+                                  // If not, 'store' would need to be passed into this widget.
+                                  // For this change, we'll assume 'store' is available.
+                                  // The 'item' variable holds the current song's data.
+                                  store.updateTrackEq(
+                                    item.originalMusic.id,
+                                    trackId,
+                                    band,
+                                  );
+                                },
                               ),
                             ),
                           ),

@@ -64,11 +64,7 @@ void AudioMixer::init(int32_t sampleRate) {
         static_cast<int32_t>(kGainSmoothingSeconds * static_cast<float>(sampleRate_));
     if (gainSmoothSamples_ < 1) gainSmoothSamples_ = 1;
     
-    // Cleanup existing tracks if any (to avoid leaks on multiple init)
-    for (auto& [id, track] : tracks_) {
-        delete track.soundTouchProcessor;
-        track.soundTouchProcessor = nullptr;
-    }
+    // unique_ptr handles cleanup automatically
     tracks_.clear();
 
     isPlaying_ = false;
@@ -85,10 +81,10 @@ void AudioMixer::setSampleRate(int32_t sampleRate) {
     if (gainSmoothSamples_ < 1) gainSmoothSamples_ = 1;
 
     for (auto& [id, track] : tracks_) {
-        if (track.soundTouchProcessor) {
-            track.soundTouchProcessor->setSampleRate(sampleRate_);
+        if (track->soundTouchProcessor) {
+            track->soundTouchProcessor->setSampleRate(sampleRate_);
         }
-        for (auto& band : track.eqBands) {
+        for (auto& band : track->eqBands) {
             band.computeCoefficients(sampleRate_);
         }
     }
@@ -99,10 +95,7 @@ void AudioMixer::setSampleRate(int32_t sampleRate) {
 
 void AudioMixer::dispose() {
     std::lock_guard<std::mutex> lock(mutex_);
-    for (auto& [id, track] : tracks_) {
-        delete track.soundTouchProcessor;
-        track.soundTouchProcessor = nullptr;
-    }
+    // unique_ptr handles cleanup automatically
     tracks_.clear();
     isPlaying_ = false;
     hasSoloedTracks_ = false;
@@ -116,36 +109,36 @@ void AudioMixer::loadTrack(const std::string& id,
                            int32_t numChannels) {
     std::lock_guard<std::mutex> lock(mutex_);
 
-    MixerTrack track;
-    track.id = id;
-    track.numChannels = numChannels;
-    track.numFrames = numFrames;
+    auto track = std::make_unique<MixerTrack>();
+    track->id = id;
+    track->numChannels = numChannels;
+    track->numFrames = numFrames;
 
     const int64_t totalSamples = numFrames * numChannels;
-    track.pcmData.assign(pcmData, pcmData + totalSamples);
+    track->pcmData.assign(pcmData, pcmData + totalSamples);
 
     // Initialise gain ramp — no ramp needed on load
-    track.currentGain = 1.0f;
-    track.targetGain  = 1.0f;
-    track.gainIncrement = 0.0f;
-    track.gainRampSamplesRemaining = 0;
+    track->currentGain = 1.0f;
+    track->targetGain  = 1.0f;
+    track->gainIncrement = 0.0f;
+    track->gainRampSamplesRemaining = 0;
 
     // Centre pan
-    track.pan = 0.0f;
-    computePanGains(track);
+    track->pan = 0.0f;
+    computePanGains(*track);
 
-    track.isMuted = false;
-    track.isSolo  = false;
-    track.playheadFrame = 0;
+    track->isMuted = false;
+    track->isSolo  = false;
+    track->playheadFrame = 0;
 
     // ── SoundTouch Init ──
-    track.soundTouchProcessor = new soundtouch::SoundTouch();
-    track.soundTouchProcessor->setSampleRate(sampleRate_);
-    track.soundTouchProcessor->setChannels(2); // Always output stereo for the mix bus
+    track->soundTouchProcessor = std::make_unique<soundtouch::SoundTouch>();
+    track->soundTouchProcessor->setSampleRate(sampleRate_);
+    track->soundTouchProcessor->setChannels(2); // Always output stereo for the mix bus
     // Optimise for performance (QuickSeek is good for music)
-    track.soundTouchProcessor->setSetting(SETTING_USE_QUICKSEEK, 1);
+    track->soundTouchProcessor->setSetting(SETTING_USE_QUICKSEEK, 1);
     // Disable AA filter if percussive (optional, default false)
-    track.soundTouchProcessor->setSetting(SETTING_USE_AA_FILTER, 1);
+    track->soundTouchProcessor->setSetting(SETTING_USE_AA_FILTER, 1);
 
     tracks_[id] = std::move(track);
 }
@@ -154,15 +147,11 @@ void AudioMixer::removeTrack(const std::string& id) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = tracks_.find(id);
     if (it != tracks_.end()) {
-        delete it->second.soundTouchProcessor;
-        it->second.soundTouchProcessor = nullptr;
         tracks_.erase(it);
     }
 
-    // Recompute solo cache
-    hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t.isSolo) { hasSoloedTracks_ = true; break; }
+        if (t->isSolo) { hasSoloedTracks_ = true; break; }
     }
 }
 
@@ -186,16 +175,16 @@ void AudioMixer::pause() {
 void AudioMixer::seekTo(int64_t framePosition) {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& [_, track] : tracks_) {
-        track.playheadFrame = std::clamp(framePosition,
+        track->playheadFrame = std::clamp(framePosition,
                                          static_cast<int64_t>(0),
-                                         track.numFrames);
+                                         track->numFrames);
         // Reset EQ filter state to avoid artifacts after seek
-        for (auto& band : track.eqBands) {
+        for (auto& band : track->eqBands) {
             band.resetState();
         }
         // Reset SoundTouch state
-        if (track.soundTouchProcessor) {
-            track.soundTouchProcessor->clear();
+        if (track->soundTouchProcessor) {
+            track->soundTouchProcessor->clear();
         }
     }
 }
@@ -207,7 +196,7 @@ void AudioMixer::setVolume(const std::string& id, float volume) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    MixerTrack& track = it->second;
+    MixerTrack& track = *(it->second);
     float clamped = std::clamp(volume, 0.0f, 1.0f);
 
     if (std::abs(clamped - track.currentGain) < 1e-6f) {
@@ -230,8 +219,8 @@ void AudioMixer::setPan(const std::string& id, float pan) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second.pan = std::clamp(pan, -1.0f, 1.0f);
-    computePanGains(it->second);
+    it->second->pan = std::clamp(pan, -1.0f, 1.0f);
+    computePanGains(*(it->second));
 }
 
 void AudioMixer::setMute(const std::string& id, bool muted) {
@@ -239,7 +228,7 @@ void AudioMixer::setMute(const std::string& id, bool muted) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second.isMuted = muted;
+    it->second->isMuted = muted;
 }
 
 void AudioMixer::setSolo(const std::string& id, bool solo) {
@@ -247,12 +236,10 @@ void AudioMixer::setSolo(const std::string& id, bool solo) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second.isSolo = solo;
+    it->second->isSolo = solo;
 
-    // Recompute cached solo flag
-    hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t.isSolo) { hasSoloedTracks_ = true; break; }
+        if (t->isSolo) { hasSoloedTracks_ = true; break; }
     }
 }
 
@@ -266,11 +253,10 @@ void AudioMixer::setTrackEq(const std::string& id,
     if (it == tracks_.end()) return;
     if (bandIndex < 0 || bandIndex >= kNumEqBands) return;
 
-    BiquadFilter& band = it->second.eqBands[bandIndex];
+    BiquadFilter& band = it->second->eqBands[bandIndex];
     band.frequency = frequency;
     band.gainDb    = gainDb;
     band.q         = q;
-    band.active    = true;
     band.active    = true;
     band.computeCoefficients(sampleRate_);
 }
@@ -342,10 +328,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
         switch (cmd.type) {
             case EngineCommand::CLEAR_TRACKS:
-                for (auto& [id, track] : tracks_) {
-                    delete track.soundTouchProcessor;
-                    track.soundTouchProcessor = nullptr;
-                }
+                // unique_ptr handles cleanup automatically
                 tracks_.clear();
                 hasSoloedTracks_ = false;
                 break;
@@ -353,9 +336,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             case EngineCommand::SET_TEMPO: {
                 auto it = tracks_.find(cmd.trackId);
                 if (it != tracks_.end()) {
-                    it->second.tempoFactor = cmd.floatParam;
-                    if (it->second.soundTouchProcessor) {
-                        it->second.soundTouchProcessor->setTempo(it->second.tempoFactor);
+                    it->second->tempoFactor = cmd.floatParam;
+                    if (it->second->soundTouchProcessor) {
+                        it->second->soundTouchProcessor->setTempo(it->second->tempoFactor);
                     }
                 }
                 break;
@@ -364,9 +347,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             case EngineCommand::SET_PITCH: {
                 auto it = tracks_.find(cmd.trackId);
                 if (it != tracks_.end()) {
-                    it->second.pitchSemiTones = cmd.intParam;
-                    if (it->second.soundTouchProcessor) {
-                        it->second.soundTouchProcessor->setPitchSemiTones(it->second.pitchSemiTones);
+                    it->second->pitchSemiTones = cmd.intParam;
+                    if (it->second->soundTouchProcessor) {
+                        it->second->soundTouchProcessor->setPitchSemiTones(it->second->pitchSemiTones);
                     }
                 }
                 break;
@@ -382,7 +365,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
     if (!isPlaying_ || tracks_.empty()) return numFrames;
 
-    for (auto& [id, track] : tracks_) {
+    for (auto& [id, trackPtr] : tracks_) {
+        MixerTrack& track = *trackPtr;
         if (!isTrackAudible(track)) {
             // Even if not audible, we MUST advance the playhead to keep sync
             // unless we are paused (but we checked isPlaying_ above).
@@ -427,7 +411,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             samplesReceived = numFrames; // Pad rest with zeros implicitly (std::vector init)
         } else {
             // 2. SoundTouch Loop (Strict Sync)
-            soundtouch::SoundTouch* st = track.soundTouchProcessor;
+            soundtouch::SoundTouch* st = track.soundTouchProcessor.get();
             if (!st) continue;
 
             while (samplesReceived < numFrames) {
@@ -466,6 +450,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             samplesReceived = numFrames; 
         }
 
+        float trackPeak = 0.0f;
+
         // MIXING LOOP
         for (int32_t i = 0; i < numFrames; ++i) {
             float sampleL = trackOutput[i * 2];
@@ -484,7 +470,13 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
             outputL[i] += sampleL * track.panGainL;
             outputR[i] += sampleR * track.panGainR;
+
+            // Track Metering
+            trackPeak = std::max(trackPeak, std::abs(sampleL));
+            trackPeak = std::max(trackPeak, std::abs(sampleR));
         }
+        
+        track.currentPeak = trackPeak;
         
         // Update gain ramp
         if (track.gainRampSamplesRemaining > 0) {
@@ -507,6 +499,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             break;
         }
     }
+    float masterPeak = 0.0f;
 
     for (int32_t i = 0; i < numFrames; ++i) {
         float l = outputL[i];
@@ -525,7 +518,13 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         
         outputL[i] = l;
         outputR[i] = r;
+
+        // Master Metering
+        masterPeak = std::max(masterPeak, std::abs(l));
+        masterPeak = std::max(masterPeak, std::abs(r));
     }
+
+    masterPeak_ = masterPeak;
 
     return numFrames;
 }
@@ -558,7 +557,20 @@ int64_t AudioMixer::getPlaybackPosition() const {
     std::lock_guard<std::mutex> lock(mutex_);
     if (tracks_.empty()) return 0;
     // Return the playhead of the first track as the master clock
-    return tracks_.begin()->second.playheadFrame;
+    return tracks_.begin()->second->playheadFrame;
+}
+
+float AudioMixer::getTrackPeak(const std::string& id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = tracks_.find(id);
+    if (it != tracks_.end()) {
+        return it->second->currentPeak.load();
+    }
+    return 0.0f;
+}
+
+float AudioMixer::getMasterPeak() const {
+    return masterPeak_.load();
 }
 
 // ─── Waveform Peak Extraction ────────────────────────────────────────────────
@@ -571,7 +583,7 @@ int32_t AudioMixer::getWaveformPeaks(const std::string& id,
     auto it = tracks_.find(id);
     if (it == tracks_.end() || numBins <= 0 || outPeaks == nullptr) return 0;
 
-    const MixerTrack& track = it->second;
+    const MixerTrack& track = *(it->second);
     if (track.numFrames == 0) return 0;
 
     const int32_t bins = std::min(numBins, static_cast<int32_t>(track.numFrames));

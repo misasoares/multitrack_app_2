@@ -176,6 +176,24 @@ extern "C" int32_t engine_process(float* outputL, float* outputR,
     return gMixer->process(outputL, outputR, numFrames);
 }
 
+// ─── Metering ────────────────────────────────────────────────────────────────
+
+static float calculateDb(float peak) {
+    if (peak <= 0.000001f) return -60.0f; // Protection against log(0) and noise floor
+    float db = 20.0f * std::log10(peak);
+    return std::max(db, -60.0f); // Clamp to floor
+}
+
+extern "C" float engine_get_track_db(const char* trackId) {
+    if (!gMixer || !trackId) return -60.0f;
+    return calculateDb(gMixer->getTrackPeak(std::string(trackId)));
+}
+
+extern "C" float engine_get_master_db() {
+    if (!gMixer) return -60.0f;
+    return calculateDb(gMixer->getMasterPeak());
+}
+
 // ─── State ───────────────────────────────────────────────────────────────────
 
 extern "C" int32_t engine_is_playing() {

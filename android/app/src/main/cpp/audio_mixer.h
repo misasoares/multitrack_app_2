@@ -11,6 +11,8 @@
 
 #include <array>
 #include <cstdint>
+#include <atomic>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
@@ -100,7 +102,7 @@ struct MixerTrack {
     // ── Time/Pitch (SoundTouch) ──
     // We use a pointer to avoid including SoundTouch.h in the header if we could fwd declare,
     // but here we include it. Pointer isolates the instance lifecycle.
-    soundtouch::SoundTouch* soundTouchProcessor = nullptr;
+    std::unique_ptr<soundtouch::SoundTouch> soundTouchProcessor;
 
     float tempoFactor = 1.0f;     // Current stretch factor
     int pitchSemiTones = 0;       // Current pitch shift
@@ -110,6 +112,9 @@ struct MixerTrack {
 
     // ── Playback ──
     int64_t playheadFrame = 0;    // Current read position in frames
+
+    // ── Metering ──
+    std::atomic<float> currentPeak{0.0f}; // Absolute peak (0.0 to 1.0)
 };
 
 // ─── Command Queue ───────────────────────────────────────────────────────────
@@ -198,6 +203,10 @@ public:
     int64_t getPlaybackPosition() const;
     int32_t getSampleRate() const { return sampleRate_; }
 
+    // ── Metering ──
+    float getTrackPeak(const std::string& id) const;
+    float getMasterPeak() const;
+
     /// Extracts downsampled peak amplitudes from a loaded track's PCM data.
     /// Fills `outPeaks` with `numBins` values in [0.0, 1.0].
     /// Returns the number of bins actually filled (0 if track not found).
@@ -214,7 +223,7 @@ private:
     /// current mute/solo state across all tracks.
     bool isTrackAudible(const MixerTrack& track) const;
 
-    std::unordered_map<std::string, MixerTrack> tracks_;
+    std::unordered_map<std::string, std::unique_ptr<MixerTrack>> tracks_;
     mutable std::mutex mutex_;
 
     // Thread-safe command queue for rapid UI interaction without blocking
@@ -229,6 +238,9 @@ private:
     // ── Master FX ──
     float masterVolume_         = 1.0f;
     std::vector<BiquadFilter> masterEqBands_;
+
+    // ── Metering ──
+    std::atomic<float> masterPeak_{0.0f};
 };
 
 #endif // AUDIO_MIXER_H

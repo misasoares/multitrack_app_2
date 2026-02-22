@@ -65,6 +65,10 @@ int32_t engine_is_playing();
 int64_t engine_get_position();
 int32_t engine_get_sample_rate();
 
+// ── Metering ──
+float engine_get_track_db(const char* trackId);
+float engine_get_master_db();
+
 // ── Waveform ──
 /// Fills `outPeaks` with downsampled peak amplitudes for a loaded track.
 /// Returns the number of bins actually filled (0 if track not found).

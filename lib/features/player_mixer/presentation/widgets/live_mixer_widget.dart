@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import '../stores/setlist_config_store.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
 import '../../../../core/audio_engine/mixer_level_controller.dart';
 import '../../domain/entities/track.dart';
@@ -11,21 +12,21 @@ import 'package:get_it/get_it.dart';
 /// A full-screen or large dialog widget that provides a real-time audio mixer
 /// with vertical faders and VU meters, styled after the "Amber Stage Commander" design.
 class LiveMixerWidget extends StatefulWidget {
-  final List<Track> tracks;
+  final SetlistConfigStore store;
+  final String itemId;
   final String songTitle;
   final IAudioEngineService audioEngine;
   final VoidCallback onReset;
   final VoidCallback onSave;
-  final Function(String trackId, dynamic band)? onTrackEqChanged;
 
   const LiveMixerWidget({
     super.key,
-    required this.tracks,
+    required this.store,
+    required this.itemId,
     required this.songTitle,
     required this.audioEngine,
     required this.onReset,
     required this.onSave,
-    this.onTrackEqChanged,
   });
 
   @override
@@ -38,10 +39,13 @@ class _LiveMixerWidgetState extends State<LiveMixerWidget> {
   @override
   void initState() {
     super.initState();
-    _levelController = MixerLevelController(
-      widget.audioEngine,
-      widget.tracks.map((t) => t.id).toList(),
+    final item = widget.store.currentSetlist?.items.firstWhere(
+      (i) => i.id == widget.itemId,
+      orElse: () => widget.store.currentSetlist!.items.first,
     );
+    final trackIds = item?.originalMusic.tracks.map((t) => t.id).toList() ?? [];
+
+    _levelController = MixerLevelController(widget.audioEngine, trackIds);
     _levelController.start();
   }
 
@@ -53,58 +57,107 @@ class _LiveMixerWidgetState extends State<LiveMixerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0D0D0D),
-        border: Border.all(color: const Color(0xFFf9ac06).withOpacity(0.3)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        children: [
-          // Header
-          _buildHeader(context),
+    return Observer(
+      builder: (context) {
+        final item = widget.store.currentSetlist?.items.firstWhere(
+          (i) => i.id == widget.itemId,
+          orElse: () => widget
+              .store
+              .currentSetlist!
+              .items
+              .first, // Fallback to first if not found (shouldn't happen)
+        );
+        final tracks = item?.originalMusic.tracks ?? [];
 
-          // Mixer Body
-          Expanded(
-            child: Container(
-              color: const Color(0xFF080808),
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  // Tracks
-                  Expanded(
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: widget.tracks.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 4),
-                      itemBuilder: (context, index) {
-                        final track = widget.tracks[index];
-                        return TrackChannelStrip(
-                          track: track,
-                          audioEngine: widget.audioEngine,
-                          levelController: _levelController,
-                          onEqChanged: widget.onTrackEqChanged,
-                        );
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(width: 8),
-
-                  // Master
-                  MasterChannelStrip(
-                    audioEngine: widget.audioEngine,
-                    levelController: _levelController,
-                  ),
-                ],
-              ),
+        return Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D0D0D),
+            border: Border.all(
+              color: const Color(0xFFf9ac06).withValues(alpha: 0.3),
             ),
+            borderRadius: BorderRadius.circular(4),
           ),
+          child: Column(
+            children: [
+              // Header
+              _buildHeader(context),
 
-          // Footer
-          _buildFooter(context),
-        ],
-      ),
+              // Mixer Body
+              Expanded(
+                child: Container(
+                  color: const Color(0xFF080808),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      // Tracks
+                      Expanded(
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: tracks.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 4),
+                          itemBuilder: (context, index) {
+                            final track = tracks[index];
+                            return TrackChannelStrip(
+                              track: track,
+                              audioEngine: widget.audioEngine,
+                              levelController: _levelController,
+                              onEqChanged: (trackId, band) {
+                                widget.store.updateTrackEq(
+                                  widget.itemId,
+                                  trackId,
+                                  band,
+                                );
+                              },
+                              onMuteChanged: (trackId, muted) {
+                                widget.store.updateTrackMute(
+                                  widget.itemId,
+                                  trackId,
+                                  muted,
+                                );
+                              },
+                              onSoloChanged: (trackId, solo) {
+                                widget.store.updateTrackSolo(
+                                  widget.itemId,
+                                  trackId,
+                                  solo,
+                                );
+                              },
+                              onVolumeChanged: (trackId, volume) {
+                                widget.store.updateTrackVolume(
+                                  widget.itemId,
+                                  trackId,
+                                  volume,
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Master
+                      MasterChannelStrip(
+                        audioEngine: widget.audioEngine,
+                        levelController: _levelController,
+                        volume: item?.volume ?? 0.8,
+                        onVolumeChanged: (v) {
+                          if (item != null) {
+                            widget.store.updateItemVolume(item.id, v);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Footer
+              _buildFooter(context),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -270,6 +323,9 @@ class TrackChannelStrip extends StatelessWidget {
   final IAudioEngineService audioEngine;
   final MixerLevelController levelController;
   final Function(String trackId, dynamic band)? onEqChanged;
+  final Function(String trackId, bool muted)? onMuteChanged;
+  final Function(String trackId, bool solo)? onSoloChanged;
+  final Function(String trackId, double volume)? onVolumeChanged;
 
   const TrackChannelStrip({
     super.key,
@@ -277,6 +333,9 @@ class TrackChannelStrip extends StatelessWidget {
     required this.audioEngine,
     required this.levelController,
     this.onEqChanged,
+    this.onMuteChanged,
+    this.onSoloChanged,
+    this.onVolumeChanged,
   });
 
   @override
@@ -342,7 +401,7 @@ class TrackChannelStrip extends StatelessWidget {
           Expanded(
             child: _Fader(
               initialValue: track.volume,
-              onChanged: (v) => audioEngine.setTrackVolume(track.id, v),
+              onChanged: (v) => onVolumeChanged?.call(track.id, v),
             ),
           ),
 
@@ -379,9 +438,7 @@ class TrackChannelStrip extends StatelessWidget {
                   isActive: track.isMuted,
                   activeColor: Colors.red.withOpacity(0.6),
                   onPressed: () {
-                    // Logic for mute should be handled by store usually,
-                    // but we can call engine directly for real-time feel.
-                    audioEngine.setTrackMute(track.id, !track.isMuted);
+                    onMuteChanged?.call(track.id, !track.isMuted);
                   },
                 ),
               ),
@@ -392,7 +449,7 @@ class TrackChannelStrip extends StatelessWidget {
                   isActive: track.isSolo,
                   activeColor: const Color(0xFFf9ac06).withOpacity(0.6),
                   onPressed: () {
-                    audioEngine.setTrackSolo(track.id, !track.isSolo);
+                    onSoloChanged?.call(track.id, !track.isSolo);
                   },
                 ),
               ),
@@ -407,11 +464,15 @@ class TrackChannelStrip extends StatelessWidget {
 class MasterChannelStrip extends StatelessWidget {
   final IAudioEngineService audioEngine;
   final MixerLevelController levelController;
+  final double volume;
+  final ValueChanged<double> onVolumeChanged;
 
   const MasterChannelStrip({
     super.key,
     required this.audioEngine,
     required this.levelController,
+    required this.volume,
+    required this.onVolumeChanged,
   });
 
   @override
@@ -502,9 +563,9 @@ class MasterChannelStrip extends StatelessWidget {
           // Fader
           Expanded(
             child: _Fader(
-              initialValue: 0.8, // Default master volume
+              initialValue: volume,
               isMaster: true,
-              onChanged: (v) => audioEngine.setMasterVolume(v),
+              onChanged: onVolumeChanged,
             ),
           ),
 
@@ -552,6 +613,16 @@ class _FaderState extends State<_Fader> {
   double _linearToDb(double lin) {
     if (lin <= 0.00001) return -60.0;
     return 20.0 * (math.log(lin) / math.ln10);
+  }
+
+  @override
+  void didUpdateWidget(_Fader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      setState(() {
+        _dbValue = _linearToDb(widget.initialValue).clamp(-60.0, 15.0);
+      });
+    }
   }
 
   double _dbToLinear(double db) {

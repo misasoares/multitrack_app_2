@@ -203,6 +203,59 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   @action
+  void updateTrackMute(String itemId, String trackId, bool muted) {
+    _updateTrack(itemId, trackId, (track) => track.copyWith(isMuted: muted));
+    if (playingItemId == itemId) {
+      _audioEngine.setTrackMute(trackId, muted);
+    }
+  }
+
+  @action
+  void updateTrackSolo(String itemId, String trackId, bool solo) {
+    _updateTrack(itemId, trackId, (track) => track.copyWith(isSolo: solo));
+    if (playingItemId == itemId) {
+      _audioEngine.setTrackSolo(trackId, solo);
+    }
+  }
+
+  @action
+  void updateTrackVolume(String itemId, String trackId, double volume) {
+    _updateTrack(itemId, trackId, (track) => track.copyWith(volume: volume));
+    if (playingItemId == itemId) {
+      _audioEngine.setTrackVolume(trackId, volume);
+    }
+  }
+
+  void _updateTrack(
+    String itemId,
+    String trackId,
+    Track Function(Track) updateFn,
+  ) {
+    if (currentSetlist == null) return;
+
+    final index = currentSetlist!.items.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = currentSetlist!.items[index];
+    final song = item.originalMusic;
+    final trackIndex = song.tracks.indexWhere((t) => t.id == trackId);
+    if (trackIndex == -1) return;
+
+    final track = song.tracks[trackIndex];
+    final updatedTrack = updateFn(track);
+
+    final newTracks = List<Track>.from(song.tracks);
+    newTracks[trackIndex] = updatedTrack;
+
+    final updatedSong = song.copyWith(tracks: newTracks);
+    final updatedItem = item.copyWith(originalMusic: updatedSong);
+
+    final newItems = List<SetlistItem>.from(currentSetlist!.items);
+    newItems[index] = updatedItem;
+    currentSetlist = currentSetlist!.copyWith(items: newItems);
+  }
+
+  @action
   Future<void> saveDraft() async {
     // Stop playback if playing
     if (isPlaying) {

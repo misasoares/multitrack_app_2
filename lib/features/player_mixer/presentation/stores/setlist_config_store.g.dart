@@ -192,6 +192,50 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
   }
 
   @override
+  void updateTrackEq(String itemId, String trackId, EqBandData updatedBand) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateTrackEq');
+    try {
+      return super.updateTrackEq(itemId, trackId, updatedBand);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateTrackMute(String itemId, String trackId, bool muted) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateTrackMute');
+    try {
+      return super.updateTrackMute(itemId, trackId, muted);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateTrackSolo(String itemId, String trackId, bool solo) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateTrackSolo');
+    try {
+      return super.updateTrackSolo(itemId, trackId, solo);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateTrackVolume(String itemId, String trackId, double volume) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateTrackVolume');
+    try {
+      return super.updateTrackVolume(itemId, trackId, volume);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentSetlist: ${currentSetlist},

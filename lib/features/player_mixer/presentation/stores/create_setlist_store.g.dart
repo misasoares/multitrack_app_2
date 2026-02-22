@@ -81,6 +81,22 @@ mixin _$CreateSetlistStore on CreateSetlistStoreBase, Store {
     });
   }
 
+  late final _$existingIdAtom =
+      Atom(name: 'CreateSetlistStoreBase.existingId', context: context);
+
+  @override
+  String? get existingId {
+    _$existingIdAtom.reportRead();
+    return super.existingId;
+  }
+
+  @override
+  set existingId(String? value) {
+    _$existingIdAtom.reportWrite(value, super.existingId, () {
+      super.existingId = value;
+    });
+  }
+
   late final _$errorMessageAtom =
       Atom(name: 'CreateSetlistStoreBase.errorMessage', context: context);
 
@@ -251,6 +267,17 @@ mixin _$CreateSetlistStore on CreateSetlistStoreBase, Store {
   }
 
   @override
+  void initFromSetlist(Setlist setlist) {
+    final _$actionInfo = _$CreateSetlistStoreBaseActionController.startAction(
+        name: 'CreateSetlistStoreBase.initFromSetlist');
+    try {
+      return super.initFromSetlist(setlist);
+    } finally {
+      _$CreateSetlistStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void addMusic(Music music) {
     final _$actionInfo = _$CreateSetlistStoreBaseActionController.startAction(
         name: 'CreateSetlistStoreBase.addMusic');
@@ -290,6 +317,7 @@ selectedItems: ${selectedItems},
 name: ${name},
 description: ${description},
 isLoading: ${isLoading},
+existingId: ${existingId},
 errorMessage: ${errorMessage},
 isPlaying: ${isPlaying},
 currentItemIndex: ${currentItemIndex},

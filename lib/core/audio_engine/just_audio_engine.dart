@@ -70,9 +70,8 @@ class JustAudioEngine implements IAudioEngineService {
   Stream<Duration> get onPreviewPosition {
     if (_players.isEmpty) return Stream.empty();
     // Return the position of the first player (master)
-    // In a real scenario we'd want a master clock, but just_audio
-    // players drift slightly anyway.
-    return _players.values.first.positionStream;
+    // as a broadcast stream to allow multiple listeners.
+    return _players.values.first.positionStream.asBroadcastStream();
   }
 
   @override

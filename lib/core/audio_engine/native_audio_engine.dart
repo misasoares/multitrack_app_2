@@ -379,14 +379,17 @@ class NativeAudioEngine implements IAudioEngineService {
     _pause();
   }
 
+  Stream<Duration>? _positionStream;
+
   @override
   Stream<Duration> get onPreviewPosition {
-    return Stream.periodic(const Duration(milliseconds: 16), (_) {
+    _positionStream ??= Stream.periodic(const Duration(milliseconds: 16), (_) {
       final frames = _getPosition();
       final rate = _getSampleRate();
       if (rate == 0) return Duration.zero;
       return Duration(microseconds: (frames * 1000000 / rate).round());
-    });
+    }).asBroadcastStream();
+    return _positionStream!;
   }
 
   // ─── Real-Time Mixing ─────────────────────────────────────────────────────

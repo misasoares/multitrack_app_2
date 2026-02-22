@@ -33,13 +33,31 @@ class _PreviewTimelineState extends State<PreviewTimeline> {
   @override
   void initState() {
     super.initState();
-    _subscription = widget.positionStream.listen((position) {
-      if (!_isDragging) {
-        setState(() {
-          _currentPosition = position.inMilliseconds.toDouble();
-        });
-      }
-    });
+    _subscribeToStream();
+  }
+
+  @override
+  void didUpdateWidget(PreviewTimeline oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.positionStream != oldWidget.positionStream) {
+      _subscription?.cancel();
+      _subscribeToStream();
+    }
+  }
+
+  void _subscribeToStream() {
+    _subscription = widget.positionStream.listen(
+      (position) {
+        if (!_isDragging) {
+          setState(() {
+            _currentPosition = position.inMilliseconds.toDouble();
+          });
+        }
+      },
+      onError: (e) {
+        debugPrint('PreviewTimeline stream error: $e');
+      },
+    );
   }
 
   @override

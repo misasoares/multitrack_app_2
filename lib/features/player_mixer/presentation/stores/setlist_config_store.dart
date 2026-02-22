@@ -4,6 +4,7 @@ import '../../domain/entities/setlist.dart';
 import '../../domain/entities/setlist_item.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/entities/eq_band_data.dart';
+import '../../domain/repositories/imusic_repository.dart';
 import '../../../../../core/audio_engine/iaudio_engine_service.dart';
 import 'dart:developer' as developer;
 
@@ -13,7 +14,10 @@ class SetlistConfigStore = SetlistConfigStoreBase with _$SetlistConfigStore;
 
 abstract class SetlistConfigStoreBase with Store {
   final IAudioEngineService _audioEngine;
-  SetlistConfigStoreBase(this._audioEngine);
+  final IMusicRepository _musicRepository;
+  SetlistConfigStoreBase(this._audioEngine, this._musicRepository);
+
+  Timer? _saveDebouncer;
 
   @observable
   Setlist? currentSetlist;
@@ -200,6 +204,8 @@ abstract class SetlistConfigStoreBase with Store {
         q: updatedBand.q,
       );
     }
+
+    _debouncedSave();
   }
 
   @action
@@ -208,6 +214,7 @@ abstract class SetlistConfigStoreBase with Store {
     if (playingItemId == itemId) {
       _audioEngine.setTrackMute(trackId, muted);
     }
+    _debouncedSave();
   }
 
   @action
@@ -216,6 +223,7 @@ abstract class SetlistConfigStoreBase with Store {
     if (playingItemId == itemId) {
       _audioEngine.setTrackSolo(trackId, solo);
     }
+    _debouncedSave();
   }
 
   @action
@@ -224,6 +232,7 @@ abstract class SetlistConfigStoreBase with Store {
     if (playingItemId == itemId) {
       _audioEngine.setTrackVolume(trackId, volume);
     }
+    _debouncedSave();
   }
 
   void _updateTrack(
@@ -255,16 +264,23 @@ abstract class SetlistConfigStoreBase with Store {
     currentSetlist = currentSetlist!.copyWith(items: newItems);
   }
 
+  void _debouncedSave() {
+    _saveDebouncer?.cancel();
+    _saveDebouncer = Timer(const Duration(milliseconds: 500), () {
+      saveDraft();
+    });
+  }
+
   @action
   Future<void> saveDraft() async {
-    // Stop playback if playing
-    if (isPlaying) {
-      await _audioEngine.pause();
-      isPlaying = false;
-    }
+    if (currentSetlist == null) return;
 
-    // TODO: Persist to DB
-    // setlistRepository.save(currentSetlist!);
+    try {
+      await _musicRepository.saveSetlist(currentSetlist!);
+      developer.log('Setlist settings saved to DB', name: 'SetlistConfigStore');
+    } catch (e) {
+      developer.log('Error saving setlist: $e', name: 'SetlistConfigStore');
+    }
   }
 
   @action

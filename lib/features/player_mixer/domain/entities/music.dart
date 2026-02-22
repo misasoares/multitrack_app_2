@@ -52,4 +52,34 @@ class Music extends Equatable {
     if (tracks.isEmpty) return Duration.zero;
     return tracks.map((t) => t.duration).reduce((a, b) => a > b ? a : b);
   }
+
+  Music copyWith({
+    String? id,
+    String? title,
+    String? artist,
+    int? bpm,
+    int? timeSignatureNumerator,
+    int? timeSignatureDenominator,
+    String? key,
+    List<Track>? tracks,
+    List<Marker>? markers,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Music(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      bpm: bpm ?? this.bpm,
+      timeSignatureNumerator:
+          timeSignatureNumerator ?? this.timeSignatureNumerator,
+      timeSignatureDenominator:
+          timeSignatureDenominator ?? this.timeSignatureDenominator,
+      key: key ?? this.key,
+      tracks: tracks ?? this.tracks,
+      markers: markers ?? this.markers,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:mobx/mobx.dart';
 import '../../domain/entities/setlist.dart';
 import '../../domain/entities/setlist_item.dart';
+import '../../domain/entities/track.dart';
 import '../../domain/entities/eq_band_data.dart';
 import '../../../../../core/audio_engine/iaudio_engine_service.dart';
 import 'dart:developer' as developer;
@@ -147,6 +148,52 @@ abstract class SetlistConfigStoreBase with Store {
     if (playingItemId == itemId) {
       // Apply the specific band change immediately
       _audioEngine.setMasterEq(
+        bandIndex: updatedBand.bandIndex,
+        frequency: updatedBand.frequency,
+        gain: updatedBand.gain,
+        q: updatedBand.q,
+      );
+    }
+  }
+
+  @action
+  void updateTrackEq(String itemId, String trackId, EqBandData updatedBand) {
+    if (currentSetlist == null) return;
+
+    final index = currentSetlist!.items.indexWhere((i) => i.id == itemId);
+    if (index == -1) return;
+
+    final item = currentSetlist!.items[index];
+    final song = item.originalMusic;
+    final trackIndex = song.tracks.indexWhere((t) => t.id == trackId);
+    if (trackIndex == -1) return;
+
+    final track = song.tracks[trackIndex];
+    final newBands = List<EqBandData>.from(track.eqBands);
+    final bandIndex = newBands.indexWhere(
+      (b) => b.bandIndex == updatedBand.bandIndex,
+    );
+
+    if (bandIndex != -1) {
+      newBands[bandIndex] = updatedBand;
+    } else {
+      newBands.add(updatedBand);
+    }
+
+    final updatedTrack = track.copyWith(eqBands: newBands);
+    final newTracks = List<Track>.from(song.tracks);
+    newTracks[trackIndex] = updatedTrack;
+
+    final updatedSong = song.copyWith(tracks: newTracks);
+    final updatedItem = item.copyWith(originalMusic: updatedSong);
+
+    final newItems = List<SetlistItem>.from(currentSetlist!.items);
+    newItems[index] = updatedItem;
+    currentSetlist = currentSetlist!.copyWith(items: newItems);
+
+    if (playingItemId == itemId) {
+      _audioEngine.setTrackEq(
+        trackId: trackId,
         bandIndex: updatedBand.bandIndex,
         frequency: updatedBand.frequency,
         gain: updatedBand.gain,

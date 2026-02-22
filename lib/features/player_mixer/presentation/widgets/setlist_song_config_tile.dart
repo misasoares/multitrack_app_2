@@ -9,6 +9,8 @@ import 'eq/eq_interactive_dialog.dart';
 import 'preview_timeline.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../../core/audio_engine/audio_dsp_service.dart';
+import '../../../../../core/audio_engine/iaudio_engine_service.dart';
+import 'live_mixer_widget.dart';
 
 class SetlistSongConfigTile extends StatelessWidget {
   final SetlistItem item;
@@ -229,6 +231,51 @@ class SetlistSongConfigTile extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(child: _buildEffectsButton(context)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildActionButton(
+                      context,
+                      icon: Icons.tune,
+                      label: 'MIXER',
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (context) => Dialog(
+                            backgroundColor: Colors.transparent,
+                            insetPadding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 20,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: 1200,
+                                maxHeight: 800,
+                              ),
+                              child: LiveMixerWidget(
+                                tracks: item.originalMusic.tracks,
+                                songTitle: item.originalMusic.title,
+                                audioEngine: GetIt.I<IAudioEngineService>(),
+                                onReset: () {
+                                  // Simplified reset for feedback, real persistence should happen via store
+                                  for (final track
+                                      in item.originalMusic.tracks) {
+                                    GetIt.I<IAudioEngineService>()
+                                        .setTrackVolume(track.id, 0.8);
+                                    GetIt.I<IAudioEngineService>().setTrackPan(
+                                      track.id,
+                                      0.0,
+                                    );
+                                  }
+                                },
+                                onSave: () => Navigator.pop(context),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 24),

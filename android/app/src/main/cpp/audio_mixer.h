@@ -98,6 +98,7 @@ struct MixerTrack {
 
     // ── Parametric EQ ──
     std::array<BiquadFilter, kNumEqBands> eqBands{};
+    bool isEqFlat = true; // Optimization: bypass EQ loop if all gains are 0dB
 
     // ── Time/Pitch (SoundTouch) ──
     // We use a pointer to avoid including SoundTouch.h in the header if we could fwd declare,

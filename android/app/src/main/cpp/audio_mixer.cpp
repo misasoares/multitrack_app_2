@@ -259,6 +259,16 @@ void AudioMixer::setTrackEq(const std::string& id,
     band.q         = q;
     band.active    = true;
     band.computeCoefficients(sampleRate_);
+
+    // Update isEqFlat flag
+    bool flat = true;
+    for (const auto& b : it->second->eqBands) {
+        if (b.active && std::abs(b.gainDb) > 0.01f) {
+            flat = false;
+            break;
+        }
+    }
+    it->second->isEqFlat = flat;
 }
 
 void AudioMixer::setMasterEq(int bandIndex, float frequency, float gainDb, float q) {
@@ -458,12 +468,14 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             float sampleR = trackOutput[i * 2 + 1];
 
             // ── Parametric EQ ──
-            for (auto& band : track.eqBands) {
-                if (!band.active || std::abs(band.gainDb) < 0.01f) continue;
-                sampleL = band.processL(sampleL);
-                sampleR = band.processR(sampleR);
+            if (!track.isEqFlat) {
+                for (auto& band : track.eqBands) {
+                    if (band.active) {
+                        sampleL = band.processL(sampleL);
+                        sampleR = band.processR(sampleR);
+                    }
+                }
             }
-
             // ── Apply gain & pan ──
             sampleL *= track.currentGain;
             sampleR *= track.currentGain;

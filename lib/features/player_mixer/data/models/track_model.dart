@@ -17,6 +17,8 @@ class TrackModel {
   int? order;
   int? durationInMilliseconds;
   List<EqBandModel>? eqBands;
+  bool? applyTranspose;
+  int? octaveShift;
 
   TrackModel({
     this.id,
@@ -30,6 +32,8 @@ class TrackModel {
     this.order,
     this.durationInMilliseconds,
     this.eqBands,
+    this.applyTranspose,
+    this.octaveShift,
   });
 
   factory TrackModel.fromEntity(Track track) {
@@ -47,6 +51,8 @@ class TrackModel {
       eqBands: track.eqBands.isNotEmpty
           ? track.eqBands.map((b) => EqBandModel.fromEntity(b)).toList()
           : null,
+      applyTranspose: track.applyTranspose,
+      octaveShift: track.octaveShift,
     );
   }
 
@@ -63,6 +69,8 @@ class TrackModel {
       order: order ?? 0,
       duration: Duration(milliseconds: durationInMilliseconds ?? 0),
       eqBands: eqBands?.map((b) => b.toEntity()).toList() ?? const [],
+      applyTranspose: applyTranspose ?? true,
+      octaveShift: octaveShift ?? 0,
     );
   }
 }

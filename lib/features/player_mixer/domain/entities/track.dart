@@ -13,19 +13,23 @@ class Track extends Equatable {
   final int order; // Position index in the UI list
   final Duration duration;
   final List<EqBandData> eqBands; // Parametric EQ state (persisted on save)
+  final bool applyTranspose;
+  final int octaveShift; // 0, 1, or -1
 
   const Track({
     required this.id,
     required this.name,
     required this.filePath,
     this.volume = 1.0,
-    this.pan = 1.0,
+    this.pan = 0.0,
     this.isMuted = false,
     this.isSolo = false,
     this.isClick = false,
     this.order = 0,
     this.duration = Duration.zero,
     this.eqBands = const [],
+    this.applyTranspose = true,
+    this.octaveShift = 0,
   });
 
   Track copyWith({
@@ -40,6 +44,8 @@ class Track extends Equatable {
     int? order,
     Duration? duration,
     List<EqBandData>? eqBands,
+    bool? applyTranspose,
+    int? octaveShift,
   }) {
     return Track(
       id: id ?? this.id,
@@ -53,6 +59,8 @@ class Track extends Equatable {
       order: order ?? this.order,
       duration: duration ?? this.duration,
       eqBands: eqBands ?? this.eqBands,
+      applyTranspose: applyTranspose ?? this.applyTranspose,
+      octaveShift: octaveShift ?? this.octaveShift,
     );
   }
 
@@ -69,5 +77,7 @@ class Track extends Equatable {
     order,
     duration,
     eqBands,
+    applyTranspose,
+    octaveShift,
   ];
 }

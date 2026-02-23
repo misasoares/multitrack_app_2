@@ -95,34 +95,82 @@ abstract class SetlistConfigStoreBase with Store {
 
     final index = currentSetlist!.items.indexWhere((item) => item.id == itemId);
     if (index != -1) {
-      final updatedItem = currentSetlist!.items[index].copyWith(
-        transposeSemitones: semitones,
-      );
+      SetlistItem item = currentSetlist!.items[index];
+
+      // If returning to original key (0), reset all smart octave shifts
+      if (semitones == 0) {
+        final resetTracks = item.originalMusic.tracks
+            .map((t) => t.copyWith(octaveShift: 0))
+            .toList();
+        item = item.copyWith(
+          originalMusic: item.originalMusic.copyWith(tracks: resetTracks),
+        );
+      }
+
+      final updatedItem = item.copyWith(transposeSemitones: semitones);
       final newItems = List<SetlistItem>.from(currentSetlist!.items);
       newItems[index] = updatedItem;
       currentSetlist = currentSetlist!.copyWith(items: newItems);
 
       if (playingItemId == itemId) {
-        // For now, re-apply mastering to hear the change
-        _applyMastering(updatedItem);
+        // Re-apply pitch to all tracks based on the new global value
+        for (final track in updatedItem.originalMusic.tracks) {
+          final pitch = _calculateTrackPitch(updatedItem, track);
+          _audioEngine.setTrackPitch(track.id, pitch);
+        }
       }
+      _debouncedSave();
     }
   }
 
   @action
-  void updateTransposableTracks(String itemId, List<String> trackIds) {
-    final index = currentSetlist!.items.indexWhere((i) => i.id == itemId);
-    if (index == -1) return;
+  void toggleTrackTranspose(String itemId, String trackId, bool apply) {
+    _updateTrack(
+      itemId,
+      trackId,
+      (track) => track.copyWith(
+        applyTranspose: apply,
+        octaveShift: apply ? track.octaveShift : 0,
+      ),
+    );
+    if (playingItemId == itemId) {
+      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
+      final track = item.originalMusic.tracks.firstWhere(
+        (t) => t.id == trackId,
+      );
+      _audioEngine.setTrackPitch(trackId, _calculateTrackPitch(item, track));
+    }
+    _debouncedSave();
+  }
 
-    final item = currentSetlist!.items[index];
-    final updated = item.copyWith(transposableTrackIds: trackIds);
+  @action
+  void toggleTrackOctave(String itemId, String trackId) {
+    _updateTrack(itemId, trackId, (track) {
+      if (track.octaveShift != 0) {
+        return track.copyWith(octaveShift: 0);
+      }
 
-    final newItems = List<SetlistItem>.from(currentSetlist!.items);
-    newItems[index] = updated;
-    currentSetlist = currentSetlist!.copyWith(items: newItems);
+      final item = currentSetlist?.items.firstWhere((i) => i.id == itemId);
+      if (item == null) return track;
 
-    // Re-apply mastering to respond to the change
-    _applyMastering(updated);
+      // Suggest +1 if song is lowered, -1 if song is raised
+      final suggestedShift = item.transposeSemitones <= 0 ? 1 : -1;
+      return track.copyWith(octaveShift: suggestedShift);
+    });
+
+    if (playingItemId == itemId) {
+      final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
+      final track = item.originalMusic.tracks.firstWhere(
+        (t) => t.id == trackId,
+      );
+      _audioEngine.setTrackPitch(trackId, _calculateTrackPitch(item, track));
+    }
+    _debouncedSave();
+  }
+
+  int _calculateTrackPitch(SetlistItem item, Track track) {
+    final basePitch = track.applyTranspose ? item.transposeSemitones : 0;
+    return basePitch + (track.octaveShift * 12);
   }
 
   @action
@@ -235,6 +283,15 @@ abstract class SetlistConfigStoreBase with Store {
     _debouncedSave();
   }
 
+  @action
+  void updateTrackPan(String itemId, String trackId, double pan) {
+    _updateTrack(itemId, trackId, (track) => track.copyWith(pan: pan));
+    if (playingItemId == itemId) {
+      _audioEngine.setTrackPan(trackId, pan);
+    }
+    _debouncedSave();
+  }
+
   void _updateTrack(
     String itemId,
     String trackId,
@@ -342,14 +399,9 @@ abstract class SetlistConfigStoreBase with Store {
   void _applyMastering(SetlistItem item) {
     for (final track in item.originalMusic.tracks) {
       _audioEngine.setTrackTempo(track.id, item.tempoFactor);
-
-      if (item.transposableTrackIds.contains(track.id)) {
-        _audioEngine.setTrackPitch(track.id, item.transposeSemitones);
-      } else {
-        _audioEngine.setTrackPitch(track.id, 0);
-      }
-
+      _audioEngine.setTrackPitch(track.id, _calculateTrackPitch(item, track));
       _audioEngine.setTrackVolume(track.id, track.volume);
+      _audioEngine.setTrackPan(track.id, track.pan);
     }
 
     // Apply Master Volume (using item volume as master volume for the mix)

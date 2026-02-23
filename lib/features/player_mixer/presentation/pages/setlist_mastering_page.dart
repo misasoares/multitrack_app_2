@@ -109,10 +109,6 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
                               _store.updateItemVolume(item.id, vol),
                           onTempoChanged: (val) =>
                               _store.updateItemTempo(item.id, val),
-                          onTransposeChanged: (val) =>
-                              _store.updateItemTranspose(item.id, val),
-                          onTransposableTracksChanged: (tracks) =>
-                              _store.updateTransposableTracks(item.id, tracks),
                           positionStream: _store.previewPosition,
                           onSeek: (pos) => _store.seek(pos),
                         );

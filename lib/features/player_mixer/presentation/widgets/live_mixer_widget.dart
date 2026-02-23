@@ -129,6 +129,13 @@ class _LiveMixerWidgetState extends State<LiveMixerWidget> {
                                   volume,
                                 );
                               },
+                              onPanChanged: (trackId, pan) {
+                                widget.store.updateTrackPan(
+                                  widget.itemId,
+                                  trackId,
+                                  pan,
+                                );
+                              },
                             );
                           },
                         ),
@@ -326,6 +333,7 @@ class TrackChannelStrip extends StatelessWidget {
   final Function(String trackId, bool muted)? onMuteChanged;
   final Function(String trackId, bool solo)? onSoloChanged;
   final Function(String trackId, double volume)? onVolumeChanged;
+  final Function(String trackId, double pan)? onPanChanged;
 
   const TrackChannelStrip({
     super.key,
@@ -336,6 +344,7 @@ class TrackChannelStrip extends StatelessWidget {
     this.onMuteChanged,
     this.onSoloChanged,
     this.onVolumeChanged,
+    this.onPanChanged,
   });
 
   @override
@@ -394,6 +403,13 @@ class TrackChannelStrip extends StatelessWidget {
                 ),
               );
             },
+          ),
+          const SizedBox(height: 12),
+
+          // Pan Slider
+          _PanSlider(
+            initialValue: track.pan,
+            onChanged: (p) => onPanChanged?.call(track.id, p),
           ),
           const SizedBox(height: 12),
 
@@ -735,6 +751,79 @@ class _CustomThumbShape extends SliderComponentShape {
       Offset(center.dx - 4, center.dy + lineSpacing),
       Offset(center.dx + 4, center.dy + lineSpacing),
       linePaint,
+    );
+  }
+}
+
+class _PanSlider extends StatefulWidget {
+  final double initialValue;
+  final ValueChanged<double> onChanged;
+
+  const _PanSlider({required this.initialValue, required this.onChanged});
+
+  @override
+  State<_PanSlider> createState() => _PanSliderState();
+}
+
+class _PanSliderState extends State<_PanSlider> {
+  late double _panValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _panValue = widget.initialValue;
+  }
+
+  @override
+  void didUpdateWidget(_PanSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialValue != widget.initialValue) {
+      setState(() {
+        _panValue = widget.initialValue;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 16,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              activeTrackColor: const Color(0xFFf9ac06).withOpacity(0.5),
+              inactiveTrackColor: Colors.grey.shade800,
+              thumbColor: const Color(0xFFf9ac06),
+            ),
+            child: Slider(
+              value: _panValue,
+              min: -1.0,
+              max: 1.0,
+              onChanged: (p) {
+                setState(() => _panValue = p);
+                widget.onChanged(p);
+              },
+            ),
+          ),
+        ),
+        Text(
+          _panValue == 0
+              ? 'C'
+              : (_panValue < 0
+                    ? 'L ${(_panValue.abs() * 100).toInt()}'
+                    : 'R ${(_panValue.abs() * 100).toInt()}'),
+          style: const TextStyle(
+            color: Colors.grey,
+            fontFamily: 'JetBrains Mono',
+            fontSize: 9,
+          ),
+        ),
+      ],
     );
   }
 }

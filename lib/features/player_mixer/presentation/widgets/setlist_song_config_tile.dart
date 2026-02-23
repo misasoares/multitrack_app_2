@@ -19,8 +19,6 @@ class SetlistSongConfigTile extends StatelessWidget {
   final VoidCallback onPreviewToggle;
   final ValueChanged<double> onVolumeChanged;
   final ValueChanged<double> onTempoChanged;
-  final ValueChanged<int> onTransposeChanged;
-  final Function(List<String>) onTransposableTracksChanged;
   final Stream<Duration> positionStream;
   final ValueChanged<Duration> onSeek;
   final SetlistConfigStore store; // NEW
@@ -34,8 +32,6 @@ class SetlistSongConfigTile extends StatelessWidget {
     required this.onPreviewToggle,
     required this.onVolumeChanged,
     required this.onTempoChanged,
-    required this.onTransposeChanged,
-    required this.onTransposableTracksChanged,
     required this.positionStream,
     required this.onSeek,
     required this.store, // NEW
@@ -220,10 +216,8 @@ class SetlistSongConfigTile extends StatelessWidget {
                         showDialog(
                           context: context,
                           builder: (context) => TransposeConfigDialog(
-                            item: item,
-                            onConfirm: (val) => onTransposeChanged(val),
-                            onTracksChanged: (tracks) =>
-                                onTransposableTracksChanged(tracks),
+                            itemId: item.id,
+                            store: store,
                           ),
                         );
                       },

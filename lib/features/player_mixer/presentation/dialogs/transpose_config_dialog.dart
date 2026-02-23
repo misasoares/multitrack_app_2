@@ -1,224 +1,328 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 
 import '../../../../../core/theme/app_colors.dart';
-import '../../domain/entities/setlist_item.dart';
+import '../../domain/entities/track.dart';
+import '../stores/setlist_config_store.dart';
 
-class TransposeConfigDialog extends StatefulWidget {
-  final SetlistItem item;
-  final ValueChanged<int> onConfirm;
-  final void Function(List<String>)? onTracksChanged;
+class TransposeConfigDialog extends StatelessWidget {
+  final String itemId;
+  final SetlistConfigStore store;
 
   const TransposeConfigDialog({
     super.key,
-    required this.item,
-    required this.onConfirm,
-    this.onTracksChanged,
+    required this.itemId,
+    required this.store,
   });
 
   @override
-  State<TransposeConfigDialog> createState() => _TransposeConfigDialogState();
-}
-
-class _TransposeConfigDialogState extends State<TransposeConfigDialog> {
-  late int _semitones;
-  late Set<String> _selectedTrackIds;
-
-  @override
-  void initState() {
-    super.initState();
-    _semitones = widget.item.transposeSemitones;
-
-    // Initialize selected tracks:
-    // If the item has a specific list, use it.
-    // If empty (default), assume ALL tracks should be selected initially.
-    if (widget.item.transposableTrackIds.isEmpty) {
-      _selectedTrackIds = widget.item.originalMusic.tracks
-          .map((t) => t.id)
-          .toSet();
-    } else {
-      _selectedTrackIds = widget.item.transposableTrackIds.toSet();
-    }
-  }
-
-  void _handleConfirm() {
-    widget.onConfirm(_semitones);
-    widget.onTracksChanged?.call(_selectedTrackIds.toList());
-    Navigator.of(context).pop();
-  }
-
-  void _onTrackToggle(String trackId, bool? selected) {
-    setState(() {
-      if (selected == true) {
-        _selectedTrackIds.add(trackId);
-      } else {
-        _selectedTrackIds.remove(trackId);
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: const Color(0xFF1E1E1E),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'TRANSPOSE CONFIG',
-                style: GoogleFonts.spaceGrotesk(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 24),
+    return Observer(
+      builder: (context) {
+        final item = store.currentSetlist?.items.firstWhere(
+          (i) => i.id == itemId,
+        );
+        if (item == null) return const SizedBox.shrink();
 
-              // Key Selector
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        return Dialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 650),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildButton(
-                    icon: Icons.remove,
-                    onTap: () => setState(() => _semitones--),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'CONFIGURAÇÕES DE TOM',
+                        style: GoogleFonts.spaceGrotesk(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                      ),
+                    ],
                   ),
-                  Container(
-                    width: 120,
-                    alignment: Alignment.center,
+                  const SizedBox(height: 24),
+
+                  // Global Transpose Selector
+                  Center(
                     child: Column(
                       children: [
                         Text(
-                          _semitones > 0 ? '+${_semitones}' : '$_semitones',
+                          'TRANSPOSE GERAL',
                           style: GoogleFonts.jetBrainsMono(
-                            color: AppColors.primary,
-                            fontSize: 32,
+                            color: AppColors.textMuted,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          'SEMITONES',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            fontSize: 12,
-                          ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildCircleButton(
+                              icon: Icons.remove,
+                              onTap: () => store.updateItemTranspose(
+                                itemId,
+                                item.transposeSemitones - 1,
+                              ),
+                            ),
+                            Container(
+                              width: 140,
+                              alignment: Alignment.center,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    item.transposeSemitones > 0
+                                        ? '+${item.transposeSemitones}'
+                                        : '${item.transposeSemitones}',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: AppColors.primary,
+                                      fontSize: 42,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'SEMITONES',
+                                    style: GoogleFonts.jetBrainsMono(
+                                      color: Colors.white24,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _buildCircleButton(
+                              icon: Icons.add,
+                              onTap: () => store.updateItemTranspose(
+                                itemId,
+                                item.transposeSemitones + 1,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  _buildButton(
-                    icon: Icons.add,
-                    onTap: () => setState(() => _semitones++),
+                  const SizedBox(height: 32),
+
+                  // Track Selection Header
+                  Text(
+                    'PITCH POR TRACK (SMART OCTAVE):',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 32),
+                  const SizedBox(height: 12),
 
-              // Track Selection Header
-              Text(
-                'APPLY TO TRACKS:',
-                style: GoogleFonts.jetBrainsMono(
-                  color: AppColors.textMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
+                  // Track List
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF121212),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF333333)),
+                      ),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: item.originalMusic.tracks.length,
+                        separatorBuilder: (context, index) => Divider(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          height: 1,
+                        ),
+                        itemBuilder: (context, index) {
+                          final track = item.originalMusic.tracks[index];
+                          return _TrackTransposeTile(
+                            itemId: itemId,
+                            track: track,
+                            globalTranspose: item.transposeSemitones,
+                            store: store,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
 
-              // Track List
-              Container(
-                height: 200, // Limit height for list
-                decoration: BoxDecoration(
-                  color: const Color(0xFF121212),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFF333333)),
-                ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: widget.item.originalMusic.tracks.length,
-                  itemBuilder: (context, index) {
-                    final track = widget.item.originalMusic.tracks[index];
-                    final isSelected = _selectedTrackIds.contains(track.id);
-                    return CheckboxListTile(
-                      value: isSelected,
-                      onChanged: (val) => _onTrackToggle(track.id, val),
-                      title: Text(
-                        track.name,
-                        style: GoogleFonts.inter(
-                          color: isSelected
-                              ? Colors.white
-                              : AppColors.textMuted,
+                  // Footer Actions
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'CONCLUÍDO',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontWeight: FontWeight.bold,
                           fontSize: 14,
                         ),
                       ),
-                      activeColor: AppColors.primary,
-                      checkColor: Colors.black,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
-                      dense: true,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: Text(
-                      'CANCEL',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton(
-                    onPressed: _handleConfirm,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: Text(
-                      'CONFIRM',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontWeight: FontWeight.bold,
-                      ),
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCircleButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: const Color(0xFF2A2A2A),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );
   }
+}
 
-  Widget _buildButton({required IconData icon, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF2A2A2A),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, color: Colors.white, size: 24),
+class _TrackTransposeTile extends StatelessWidget {
+  final String itemId;
+  final Track track;
+  final int globalTranspose;
+  final SetlistConfigStore store;
+
+  const _TrackTransposeTile({
+    required this.itemId,
+    required this.track,
+    required this.globalTranspose,
+    required this.store,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Smart Octave Labeling
+    String octaveLabel = 'OITAVA';
+    if (track.octaveShift != 0) {
+      octaveLabel = track.octaveShift > 0 ? '+1 OITAVA' : '-1 OITAVA';
+    } else {
+      if (globalTranspose < 0) {
+        octaveLabel = '+1 OITAVA';
+      } else if (globalTranspose > 0) {
+        octaveLabel = '-1 OITAVA';
+      }
+    }
+
+    final hasOctaveShift = track.octaveShift != 0;
+    final canApplyOctave = track.applyTranspose && globalTranspose != 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        children: [
+          // Transpose Checkbox
+          Transform.scale(
+            scale: 0.9,
+            child: Checkbox(
+              value: track.applyTranspose,
+              onChanged: (val) =>
+                  store.toggleTrackTranspose(itemId, track.id, val ?? true),
+              activeColor: AppColors.primary,
+              checkColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  track.name.toUpperCase(),
+                  style: GoogleFonts.jetBrainsMono(
+                    color: track.applyTranspose ? Colors.white : Colors.white24,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  track.applyTranspose ? 'TRANSPOSE ATIVO' : 'TOM ORIGINAL',
+                  style: GoogleFonts.jetBrainsMono(
+                    color: track.applyTranspose
+                        ? AppColors.primary.withValues(alpha: 0.7)
+                        : Colors.white10,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Smart Octave Button
+          if (canApplyOctave)
+            GestureDetector(
+              onTap: () => store.toggleTrackOctave(itemId, track.id),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: hasOctaveShift
+                      ? AppColors.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: hasOctaveShift ? AppColors.primary : Colors.white10,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      hasOctaveShift ? Icons.auto_awesome : Icons.exposure,
+                      size: 14,
+                      color: hasOctaveShift ? Colors.black : Colors.white54,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      octaveLabel,
+                      style: GoogleFonts.jetBrainsMono(
+                        color: hasOctaveShift ? Colors.black : Colors.white54,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

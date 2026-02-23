@@ -170,11 +170,22 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
   }
 
   @override
-  void updateTransposableTracks(String itemId, List<String> trackIds) {
+  void toggleTrackTranspose(String itemId, String trackId, bool apply) {
     final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
-        name: 'SetlistConfigStoreBase.updateTransposableTracks');
+        name: 'SetlistConfigStoreBase.toggleTrackTranspose');
     try {
-      return super.updateTransposableTracks(itemId, trackIds);
+      return super.toggleTrackTranspose(itemId, trackId, apply);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleTrackOctave(String itemId, String trackId) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.toggleTrackOctave');
+    try {
+      return super.toggleTrackOctave(itemId, trackId);
     } finally {
       _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
     }

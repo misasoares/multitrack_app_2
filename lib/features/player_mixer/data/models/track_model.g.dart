@@ -13,59 +13,69 @@ const TrackModelSchema = Schema(
   name: r'TrackModel',
   id: -624065756729765013,
   properties: {
-    r'durationInMilliseconds': PropertySchema(
+    r'applyTranspose': PropertySchema(
       id: 0,
+      name: r'applyTranspose',
+      type: IsarType.bool,
+    ),
+    r'durationInMilliseconds': PropertySchema(
+      id: 1,
       name: r'durationInMilliseconds',
       type: IsarType.long,
     ),
     r'eqBands': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'eqBands',
       type: IsarType.objectList,
       target: r'EqBandModel',
     ),
     r'filePath': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'filePath',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'id',
       type: IsarType.string,
     ),
     r'isClick': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'isClick',
       type: IsarType.bool,
     ),
     r'isMuted': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'isMuted',
       type: IsarType.bool,
     ),
     r'isSolo': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'isSolo',
       type: IsarType.bool,
     ),
     r'name': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'name',
       type: IsarType.string,
     ),
+    r'octaveShift': PropertySchema(
+      id: 9,
+      name: r'octaveShift',
+      type: IsarType.long,
+    ),
     r'order': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'order',
       type: IsarType.long,
     ),
     r'pan': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'pan',
       type: IsarType.double,
     ),
     r'volume': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'volume',
       type: IsarType.double,
     )
@@ -123,22 +133,24 @@ void _trackModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeLong(offsets[0], object.durationInMilliseconds);
+  writer.writeBool(offsets[0], object.applyTranspose);
+  writer.writeLong(offsets[1], object.durationInMilliseconds);
   writer.writeObjectList<EqBandModel>(
-    offsets[1],
+    offsets[2],
     allOffsets,
     EqBandModelSchema.serialize,
     object.eqBands,
   );
-  writer.writeString(offsets[2], object.filePath);
-  writer.writeString(offsets[3], object.id);
-  writer.writeBool(offsets[4], object.isClick);
-  writer.writeBool(offsets[5], object.isMuted);
-  writer.writeBool(offsets[6], object.isSolo);
-  writer.writeString(offsets[7], object.name);
-  writer.writeLong(offsets[8], object.order);
-  writer.writeDouble(offsets[9], object.pan);
-  writer.writeDouble(offsets[10], object.volume);
+  writer.writeString(offsets[3], object.filePath);
+  writer.writeString(offsets[4], object.id);
+  writer.writeBool(offsets[5], object.isClick);
+  writer.writeBool(offsets[6], object.isMuted);
+  writer.writeBool(offsets[7], object.isSolo);
+  writer.writeString(offsets[8], object.name);
+  writer.writeLong(offsets[9], object.octaveShift);
+  writer.writeLong(offsets[10], object.order);
+  writer.writeDouble(offsets[11], object.pan);
+  writer.writeDouble(offsets[12], object.volume);
 }
 
 TrackModel _trackModelDeserialize(
@@ -148,22 +160,24 @@ TrackModel _trackModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = TrackModel(
-    durationInMilliseconds: reader.readLongOrNull(offsets[0]),
+    applyTranspose: reader.readBoolOrNull(offsets[0]),
+    durationInMilliseconds: reader.readLongOrNull(offsets[1]),
     eqBands: reader.readObjectList<EqBandModel>(
-      offsets[1],
+      offsets[2],
       EqBandModelSchema.deserialize,
       allOffsets,
       EqBandModel(),
     ),
-    filePath: reader.readStringOrNull(offsets[2]),
-    id: reader.readStringOrNull(offsets[3]),
-    isClick: reader.readBoolOrNull(offsets[4]),
-    isMuted: reader.readBoolOrNull(offsets[5]),
-    isSolo: reader.readBoolOrNull(offsets[6]),
-    name: reader.readStringOrNull(offsets[7]),
-    order: reader.readLongOrNull(offsets[8]),
-    pan: reader.readDoubleOrNull(offsets[9]),
-    volume: reader.readDoubleOrNull(offsets[10]),
+    filePath: reader.readStringOrNull(offsets[3]),
+    id: reader.readStringOrNull(offsets[4]),
+    isClick: reader.readBoolOrNull(offsets[5]),
+    isMuted: reader.readBoolOrNull(offsets[6]),
+    isSolo: reader.readBoolOrNull(offsets[7]),
+    name: reader.readStringOrNull(offsets[8]),
+    octaveShift: reader.readLongOrNull(offsets[9]),
+    order: reader.readLongOrNull(offsets[10]),
+    pan: reader.readDoubleOrNull(offsets[11]),
+    volume: reader.readDoubleOrNull(offsets[12]),
   );
   return object;
 }
@@ -176,31 +190,35 @@ P _trackModelDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 1:
+      return (reader.readLongOrNull(offset)) as P;
+    case 2:
       return (reader.readObjectList<EqBandModel>(
         offset,
         EqBandModelSchema.deserialize,
         allOffsets,
         EqBandModel(),
       )) as P;
-    case 2:
-      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readStringOrNull(offset)) as P;
     case 4:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 5:
       return (reader.readBoolOrNull(offset)) as P;
     case 6:
       return (reader.readBoolOrNull(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 8:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 9:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 10:
+      return (reader.readLongOrNull(offset)) as P;
+    case 11:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 12:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -209,6 +227,34 @@ P _trackModelDeserializeProp<P>(
 
 extension TrackModelQueryFilter
     on QueryBuilder<TrackModel, TrackModel, QFilterCondition> {
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      applyTransposeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'applyTranspose',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      applyTransposeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'applyTranspose',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      applyTransposeEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'applyTranspose',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
       durationInMillisecondsIsNull() {
     return QueryBuilder.apply(this, (query) {
@@ -908,6 +954,80 @@ extension TrackModelQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'name',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'octaveShift',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'octaveShift',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'octaveShift',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'octaveShift',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'octaveShift',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      octaveShiftBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'octaveShift',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

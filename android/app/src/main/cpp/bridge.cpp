@@ -38,15 +38,28 @@ extern "C" void engine_init(int32_t sampleRate) {
     }
 
     gMixer = new AudioMixer();
+    // Initialize mixer with requested rate temporarily (Oboe will override this immediately)
     gMixer->init(sampleRate);
+    setTargetSampleRate(sampleRate);
 
     gPlayer = new OboePlayer(*gMixer);
     if (!gPlayer->start()) {
         LOGE("engine_init: failed to start Oboe player");
     }
 
-    LOGD("engine_init: mixer + Oboe player ready (requested %d Hz, got %d Hz)",
-         sampleRate, gPlayer->getSampleRate());
+    // [CRITICAL] Invert the source of truth!
+    // The hardware might have ignored our requested 'sampleRate' (e.g., requested 44.1kHz, hardware forced 48kHz).
+    // OboePlayer::start() captures the actual rate and calls gMixer->setSampleRate(actualRate).
+    // We MUST also inform the Decoder so that future files are resampled to this *actual* hardware rate.
+    int32_t actualHardwareRate = gPlayer->getSampleRate();
+    if (actualHardwareRate != sampleRate) {
+        LOGD("engine_init: Hardware forced sample rate %d Hz (requested %d Hz). Syncing ecosystem.", 
+             actualHardwareRate, sampleRate);
+        setTargetSampleRate(actualHardwareRate);
+    }
+
+    LOGD("engine_init: mixer + Oboe player ready (requested %d Hz, actual hardware %d Hz)",
+         sampleRate, actualHardwareRate);
 }
 
 extern "C" void engine_dispose() {
@@ -224,26 +237,28 @@ extern "C" int32_t engine_get_waveform_peaks(const char* trackId,
 
 extern "C" void engine_set_track_eq(const char* trackId,
                                      int32_t bandIndex,
+                                     int32_t filterType,
                                      float frequency,
                                      float gainDb,
                                      float q) {
-    LOGD("## Set EQ Track: %s, Band: %d, Freq: %.1f, Gain: %.2f, Q: %.2f",
-         trackId ? trackId : "(null)", bandIndex, frequency, gainDb, q);
+    LOGD("## Set EQ Track: %s, Band: %d, Type: %d, Freq: %.1f, Gain: %.2f, Q: %.2f",
+         trackId ? trackId : "(null)", bandIndex, filterType, frequency, gainDb, q);
 
     if (!gMixer || !trackId) {
         LOGE("## Set EQ FAILED — gMixer=%p, trackId=%s",
              (void*)gMixer, trackId ? trackId : "(null)");
         return;
     }
-    gMixer->setTrackEq(std::string(trackId), bandIndex, frequency, gainDb, q);
+    gMixer->setTrackEq(std::string(trackId), bandIndex, filterType, frequency, gainDb, q);
 }
 
 extern "C" void engine_set_master_eq(int32_t bandIndex,
+                                     int32_t filterType,
                                      float frequency,
                                      float gainDb,
                                      float q) {
     if (!gMixer) return;
-    gMixer->setMasterEq(bandIndex, frequency, gainDb, q);
+    gMixer->setMasterEq(bandIndex, filterType, frequency, gainDb, q);
 }
 
 extern "C" void engine_set_master_volume(float volume) {
@@ -258,15 +273,17 @@ extern "C" void engine_render_track_offline(const char* trackId,
                                             const char* outputPath,
                                             float tempo,
                                             float pitch,
-                                            float eqLow,
-                                            float eqMid,
-                                            float eqHigh) {
+                                            int32_t numEqBands,
+                                            const int32_t* eqTypes,
+                                            const float* eqFreqs,
+                                            const float* eqGains,
+                                            const float* eqQs) {
     if (!trackId || !inputPath || !outputPath) return;
 
     std::vector<EqBand> eqBands;
-    eqBands.push_back({100.0f, eqLow, 0.707f});
-    eqBands.push_back({1000.0f, eqMid, 0.707f});
-    eqBands.push_back({5000.0f, eqHigh, 0.707f});
+    for (int i = 0; i < numEqBands; ++i) {
+        eqBands.push_back({eqTypes[i], eqFreqs[i], eqGains[i], eqQs[i]});
+    }
 
     renderTrackOffline(std::string(trackId),
                        std::string(inputPath),

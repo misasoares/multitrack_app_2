@@ -24,9 +24,11 @@ void engine_render_track_offline(const char* trackId,
                                  const char* outputPath,
                                  float tempo,
                                  float pitch,
-                                 float eqLow,
-                                 float eqMid,
-                                 float eqHigh);
+                                 int32_t numEqBands,
+                                 const int32_t* eqTypes,
+                                 const float* eqFreqs,
+                                 const float* eqGains,
+                                 const float* eqQs);
 
 float engine_get_render_progress(const char* trackId);
 void engine_cancel_render(const char* trackId);
@@ -80,9 +82,17 @@ int32_t engine_get_waveform_peaks(const char* trackId,
 /// Set parametric EQ parameters for a single band on a track.
 void engine_set_track_eq(const char* trackId,
                          int32_t bandIndex,
+                         int32_t filterType,
                          float frequency,
                          float gainDb,
                          float q);
+
+/// Set master parametric EQ parameters.
+void engine_set_master_eq(int32_t bandIndex,
+                          int32_t filterType,
+                          float frequency,
+                          float gainDb,
+                          float q);
 
 #ifdef __cplusplus
 }

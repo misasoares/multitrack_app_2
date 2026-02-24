@@ -355,6 +355,7 @@ abstract class CreateMusicStoreBase with Store {
     _audioEngine.setTrackEq(
       trackId: trackId,
       bandIndex: band.bandIndex,
+      filterType: band.type.index,
       frequency: band.frequency,
       gain: band.gain,
       q: band.q,
@@ -535,6 +536,7 @@ abstract class CreateMusicStoreBase with Store {
             _audioEngine.setTrackEq(
               trackId: track.id,
               bandIndex: band.bandIndex,
+              filterType: band.type.index,
               frequency: band.frequency,
               gain: band.gain,
               q: band.q,

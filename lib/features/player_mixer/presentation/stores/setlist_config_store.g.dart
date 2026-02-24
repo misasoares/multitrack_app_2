@@ -247,6 +247,17 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
   }
 
   @override
+  void updateTrackPan(String itemId, String trackId, double pan) {
+    final _$actionInfo = _$SetlistConfigStoreBaseActionController.startAction(
+        name: 'SetlistConfigStoreBase.updateTrackPan');
+    try {
+      return super.updateTrackPan(itemId, trackId, pan);
+    } finally {
+      _$SetlistConfigStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentSetlist: ${currentSetlist},

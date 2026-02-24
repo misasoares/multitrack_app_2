@@ -180,6 +180,7 @@ class MockIAudioEngineService extends _i1.Mock
   void setTrackEq({
     required String? trackId,
     required int? bandIndex,
+    required int? filterType,
     required double? frequency,
     required double? gain,
     required double? q,
@@ -191,6 +192,7 @@ class MockIAudioEngineService extends _i1.Mock
           {
             #trackId: trackId,
             #bandIndex: bandIndex,
+            #filterType: filterType,
             #frequency: frequency,
             #gain: gain,
             #q: q,
@@ -243,6 +245,7 @@ class MockIAudioEngineService extends _i1.Mock
   @override
   void setMasterEq({
     required int? bandIndex,
+    required int? filterType,
     required double? frequency,
     required double? gain,
     required double? q,
@@ -253,6 +256,7 @@ class MockIAudioEngineService extends _i1.Mock
           [],
           {
             #bandIndex: bandIndex,
+            #filterType: filterType,
             #frequency: frequency,
             #gain: gain,
             #q: q,

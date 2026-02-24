@@ -201,6 +201,7 @@ abstract class SetlistConfigStoreBase with Store {
       // Apply the specific band change immediately
       _audioEngine.setMasterEq(
         bandIndex: updatedBand.bandIndex,
+        filterType: updatedBand.type.index,
         frequency: updatedBand.frequency,
         gain: updatedBand.gain,
         q: updatedBand.q,
@@ -247,6 +248,7 @@ abstract class SetlistConfigStoreBase with Store {
       _audioEngine.setTrackEq(
         trackId: trackId,
         bandIndex: updatedBand.bandIndex,
+        filterType: updatedBand.type.index,
         frequency: updatedBand.frequency,
         gain: updatedBand.gain,
         q: updatedBand.q,
@@ -411,6 +413,7 @@ abstract class SetlistConfigStoreBase with Store {
     for (final band in item.masterEqBands) {
       _audioEngine.setMasterEq(
         bandIndex: band.bandIndex,
+        filterType: band.type.index,
         frequency: band.frequency,
         gain: band.gain,
         q: band.q,

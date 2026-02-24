@@ -40,9 +40,11 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
   // ── Band state (ValueNotifier for surgical rebuilds → 60 fps) ─────────
 
   static const _bandColors = [
+    Color(0xFFE53935), // Low Cut — red
     Color(0xFF4CAF50), // Low  — green
     Color(0xFFF9AC06), // Mid  — amber (primary)
     Color(0xFF42A5F5), // High — blue
+    Color(0xFF8E24AA), // High Cut - purple
   ];
 
   late final List<ValueNotifier<EqBandData>> _bands;
@@ -55,7 +57,7 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
   void initState() {
     super.initState();
 
-    _bands = List.generate(3, (i) {
+    _bands = List.generate(AudioDspService.bandCount, (i) {
       // Restore from in-memory state if available, otherwise use defaults.
       final saved = widget.initialBands.where((b) => b.bandIndex == i);
       if (saved.isNotEmpty) {
@@ -64,6 +66,11 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
       return ValueNotifier(
         EqBandData(
           bandIndex: i,
+          type: i == 0
+              ? EqFilterType.highPass
+              : (i == AudioDspService.bandCount - 1
+                    ? EqFilterType.lowPass
+                    : EqFilterType.peaking),
           frequency: AudioDspService.defaultFrequencies[i],
           gain: 0.0,
           q: AudioDspService.defaultQ,
@@ -147,7 +154,12 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
     // Clamp to band's frequency range.
     final (fMin, fMax) = band.frequencyRange;
     newFreq = newFreq.clamp(fMin, fMax);
-    newGain = newGain.clamp(_minGain, _maxGain);
+    if (band.type == EqFilterType.highPass ||
+        band.type == EqFilterType.lowPass) {
+      newGain = 0.0; // Cut filters don't have gain in this implementation
+    } else {
+      newGain = newGain.clamp(_minGain, _maxGain);
+    }
 
     // Update the ValueNotifier (triggers CustomPainter repaint only).
     final updated = band.copyWith(frequency: newFreq, gain: newGain);
@@ -157,6 +169,7 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
     widget.dspService.setBandEq(
       trackId: widget.trackId,
       bandIndex: idx,
+      filterType: band.type.index,
       frequency: newFreq,
       gain: newGain,
       q: band.q,
@@ -186,6 +199,7 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
       widget.dspService.setBandEq(
         trackId: widget.trackId,
         bandIndex: i,
+        filterType: reset.type.index,
         frequency: AudioDspService.defaultFrequencies[i],
         gain: 0.0,
         q: AudioDspService.defaultQ,
@@ -281,7 +295,7 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
   Widget _buildBandReadouts() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(3, (i) {
+      children: List.generate(AudioDspService.bandCount, (i) {
         return ValueListenableBuilder<EqBandData>(
           valueListenable: _bands[i],
           builder: (context, band, _) {

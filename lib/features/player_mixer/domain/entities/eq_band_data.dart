@@ -2,14 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/audio_engine/audio_dsp_service.dart';
 
+/// Supported filter types for the Parametric EQ.
+enum EqFilterType { highPass, peaking, lowPass }
+
 /// Immutable data class representing a single parametric EQ band.
 ///
 /// Used internally by the EQ dialog to store per-band state.
 /// Each band has a center [frequency] (Hz), [gain] (dB), [q] factor,
 /// and visual metadata ([label], [color], [frequencyRange]).
 class EqBandData {
-  /// Band index (0 = Low, 1 = Mid, 2 = High).
+  /// Band index (0 = Low Cut, 1 = Low, ..., 4 = High Cut).
   final int bandIndex;
+
+  /// The type of filter this band represents.
+  final EqFilterType type;
 
   /// Center frequency in Hz.
   final double frequency;
@@ -30,13 +36,16 @@ class EqBandData {
   final (double, double) frequencyRange;
 
   static const _bandColors = [
+    Color(0xFFE53935), // Low Cut — red
     Color(0xFF4CAF50), // Low  — green
     Color(0xFFF9AC06), // Mid  — amber
     Color(0xFF42A5F5), // High — blue
+    Color(0xFF8E24AA), // High Cut - purple
   ];
 
   const EqBandData({
     required this.bandIndex,
+    required this.type,
     required this.frequency,
     required this.gain,
     required this.q,
@@ -48,12 +57,14 @@ class EqBandData {
   /// Reconstructs from persisted DSP-only data, rebuilding visual metadata.
   factory EqBandData.fromPersisted({
     required int bandIndex,
+    required EqFilterType type,
     required double frequency,
     required double gain,
     required double q,
   }) {
     return EqBandData(
       bandIndex: bandIndex,
+      type: type,
       frequency: frequency,
       gain: gain,
       q: q,
@@ -64,9 +75,15 @@ class EqBandData {
   }
 
   /// Creates a copy with selectively overridden fields.
-  EqBandData copyWith({double? frequency, double? gain, double? q}) {
+  EqBandData copyWith({
+    EqFilterType? type,
+    double? frequency,
+    double? gain,
+    double? q,
+  }) {
     return EqBandData(
       bandIndex: bandIndex,
+      type: type ?? this.type,
       frequency: frequency ?? this.frequency,
       gain: gain ?? this.gain,
       q: q ?? this.q,

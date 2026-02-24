@@ -11,15 +11,26 @@ part 'eq_band_model.g.dart';
 @embedded
 class EqBandModel {
   int? bandIndex;
+
+  @enumerated
+  EqFilterType type = EqFilterType.peaking;
+
   double? frequency;
   double? gainDb;
   double? q;
 
-  EqBandModel({this.bandIndex, this.frequency, this.gainDb, this.q});
+  EqBandModel({
+    this.bandIndex,
+    this.type = EqFilterType.peaking,
+    this.frequency,
+    this.gainDb,
+    this.q,
+  });
 
   factory EqBandModel.fromEntity(EqBandData band) {
     return EqBandModel(
       bandIndex: band.bandIndex,
+      type: band.type,
       frequency: band.frequency,
       gainDb: band.gain,
       q: band.q,
@@ -29,6 +40,7 @@ class EqBandModel {
   EqBandData toEntity() {
     return EqBandData.fromPersisted(
       bandIndex: bandIndex ?? 0,
+      type: type,
       frequency: frequency ?? 1000.0,
       gain: gainDb ?? 0.0,
       q: q ?? 1.0,

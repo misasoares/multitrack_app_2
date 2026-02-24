@@ -16,20 +16,50 @@
 // ─── BiquadFilter Implementation ───────────────────────────────────────────────
 
 void BiquadFilter::computeCoefficients(int32_t sampleRate) {
-    // Peaking EQ from Audio EQ Cookbook (Robert Bristow-Johnson)
     const float w0 = 2.0f * static_cast<float>(M_PI) * frequency / static_cast<float>(sampleRate);
     const float cosW0 = std::cos(w0);
     const float sinW0 = std::sin(w0);
     const float A = std::pow(10.0f, gainDb / 40.0f);  // sqrt of linear gain
     const float alpha = sinW0 / (2.0f * q);
+    
+    float a0 = 1.0f;
 
-    const float a0_inv = 1.0f / (1.0f + alpha / A);
+    switch (type) {
+        case FilterType::HIGHPASS:
+            b0 = (1.0f + cosW0) / 2.0f;
+            b1 = -(1.0f + cosW0);
+            b2 = (1.0f + cosW0) / 2.0f;
+            a0 = 1.0f + alpha;
+            a1 = -2.0f * cosW0;
+            a2 = 1.0f - alpha;
+            break;
 
-    b0 = (1.0f + alpha * A) * a0_inv;
-    b1 = (-2.0f * cosW0)    * a0_inv;
-    b2 = (1.0f - alpha * A) * a0_inv;
-    a1 = (-2.0f * cosW0)    * a0_inv;
-    a2 = (1.0f - alpha / A) * a0_inv;
+        case FilterType::LOWPASS:
+            b0 = (1.0f - cosW0) / 2.0f;
+            b1 = 1.0f - cosW0;
+            b2 = (1.0f - cosW0) / 2.0f;
+            a0 = 1.0f + alpha;
+            a1 = -2.0f * cosW0;
+            a2 = 1.0f - alpha;
+            break;
+
+        case FilterType::PEAKING:
+        default:
+            a0 = 1.0f + alpha / A;
+            b0 = 1.0f + alpha * A;
+            b1 = -2.0f * cosW0;
+            b2 = 1.0f - alpha * A;
+            a1 = -2.0f * cosW0;
+            a2 = 1.0f - alpha / A;
+            break;
+    }
+
+    const float a0_inv = 1.0f / a0;
+    b0 *= a0_inv;
+    b1 *= a0_inv;
+    b2 *= a0_inv;
+    a1 *= a0_inv;
+    a2 *= a0_inv;
 }
 
 float BiquadFilter::processL(float in) {
@@ -245,6 +275,7 @@ void AudioMixer::setSolo(const std::string& id, bool solo) {
 
 void AudioMixer::setTrackEq(const std::string& id,
                             int bandIndex,
+                            int filterType,
                             float frequency,
                             float gainDb,
                             float q) {
@@ -254,16 +285,20 @@ void AudioMixer::setTrackEq(const std::string& id,
     if (bandIndex < 0 || bandIndex >= kNumEqBands) return;
 
     BiquadFilter& band = it->second->eqBands[bandIndex];
+    band.type      = static_cast<FilterType>(filterType);
     band.frequency = frequency;
     band.gainDb    = gainDb;
     band.q         = q;
     band.active    = true;
     band.computeCoefficients(sampleRate_);
 
-    // Update isEqFlat flag
+    // Update isEqFlat flag based on bypass conditions per user rules
     bool flat = true;
     for (const auto& b : it->second->eqBands) {
-        if (b.active && std::abs(b.gainDb) > 0.01f) {
+        if (!b.active) continue;
+        if ((b.type == FilterType::PEAKING && std::abs(b.gainDb) > 0.01f) ||
+            (b.type == FilterType::HIGHPASS && b.frequency > 20.0f) ||
+            (b.type == FilterType::LOWPASS && b.frequency < 20000.0f)) {
             flat = false;
             break;
         }
@@ -271,7 +306,7 @@ void AudioMixer::setTrackEq(const std::string& id,
     it->second->isEqFlat = flat;
 }
 
-void AudioMixer::setMasterEq(int bandIndex, float frequency, float gainDb, float q) {
+void AudioMixer::setMasterEq(int bandIndex, int filterType, float frequency, float gainDb, float q) {
     std::lock_guard<std::mutex> lock(mutex_);
     // Ensure we have enough bands in vector
     if (masterEqBands_.size() <= (size_t)bandIndex) {
@@ -279,6 +314,7 @@ void AudioMixer::setMasterEq(int bandIndex, float frequency, float gainDb, float
     }
     
     BiquadFilter& band = masterEqBands_[bandIndex];
+    band.type      = static_cast<FilterType>(filterType);
     band.frequency = frequency;
     band.gainDb    = gainDb;
     band.q         = q;
@@ -505,8 +541,11 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     
     // ── Master Bus Processing (with Bypass) ──
     bool skipMasterEq = true;
-    for (const auto& band : masterEqBands_) {
-        if (band.active && std::abs(band.gainDb) > 0.01f) {
+    for (const auto& b : masterEqBands_) {
+        if (!b.active) continue;
+        if ((b.type == FilterType::PEAKING && std::abs(b.gainDb) > 0.01f) ||
+            (b.type == FilterType::HIGHPASS && b.frequency > 20.0f) ||
+            (b.type == FilterType::LOWPASS && b.frequency < 20000.0f)) {
             skipMasterEq = false;
             break;
         }

@@ -32,6 +32,12 @@ const EqBandModelSchema = Schema(
       id: 3,
       name: r'q',
       type: IsarType.double,
+    ),
+    r'type': PropertySchema(
+      id: 4,
+      name: r'type',
+      type: IsarType.byte,
+      enumMap: _EqBandModeltypeEnumValueMap,
     )
   },
   estimateSize: _eqBandModelEstimateSize,
@@ -59,6 +65,7 @@ void _eqBandModelSerialize(
   writer.writeDouble(offsets[1], object.frequency);
   writer.writeDouble(offsets[2], object.gainDb);
   writer.writeDouble(offsets[3], object.q);
+  writer.writeByte(offsets[4], object.type.index);
 }
 
 EqBandModel _eqBandModelDeserialize(
@@ -72,6 +79,8 @@ EqBandModel _eqBandModelDeserialize(
     frequency: reader.readDoubleOrNull(offsets[1]),
     gainDb: reader.readDoubleOrNull(offsets[2]),
     q: reader.readDoubleOrNull(offsets[3]),
+    type: _EqBandModeltypeValueEnumMap[reader.readByteOrNull(offsets[4])] ??
+        EqFilterType.peaking,
   );
   return object;
 }
@@ -91,10 +100,24 @@ P _eqBandModelDeserializeProp<P>(
       return (reader.readDoubleOrNull(offset)) as P;
     case 3:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 4:
+      return (_EqBandModeltypeValueEnumMap[reader.readByteOrNull(offset)] ??
+          EqFilterType.peaking) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
 }
+
+const _EqBandModeltypeEnumValueMap = {
+  'highPass': 0,
+  'peaking': 1,
+  'lowPass': 2,
+};
+const _EqBandModeltypeValueEnumMap = {
+  0: EqFilterType.highPass,
+  1: EqFilterType.peaking,
+  2: EqFilterType.lowPass,
+};
 
 extension EqBandModelQueryFilter
     on QueryBuilder<EqBandModel, EqBandModel, QFilterCondition> {
@@ -410,6 +433,59 @@ extension EqBandModelQueryFilter
         upper: upper,
         includeUpper: includeUpper,
         epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<EqBandModel, EqBandModel, QAfterFilterCondition> typeEqualTo(
+      EqFilterType value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'type',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<EqBandModel, EqBandModel, QAfterFilterCondition> typeGreaterThan(
+    EqFilterType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'type',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<EqBandModel, EqBandModel, QAfterFilterCondition> typeLessThan(
+    EqFilterType value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'type',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<EqBandModel, EqBandModel, QAfterFilterCondition> typeBetween(
+    EqFilterType lower,
+    EqFilterType upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'type',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }

@@ -33,7 +33,14 @@ constexpr int32_t kDefaultSampleRate = 44100;
 constexpr float kGainSmoothingSeconds = 0.05f;
 
 /// Number of parametric EQ bands per track.
-constexpr int kNumEqBands = 3;
+constexpr int kNumEqBands = 5;
+
+// ─── Filter Types ────────────────────────────────────────────────────────────
+enum class FilterType {
+    HIGHPASS = 0,
+    PEAKING  = 1,
+    LOWPASS  = 2
+};
 
 // ─── Biquad Filter ───────────────────────────────────────────────────────────
 
@@ -49,6 +56,7 @@ struct BiquadFilter {
     float z1R = 0.0f, z2R = 0.0f;
 
     // Parameters
+    FilterType type = FilterType::PEAKING;
     float frequency = 1000.0f;
     float gainDb    = 0.0f;
     float q         = 0.707f;
@@ -176,12 +184,14 @@ public:
     /// Set a parametric EQ band for a track.
     void setTrackEq(const std::string& id,
                     int bandIndex,
+                    int filterType,
                     float frequency,
                     float gainDb,
                     float q);
 
     /// Set a parametric EQ band for the Master Output.
     void setMasterEq(int bandIndex,
+                     int filterType,
                      float frequency,
                      float gainDb,
                      float q);

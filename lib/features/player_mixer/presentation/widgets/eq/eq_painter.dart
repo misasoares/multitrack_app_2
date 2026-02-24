@@ -135,35 +135,39 @@ class EqPainter extends CustomPainter {
 
   void _drawCurve(Canvas canvas, double w, double h) {
     final bands = bandNotifiers.map((n) => n.value).toList();
+    final filters = bands.map((b) {
+      final f = _Biquad();
+      f.setFilter(b.type, b.frequency, b.gain, b.q);
+      return f;
+    }).toList();
 
-    // Build control points: start at left edge, go through each band, end at right.
-    final points = <Offset>[
-      Offset(0, _gainToY(bands[0].gain * 0.3, h)), // left edge fades to ~0
-      ...bands.map(
-        (b) => Offset(_freqToX(b.frequency, w), _gainToY(b.gain, h)),
-      ),
-      Offset(w, _gainToY(bands[2].gain * 0.3, h)), // right edge fades to ~0
-    ];
+    final path = Path();
+    bool first = true;
 
-    final path = Path()..moveTo(points[0].dx, points[0].dy);
+    const int numPoints = 200;
+    for (int i = 0; i <= numPoints; i++) {
+      double ratio = i / numPoints;
+      double freq = _minFreq * pow(_maxFreq / _minFreq, ratio);
 
-    // Catmull-Rom-style cubic through each segment
-    for (var i = 0; i < points.length - 1; i++) {
-      final p0 = i > 0 ? points[i - 1] : points[i];
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      final p3 = i + 2 < points.length ? points[i + 2] : points[i + 1];
+      double totalMag = 1.0;
+      for (final f in filters) {
+        totalMag *= f.getMagnitudeResponse(freq);
+      }
 
-      final cp1 = Offset(
-        p1.dx + (p2.dx - p0.dx) / 6,
-        p1.dy + (p2.dy - p0.dy) / 6,
-      );
-      final cp2 = Offset(
-        p2.dx - (p3.dx - p1.dx) / 6,
-        p2.dy - (p3.dy - p1.dy) / 6,
-      );
+      double totalGainDb = 20.0 * (log(totalMag) / ln10);
 
-      path.cubicTo(cp1.dx, cp1.dy, cp2.dx, cp2.dy, p2.dx, p2.dy);
+      double x = w * ratio;
+      double y = _gainToY(totalGainDb, h);
+
+      // Clamp Y to within reasonable bounds to prevent drawing way off canvas
+      y = y.clamp(-h, h * 2.0);
+
+      if (first) {
+        path.moveTo(x, y);
+        first = false;
+      } else {
+        path.lineTo(x, y);
+      }
     }
 
     // Fill area under curve with gradient
@@ -252,5 +256,64 @@ class EqPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant EqPainter oldDelegate) {
     return activeBandIndex != oldDelegate.activeBandIndex;
+  }
+}
+
+class _Biquad {
+  double b0 = 1, b1 = 0, b2 = 0, a0 = 1, a1 = 0, a2 = 0;
+
+  void setFilter(EqFilterType type, double freq, double gainDb, double q) {
+    const double fs = 44100.0;
+    double w0 = 2.0 * pi * freq / fs;
+    double alpha = sin(w0) / (2.0 * q);
+    double a = pow(10.0, gainDb / 40.0).toDouble();
+
+    switch (type) {
+      case EqFilterType.peaking:
+        b0 = 1.0 + alpha * a;
+        b1 = -2.0 * cos(w0);
+        b2 = 1.0 - alpha * a;
+        a0 = 1.0 + alpha / a;
+        a1 = -2.0 * cos(w0);
+        a2 = 1.0 - alpha / a;
+        break;
+      case EqFilterType.highPass:
+        b0 = (1.0 + cos(w0)) / 2.0;
+        b1 = -(1.0 + cos(w0));
+        b2 = (1.0 + cos(w0)) / 2.0;
+        a0 = 1.0 + alpha;
+        a1 = -2.0 * cos(w0);
+        a2 = 1.0 - alpha;
+        break;
+      case EqFilterType.lowPass:
+        b0 = (1.0 - cos(w0)) / 2.0;
+        b1 = 1.0 - cos(w0);
+        b2 = (1.0 - cos(w0)) / 2.0;
+        a0 = 1.0 + alpha;
+        a1 = -2.0 * cos(w0);
+        a2 = 1.0 - alpha;
+        break;
+    }
+  }
+
+  double getMagnitudeResponse(double freq) {
+    const double fs = 44100.0;
+    double w = 2.0 * pi * freq / fs;
+
+    double cosW = cos(w);
+    double sinW = sin(w);
+    double cos2W = cos(2.0 * w);
+    double sin2W = sin(2.0 * w);
+
+    double numRe = b0 + b1 * cosW + b2 * cos2W;
+    double numIm = -(b1 * sinW + b2 * sin2W);
+
+    double denRe = a0 + a1 * cosW + a2 * cos2W;
+    double denIm = -(a1 * sinW + a2 * sin2W);
+
+    double magNum = sqrt(numRe * numRe + numIm * numIm);
+    double magDen = sqrt(denRe * denRe + denIm * denIm);
+
+    return magNum / (magDen != 0.0 ? magDen : 1.0);
   }
 }

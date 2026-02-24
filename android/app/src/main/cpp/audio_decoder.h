@@ -16,9 +16,13 @@ struct DecodedAudio {
     std::string error;              // Error message if failed
 };
 
+/// Sets the target sample rate for decoding.
+/// Files with a different sample rate will be resampled to this rate upon decoding.
+void setTargetSampleRate(int32_t sampleRate);
+
 /// Decodes an audio file at `filePath` into interleaved float PCM.
 /// Supports: .mp3, .wav, .flac
-/// The output sample rate matches the source file; caller may resample.
+/// The output sample rate will match the target sample rate set via `setTargetSampleRate`.
 /// `shouldCancel` allows for collaborative cancellation during decoding.
 DecodedAudio decodeAudioFile(const std::string& filePath, std::atomic<bool>* shouldCancel = nullptr);
 

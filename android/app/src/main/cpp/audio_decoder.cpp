@@ -32,6 +32,41 @@
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+static int32_t g_targetSampleRate = 48000;
+
+void setTargetSampleRate(int32_t sampleRate) {
+    if (sampleRate > 0) {
+        g_targetSampleRate = sampleRate;
+        LOGD("Decoder target sample rate set to %d Hz", sampleRate);
+    }
+}
+
+/// Linear interpolation resampler for audio data.
+static std::vector<float> resampleAudio(const std::vector<float>& input, int numChannels, int sourceRate, int targetRate) {
+    if (sourceRate == targetRate || input.empty() || numChannels <= 0) return input;
+    
+    double ratio = (double)sourceRate / targetRate;
+    int inputFrames = input.size() / numChannels;
+    int outputFrames = (int)(inputFrames / ratio);
+    
+    std::vector<float> output(outputFrames * numChannels);
+    
+    for (int i = 0; i < outputFrames; ++i) {
+        double srcIndex = i * ratio;
+        int index1 = (int)srcIndex;
+        int index2 = std::min(index1 + 1, inputFrames - 1);
+        double fraction = srcIndex - index1;
+        
+        for (int c = 0; c < numChannels; ++c) {
+            float val1 = input[index1 * numChannels + c];
+            float val2 = input[index2 * numChannels + c];
+            output[i * numChannels + c] = val1 + (float)((val2 - val1) * fraction);
+        }
+    }
+    
+    return output;
+}
+
 /// Returns the lowercase file extension (e.g. ".mp3").
 static std::string getFileExtension(const std::string& path) {
     auto dot = path.rfind('.');
@@ -171,6 +206,13 @@ DecodedAudio decodeAudioFile(const std::string& filePath, std::atomic<bool>* sho
     }
 
     if (result.success) {
+        if (result.sampleRate != g_targetSampleRate) {
+            LOGD("Resampling %s from %d Hz to %d Hz", ext.c_str(), result.sampleRate, g_targetSampleRate);
+            result.pcmData = resampleAudio(result.pcmData, result.numChannels, result.sampleRate, g_targetSampleRate);
+            result.sampleRate = g_targetSampleRate;
+            result.numFrames = result.pcmData.size() / result.numChannels;
+        }
+
         LOGD("Decoded %s: %lld frames, %d ch, %d Hz",
              ext.c_str(), (long long)result.numFrames,
              result.numChannels, result.sampleRate);

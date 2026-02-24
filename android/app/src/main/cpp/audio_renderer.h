@@ -5,6 +5,7 @@
 #include <vector>
 
 struct EqBand {
+    int   type; // 0 = HIGHPASS, 1 = PEAKING, 2 = LOWPASS
     float frequency;
     float gainDb;
     float q;

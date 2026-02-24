@@ -25,24 +25,58 @@
 // ─── Internal EQ Helper (Isolated Biquad) ────────────────────────────────────
 
 struct RendererBiquad {
+    int type = 1; // 0 = HIGHPASS, 1 = PEAKING, 2 = LOWPASS
     float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
     float a1 = 0.0f, a2 = 0.0f;
     float z1L = 0.0f, z2L = 0.0f;
     float z1R = 0.0f, z2R = 0.0f;
 
-    void compute(float freq, float gainDb, float q, int sampleRate) {
+    void compute(int fType, float freq, float gainDb, float q, int sampleRate) {
+        type = fType;
         const float w0 = 2.0f * (float)M_PI * freq / (float)sampleRate;
         const float cosW0 = std::cos(w0);
         const float sinW0 = std::sin(w0);
         const float A = std::pow(10.0f, gainDb / 40.0f);
         const float alpha = sinW0 / (2.0f * q);
-        const float a0_inv = 1.0f / (1.0f + alpha / A);
+        
+        float a0 = 1.0f;
 
-        b0 = (1.0f + alpha * A) * a0_inv;
-        b1 = (-2.0f * cosW0)    * a0_inv;
-        b2 = (1.0f - alpha * A) * a0_inv;
-        a1 = (-2.0f * cosW0)    * a0_inv;
-        a2 = (1.0f - alpha / A) * a0_inv;
+        switch (type) {
+            case 0: // HIGHPASS
+                b0 = (1.0f + cosW0) / 2.0f;
+                b1 = -(1.0f + cosW0);
+                b2 = (1.0f + cosW0) / 2.0f;
+                a0 = 1.0f + alpha;
+                a1 = -2.0f * cosW0;
+                a2 = 1.0f - alpha;
+                break;
+
+            case 2: // LOWPASS
+                b0 = (1.0f - cosW0) / 2.0f;
+                b1 = 1.0f - cosW0;
+                b2 = (1.0f - cosW0) / 2.0f;
+                a0 = 1.0f + alpha;
+                a1 = -2.0f * cosW0;
+                a2 = 1.0f - alpha;
+                break;
+
+            case 1: // PEAKING
+            default:
+                a0 = 1.0f + alpha / A;
+                b0 = 1.0f + alpha * A;
+                b1 = -2.0f * cosW0;
+                b2 = 1.0f - alpha * A;
+                a1 = -2.0f * cosW0;
+                a2 = 1.0f - alpha / A;
+                break;
+        }
+
+        const float a0_inv = 1.0f / a0;
+        b0 *= a0_inv;
+        b1 *= a0_inv;
+        b2 *= a0_inv;
+        a1 *= a0_inv;
+        a2 *= a0_inv;
     }
 
     float processL(float in) {
@@ -144,9 +178,13 @@ static void renderWorker(
     // 3. Setup EQ
     std::vector<RendererBiquad> filters;
     for (const auto& band : eqBands) {
-        if (std::abs(band.gainDb) < 0.01f) continue;
+        if ((band.type == 1 && std::abs(band.gainDb) < 0.01f) ||
+            (band.type == 0 && band.frequency <= 20.0f) ||
+            (band.type == 2 && band.frequency >= 20000.0f)) {
+            continue;
+        }
         RendererBiquad filter;
-        filter.compute(band.frequency, band.gainDb, band.q, audio.sampleRate);
+        filter.compute(band.type, band.frequency, band.gainDb, band.q, audio.sampleRate);
         filters.push_back(filter);
     }
 

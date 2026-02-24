@@ -88,6 +88,7 @@ abstract class IAudioEngineService {
   void setTrackEq({
     required String trackId,
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,
@@ -119,6 +120,7 @@ abstract class IAudioEngineService {
   /// Sets a parametric EQ band for the Master Output.
   void setMasterEq({
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,

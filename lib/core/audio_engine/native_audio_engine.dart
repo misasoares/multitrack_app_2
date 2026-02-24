@@ -64,6 +64,7 @@ typedef _SetTrackEqNative =
     Void Function(
       Pointer<Utf8> trackId,
       Int32 bandIndex,
+      Int32 filterType,
       Float frequency,
       Float gainDb,
       Float q,
@@ -72,6 +73,7 @@ typedef _SetTrackEqDart =
     void Function(
       Pointer<Utf8> trackId,
       int bandIndex,
+      int filterType,
       double frequency,
       double gainDb,
       double q,
@@ -89,9 +91,21 @@ typedef _SetTrackPitchDart =
     void Function(Pointer<Utf8> trackId, int semitones);
 
 typedef _SetMasterEqNative =
-    Void Function(Int32 bandIndex, Float frequency, Float gainDb, Float q);
+    Void Function(
+      Int32 bandIndex,
+      Int32 filterType,
+      Float frequency,
+      Float gainDb,
+      Float q,
+    );
 typedef _SetMasterEqDart =
-    void Function(int bandIndex, double frequency, double gainDb, double q);
+    void Function(
+      int bandIndex,
+      int filterType,
+      double frequency,
+      double gainDb,
+      double q,
+    );
 
 typedef _SetMasterVolumeNative = Void Function(Float volume);
 typedef _SetMasterVolumeDart = void Function(double volume);
@@ -444,6 +458,7 @@ class NativeAudioEngine implements IAudioEngineService {
   void setTrackEq({
     required String trackId,
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,
@@ -468,7 +483,7 @@ class NativeAudioEngine implements IAudioEngineService {
     if (fn == null) return; // Native EQ not available yet.
 
     final idPtr = trackId.toNativeUtf8();
-    fn(idPtr, bandIndex, frequency, gain, q);
+    fn(idPtr, bandIndex, filterType, frequency, gain, q);
     calloc.free(idPtr);
   }
 
@@ -484,12 +499,13 @@ class NativeAudioEngine implements IAudioEngineService {
   @override
   void setMasterEq({
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,
   }) {
     if (_setMasterEq == null) return;
-    _setMasterEq!(bandIndex, frequency, gain, q);
+    _setMasterEq!(bandIndex, filterType, frequency, gain, q);
   }
 
   @override

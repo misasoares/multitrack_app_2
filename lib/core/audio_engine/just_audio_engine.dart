@@ -187,6 +187,7 @@ class JustAudioEngine implements IAudioEngineService {
   void setTrackEq({
     required String trackId,
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,
@@ -198,6 +199,7 @@ class JustAudioEngine implements IAudioEngineService {
   @override
   void setMasterEq({
     required int bandIndex,
+    required int filterType,
     required double frequency,
     required double gain,
     required double q,

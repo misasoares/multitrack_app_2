@@ -242,6 +242,26 @@ class JustAudioEngine implements IAudioEngineService {
   Future<List<double>> getWaveformData(String trackId, int numBins) async => [];
 
   @override
+  void renderTrackOffline({
+    required String trackId,
+    required String inputPath,
+    required String outputPath,
+    required double tempo,
+    required double pitch,
+    required double volume,
+    required double pan,
+    required List<RenderEqBand> eqBands,
+  }) {
+    // Offline render is only supported by NativeAudioEngine.
+  }
+
+  @override
+  double getRenderProgress(String trackId) => 0.0;
+
+  @override
+  void cancelRender(String trackId) {}
+
+  @override
   void dispose() {
     _disposeAllPlayers();
   }

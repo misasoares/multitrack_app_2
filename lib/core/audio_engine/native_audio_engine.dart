@@ -126,6 +126,42 @@ typedef _GetTrackDbDart = double Function(Pointer<Utf8> trackId);
 typedef _GetMasterDbNative = Float Function();
 typedef _GetMasterDbDart = double Function();
 
+// ── Offline Render ──
+typedef _RenderTrackOfflineNative = Void Function(
+  Pointer<Utf8> trackId,
+  Pointer<Utf8> inputPath,
+  Pointer<Utf8> outputPath,
+  Float tempo,
+  Float pitch,
+  Float volume,
+  Float pan,
+  Int32 numEqBands,
+  Pointer<Int32> eqTypes,
+  Pointer<Float> eqFreqs,
+  Pointer<Float> eqGains,
+  Pointer<Float> eqQs,
+);
+typedef _RenderTrackOfflineDart = void Function(
+  Pointer<Utf8> trackId,
+  Pointer<Utf8> inputPath,
+  Pointer<Utf8> outputPath,
+  double tempo,
+  double pitch,
+  double volume,
+  double pan,
+  int numEqBands,
+  Pointer<Int32> eqTypes,
+  Pointer<Float> eqFreqs,
+  Pointer<Float> eqGains,
+  Pointer<Float> eqQs,
+);
+
+typedef _GetRenderProgressNative = Float Function(Pointer<Utf8> trackId);
+typedef _GetRenderProgressDart = double Function(Pointer<Utf8> trackId);
+
+typedef _CancelRenderNative = Void Function(Pointer<Utf8> trackId);
+typedef _CancelRenderDart = void Function(Pointer<Utf8> trackId);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -168,6 +204,10 @@ class NativeAudioEngine implements IAudioEngineService {
 
   late final _GetTrackDbDart _getTrackDb;
   late final _GetMasterDbDart _getMasterDb;
+
+  _RenderTrackOfflineDart? _renderTrackOffline;
+  late final _GetRenderProgressDart _getRenderProgress;
+  late final _CancelRenderDart _cancelRender;
 
   late final DynamicLibrary _lib;
 
@@ -268,6 +308,26 @@ class NativeAudioEngine implements IAudioEngineService {
     } catch (e) {
       print('NativeAudioEngine Warning: specific new symbols not found: $e');
     }
+
+    try {
+      _renderTrackOffline = lib
+          .lookup<NativeFunction<_RenderTrackOfflineNative>>(
+            'engine_render_track_offline',
+          )
+          .asFunction<_RenderTrackOfflineDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: engine_render_track_offline not found: $e');
+    }
+
+    _getRenderProgress = lib
+        .lookup<NativeFunction<_GetRenderProgressNative>>(
+          'engine_get_render_progress',
+        )
+        .asFunction<_GetRenderProgressDart>();
+
+    _cancelRender = lib
+        .lookup<NativeFunction<_CancelRenderNative>>('engine_cancel_render')
+        .asFunction<_CancelRenderDart>();
 
     _getPosition = lib
         .lookup<NativeFunction<_GetPositionNative>>('engine_get_position')
@@ -560,6 +620,83 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
+
+  // ─── Offline Render ───────────────────────────────────────────────────────
+
+  @override
+  void renderTrackOffline({
+    required String trackId,
+    required String inputPath,
+    required String outputPath,
+    required double tempo,
+    required double pitch,
+    required double volume,
+    required double pan,
+    required List<RenderEqBand> eqBands,
+  }) {
+    final fn = _renderTrackOffline;
+    if (fn == null) return;
+
+    final n = eqBands.length;
+    final trackIdPtr = trackId.toNativeUtf8();
+    final inputPathPtr = inputPath.toNativeUtf8();
+    final outputPathPtr = outputPath.toNativeUtf8();
+
+    final eqTypesPtr = calloc<Int32>(n);
+    final eqFreqsPtr = calloc<Float>(n);
+    final eqGainsPtr = calloc<Float>(n);
+    final eqQsPtr = calloc<Float>(n);
+    for (var i = 0; i < n; i++) {
+      eqTypesPtr[i] = eqBands[i].type;
+      eqFreqsPtr[i] = eqBands[i].frequency;
+      eqGainsPtr[i] = eqBands[i].gainDb;
+      eqQsPtr[i] = eqBands[i].q;
+    }
+    try {
+      fn(
+        trackIdPtr,
+        inputPathPtr,
+        outputPathPtr,
+        tempo,
+        pitch,
+        volume,
+        pan,
+        n,
+        eqTypesPtr,
+        eqFreqsPtr,
+        eqGainsPtr,
+        eqQsPtr,
+      );
+    } finally {
+      calloc.free(trackIdPtr);
+      calloc.free(inputPathPtr);
+      calloc.free(outputPathPtr);
+      calloc.free(eqTypesPtr);
+      calloc.free(eqFreqsPtr);
+      calloc.free(eqGainsPtr);
+      calloc.free(eqQsPtr);
+    }
+  }
+
+  @override
+  double getRenderProgress(String trackId) {
+    final idPtr = trackId.toNativeUtf8();
+    try {
+      return _getRenderProgress(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  @override
+  void cancelRender(String trackId) {
+    final idPtr = trackId.toNativeUtf8();
+    try {
+      _cancelRender(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
 
   @override
   void dispose() {

@@ -146,10 +146,50 @@ abstract class IAudioEngineService {
   /// per bin.  Returns an empty list if the track is not loaded.
   Future<List<double>> getWaveformData(String trackId, int numBins);
 
+  // ─── Offline Render (Export Show) ────────────────────────────────────
+
+  /// Single EQ band for offline render (DSP-only; matches C++ EqBand).
+  static const int renderEqTypeHighPass = 0;
+  static const int renderEqTypePeaking = 1;
+  static const int renderEqTypeLowPass = 2;
+
+  /// Starts offline render of one track to a WAV file (runs in native thread).
+  /// [volume] 0.0..1.0, [pan] -1.0..1.0; both are baked into the WAV.
+  void renderTrackOffline({
+    required String trackId,
+    required String inputPath,
+    required String outputPath,
+    required double tempo,
+    required double pitch,
+    required double volume,
+    required double pan,
+    required List<RenderEqBand> eqBands,
+  });
+
+  /// Progress for [trackId]: 0.0..1.0, or -1.0 error, -2.0 cancelled.
+  double getRenderProgress(String trackId);
+
+  /// Cancels an in-progress render for [trackId].
+  void cancelRender(String trackId);
+
   // ─── Lifecycle ─────────────────────────────────────────────────────
 
   /// Releases all native audio resources.
   ///
   /// Call this when the page/feature is disposed to prevent memory leaks.
   void dispose();
+}
+
+/// DSP-only EQ band for offline render (matches C++ EqBand).
+class RenderEqBand {
+  const RenderEqBand({
+    required this.type,
+    required this.frequency,
+    required this.gainDb,
+    required this.q,
+  });
+  final int type; // 0 = highPass, 1 = peaking, 2 = lowPass
+  final double frequency;
+  final double gainDb;
+  final double q;
 }

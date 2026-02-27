@@ -197,19 +197,30 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   Widget _buildImportZone() {
     return InkWell(
       onTap: () async {
+        widget.store.setProcessingState(true);
+        await Future.delayed(const Duration(milliseconds: 50));
+
         FilePickerResult? result = await FilePicker.platform.pickFiles(
           allowMultiple: true,
           type: FileType.audio,
         );
-        if (result != null) {
-          final files = result.files
-              .where((f) => f.path != null)
-              .map((f) => (name: f.name, path: f.path!))
-              .toList();
-          if (files.isNotEmpty) {
-            widget.store.importTracks(files);
-          }
+
+        if (result == null) {
+          widget.store.setProcessingState(false);
+          return;
         }
+
+        final files = result.files
+            .where((f) => f.path != null)
+            .map((f) => (name: f.name, path: f.path!))
+            .toList();
+
+        if (files.isEmpty) {
+          widget.store.setProcessingState(false);
+          return;
+        }
+
+        await widget.store.importTracks(files);
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(

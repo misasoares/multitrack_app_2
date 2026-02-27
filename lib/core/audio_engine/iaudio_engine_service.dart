@@ -144,7 +144,7 @@ abstract class IAudioEngineService {
   /// [numBins] is the desired number of amplitude bins.
   /// Returns a list of values in [0.0, 1.0] representing max amplitude
   /// per bin.  Returns an empty list if the track is not loaded.
-  List<double> getWaveformData(String trackId, int numBins);
+  Future<List<double>> getWaveformData(String trackId, int numBins);
 
   // ─── Lifecycle ─────────────────────────────────────────────────────
 

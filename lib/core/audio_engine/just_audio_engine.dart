@@ -239,7 +239,7 @@ class JustAudioEngine implements IAudioEngineService {
   double getMasterVolumeDb() => -60.0;
 
   @override
-  List<double> getWaveformData(String trackId, int numBins) => [];
+  Future<List<double>> getWaveformData(String trackId, int numBins) async => [];
 
   @override
   void dispose() {

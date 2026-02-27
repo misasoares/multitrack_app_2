@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 
@@ -141,8 +142,6 @@ class NativeAudioEngine implements IAudioEngineService {
   // ── FFI function pointers ──
   late final _EngineInitDart _engineInit;
   late final _EngineDisposeDart _engineDispose;
-  late final _LoadFileDart _loadFile;
-
   late final _RemoveAllTracksDart _removeAllTracks;
   late final _PlayDart _play;
   late final _PauseDart _pause;
@@ -151,7 +150,9 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _SetPanDart _setPan;
   late final _SetMuteDart _setMute;
   late final _SetSoloDart _setSolo;
-  late final _GetWaveformPeaksDart _getWaveformPeaks;
+  // NOTE: _loadFile and _getWaveformPeaks are intentionally *not*
+  // stored as fields because heavy decode/waveform work now happens
+  // inside background isolates that resolve their own FFI bindings.
 
   // ── Lazy EQ binding (symbol may not exist in the native lib yet) ──
   _SetTrackEqDart? _setTrackEq;
@@ -193,10 +194,6 @@ class NativeAudioEngine implements IAudioEngineService {
         .lookup<NativeFunction<_EngineDisposeNative>>('engine_dispose')
         .asFunction<_EngineDisposeDart>();
 
-    _loadFile = lib
-        .lookup<NativeFunction<_LoadFileNative>>('engine_load_file')
-        .asFunction<_LoadFileDart>();
-
     _removeAllTracks = lib
         .lookup<NativeFunction<_RemoveAllTracksNative>>(
           'engine_remove_all_tracks',
@@ -230,12 +227,6 @@ class NativeAudioEngine implements IAudioEngineService {
     _setSolo = lib
         .lookup<NativeFunction<_SetSoloNative>>('engine_set_solo')
         .asFunction<_SetSoloDart>();
-
-    _getWaveformPeaks = lib
-        .lookup<NativeFunction<_GetWaveformPeaksNative>>(
-          'engine_get_waveform_peaks',
-        )
-        .asFunction<_GetWaveformPeaksDart>();
 
     // NOTE: engine_set_track_eq is looked up lazily in setTrackEq()
     // because the C++ symbol may not exist in the native library yet.
@@ -343,37 +334,47 @@ class NativeAudioEngine implements IAudioEngineService {
     _soloedIds.clear();
     _allTrackIds.clear();
 
+    if (tracks.isEmpty) return;
+
+    // Prepare primitive data for the background Isolate.
+    final trackIds = <String>[];
+    final filePaths = <String>[];
+    final volumes = <double>[];
+    final pans = <double>[];
+    final mutes = <bool>[];
+    final solos = <bool>[];
+
     for (final track in tracks) {
       _allTrackIds.add(track.id);
       _volumeCache[track.id] = track.volume;
 
-      // Decode audio file and load PCM into the native mixer.
-      final idPtr = track.id.toNativeUtf8();
-      final pathPtr = track.filePath.toNativeUtf8();
+      trackIds.add(track.id);
+      filePaths.add(track.filePath);
+      volumes.add(track.volume);
+      pans.add(track.pan);
+      mutes.add(track.isMuted);
+      solos.add(track.isSolo);
+    }
 
-      final result = _loadFile(idPtr, pathPtr);
-      calloc.free(pathPtr);
+    // Heavy decode/load happens off the main isolate.
+    final decodeResults =
+        await _decodeTracksInBackground(trackIds, filePaths);
 
-      if (result == 0) {
-        // Decoding failed — skip this track but free the id pointer
-        calloc.free(idPtr);
-        continue;
-      }
+    // After decode, apply volume/pan/mute/solo on the main isolate.
+    for (var i = 0; i < trackIds.length; i++) {
+      if (i >= decodeResults.length || !decodeResults[i]) continue;
 
-      // Apply initial volume
-      _setVolume(idPtr, track.volume);
+      final idPtr = trackIds[i].toNativeUtf8();
 
-      // Apply initial pan
-      _setPan(idPtr, track.pan);
+      _setVolume(idPtr, volumes[i]);
+      _setPan(idPtr, pans[i]);
 
-      // Apply mute state
-      if (track.isMuted) {
+      if (mutes[i]) {
         _setMute(idPtr, 1);
       }
 
-      // Apply solo state
-      if (track.isSolo) {
-        _soloedIds.add(track.id);
+      if (solos[i]) {
+        _soloedIds.add(trackIds[i]);
         _setSolo(idPtr, 1);
       }
 
@@ -554,17 +555,8 @@ class NativeAudioEngine implements IAudioEngineService {
   // ─── Waveform ──────────────────────────────────────────────────────────────
 
   @override
-  List<double> getWaveformData(String trackId, int numBins) {
-    final idPtr = trackId.toNativeUtf8();
-    final peaksPtr = calloc<Float>(numBins);
-
-    final filled = _getWaveformPeaks(idPtr, peaksPtr, numBins);
-
-    final peaks = List<double>.generate(filled, (i) => peaksPtr[i]);
-
-    calloc.free(peaksPtr);
-    calloc.free(idPtr);
-    return peaks;
+  Future<List<double>> getWaveformData(String trackId, int numBins) async {
+    return _getWaveformDataInBackground(trackId, numBins);
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -576,4 +568,65 @@ class NativeAudioEngine implements IAudioEngineService {
     _soloedIds.clear();
     _allTrackIds.clear();
   }
+}
+
+/// Runs the heavy decode/load loop (`engine_load_file`) in a background isolate.
+Future<List<bool>> _decodeTracksInBackground(
+  List<String> trackIds,
+  List<String> filePaths,
+) {
+  final ids = List<String>.from(trackIds);
+  final paths = List<String>.from(filePaths);
+
+  return Isolate.run<List<bool>>(() {
+    final lib = NativeAudioEngine._loadLibrary();
+    final loadFile = lib
+        .lookup<NativeFunction<_LoadFileNative>>('engine_load_file')
+        .asFunction<_LoadFileDart>();
+
+    final results = <bool>[];
+
+    for (var i = 0; i < ids.length; i++) {
+      final idPtr = ids[i].toNativeUtf8();
+      final pathPtr = paths[i].toNativeUtf8();
+
+      final result = loadFile(idPtr, pathPtr);
+
+      calloc.free(pathPtr);
+      calloc.free(idPtr);
+
+      results.add(result != 0);
+    }
+
+    return results;
+  });
+}
+
+/// Fetches waveform peaks via `engine_get_waveform_peaks` in a background isolate.
+Future<List<double>> _getWaveformDataInBackground(
+  String trackId,
+  int numBins,
+) {
+  final id = trackId;
+  final bins = numBins;
+
+  return Isolate.run<List<double>>(() {
+    final lib = NativeAudioEngine._loadLibrary();
+    final getWaveformPeaks = lib
+        .lookup<NativeFunction<_GetWaveformPeaksNative>>(
+          'engine_get_waveform_peaks',
+        )
+        .asFunction<_GetWaveformPeaksDart>();
+
+    final idPtr = id.toNativeUtf8();
+    final peaksPtr = calloc<Float>(bins);
+
+    final filled = getWaveformPeaks(idPtr, peaksPtr, bins);
+    final peaks = List<double>.generate(filled, (i) => peaksPtr[i]);
+
+    calloc.free(peaksPtr);
+    calloc.free(idPtr);
+
+    return peaks;
+  });
 }

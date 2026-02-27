@@ -392,7 +392,7 @@ abstract class CreateMusicStoreBase with Store {
       // Extract waveform peaks for each track (150 bins).
       waveformData.clear();
       for (final t in tracks) {
-        final peaks = _audioEngine.getWaveformData(t.id, 150);
+        final peaks = await _audioEngine.getWaveformData(t.id, 150);
         if (peaks.isNotEmpty) {
           waveformData[t.id] = peaks;
         }

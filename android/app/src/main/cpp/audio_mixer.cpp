@@ -180,8 +180,13 @@ void AudioMixer::removeTrack(const std::string& id) {
         tracks_.erase(it);
     }
 
+    // Recalculate solo flag from scratch after removal
+    hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t->isSolo) { hasSoloedTracks_ = true; break; }
+        if (t->isSolo) {
+            hasSoloedTracks_ = true;
+            break;
+        }
     }
 }
 
@@ -268,8 +273,13 @@ void AudioMixer::setSolo(const std::string& id, bool solo) {
 
     it->second->isSolo = solo;
 
+    // Recalculate solo flag from scratch to avoid stale state
+    hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t->isSolo) { hasSoloedTracks_ = true; break; }
+        if (t->isSolo) {
+            hasSoloedTracks_ = true;
+            break;
+        }
     }
 }
 

@@ -345,6 +345,15 @@ class _SetlistPerformanceCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: badgeColor.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(6),
+                      boxShadow: isRendered
+                          ? [
+                              BoxShadow(
+                                color: badgeColor.withValues(alpha: 0.4),
+                                blurRadius: 10,
+                                spreadRadius: 0,
+                              ),
+                            ]
+                          : null,
                     ),
                     child: Text(
                       badgeLabel,
@@ -470,23 +479,46 @@ class _SetlistPerformanceCard extends StatelessWidget {
                                   fontWeight: FontWeight.w700,
                                   color: timeColor,
                                   height: 1.1,
+                                  shadows: isRendered
+                                      ? [
+                                          Shadow(
+                                            color: timeColor.withValues(alpha: 0.5),
+                                            offset: Offset.zero,
+                                            blurRadius: 8,
+                                          ),
+                                        ]
+                                      : null,
                                 ),
                               ),
                             ],
                           ),
-                          Material(
-                            color: isRendered ? const Color(0xFF22C55E) : AppColors.primary,
-                            borderRadius: BorderRadius.circular(22),
-                            child: InkWell(
-                              onTap: onTap,
+                          Container(
+                            decoration: isRendered
+                                ? BoxDecoration(
+                                    borderRadius: BorderRadius.circular(22),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF22C55E).withValues(alpha: 0.45),
+                                        blurRadius: 14,
+                                        spreadRadius: 0,
+                                      ),
+                                    ],
+                                  )
+                                : null,
+                            child: Material(
+                              color: isRendered ? const Color(0xFF22C55E) : AppColors.primary,
                               borderRadius: BorderRadius.circular(22),
-                              child: SizedBox(
-                                width: 44,
-                                height: 44,
-                                child: Icon(
-                                  isRendered ? Icons.play_arrow : Icons.edit,
-                                  color: Colors.black87,
-                                  size: 24,
+                              child: InkWell(
+                                onTap: onTap,
+                                borderRadius: BorderRadius.circular(22),
+                                child: SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Icon(
+                                    isRendered ? Icons.play_arrow : Icons.edit,
+                                    color: Colors.black87,
+                                    size: 24,
+                                  ),
                                 ),
                               ),
                             ),

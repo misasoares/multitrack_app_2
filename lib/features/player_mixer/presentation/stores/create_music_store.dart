@@ -183,7 +183,7 @@ abstract class CreateMusicStoreBase with Store {
           name: file.name,
           filePath: file.path,
           volume: 1.0,
-          pan: 0.0,
+          pan: 1.0,
           isClick: file.name.toLowerCase().contains('click'),
           order: tracks.length,
           duration: duration,

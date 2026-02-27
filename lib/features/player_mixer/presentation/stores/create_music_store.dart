@@ -117,6 +117,11 @@ abstract class CreateMusicStoreBase with Store {
     timeSignatureDenominator = value;
   }
 
+  @action
+  void setProcessingState(bool value) {
+    isProcessingAudio = value;
+  }
+
   // ─── Timeline State ───────────────────────────────────────────────
 
   @observable
@@ -164,7 +169,6 @@ abstract class CreateMusicStoreBase with Store {
   Future<void> importTracks(List<({String name, String path})> files) async {
     if (files.isEmpty) return;
 
-    isProcessingAudio = true;
     await _yieldFrame(); // Let Flutter render the spinner first
     try {
       final player = AudioPlayer();

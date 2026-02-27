@@ -98,6 +98,54 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
     });
   }
 
+  late final _$isRenderingAtom =
+      Atom(name: 'SetlistConfigStoreBase.isRendering', context: context);
+
+  @override
+  bool get isRendering {
+    _$isRenderingAtom.reportRead();
+    return super.isRendering;
+  }
+
+  @override
+  set isRendering(bool value) {
+    _$isRenderingAtom.reportWrite(value, super.isRendering, () {
+      super.isRendering = value;
+    });
+  }
+
+  late final _$renderProgressAtom =
+      Atom(name: 'SetlistConfigStoreBase.renderProgress', context: context);
+
+  @override
+  double get renderProgress {
+    _$renderProgressAtom.reportRead();
+    return super.renderProgress;
+  }
+
+  @override
+  set renderProgress(double value) {
+    _$renderProgressAtom.reportWrite(value, super.renderProgress, () {
+      super.renderProgress = value;
+    });
+  }
+
+  late final _$renderMessageAtom =
+      Atom(name: 'SetlistConfigStoreBase.renderMessage', context: context);
+
+  @override
+  String get renderMessage {
+    _$renderMessageAtom.reportRead();
+    return super.renderMessage;
+  }
+
+  @override
+  set renderMessage(String value) {
+    _$renderMessageAtom.reportWrite(value, super.renderMessage, () {
+      super.renderMessage = value;
+    });
+  }
+
   late final _$saveDraftAsyncAction =
       AsyncAction('SetlistConfigStoreBase.saveDraft', context: context);
 
@@ -120,6 +168,14 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
   @override
   Future<void> togglePreview(String itemId) {
     return _$togglePreviewAsyncAction.run(() => super.togglePreview(itemId));
+  }
+
+  late final _$renderShowAsyncAction =
+      AsyncAction('SetlistConfigStoreBase.renderShow', context: context);
+
+  @override
+  Future<void> renderShow() {
+    return _$renderShowAsyncAction.run(() => super.renderShow());
   }
 
   late final _$SetlistConfigStoreBaseActionController =
@@ -265,6 +321,9 @@ playingItemId: ${playingItemId},
 isPlaying: ${isPlaying},
 isLoading: ${isLoading},
 previewLoadingItemId: ${previewLoadingItemId},
+isRendering: ${isRendering},
+renderProgress: ${renderProgress},
+renderMessage: ${renderMessage},
 totalDuration: ${totalDuration}
     ''';
   }

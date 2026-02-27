@@ -5,6 +5,7 @@ import '../../domain/entities/setlist_item.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/entities/eq_band_data.dart';
 import '../../domain/repositories/imusic_repository.dart';
+import '../../domain/services/setlist_export_service.dart';
 import '../../../../../core/audio_engine/iaudio_engine_service.dart';
 import 'dart:developer' as developer;
 
@@ -15,7 +16,12 @@ class SetlistConfigStore = SetlistConfigStoreBase with _$SetlistConfigStore;
 abstract class SetlistConfigStoreBase with Store {
   final IAudioEngineService _audioEngine;
   final IMusicRepository _musicRepository;
-  SetlistConfigStoreBase(this._audioEngine, this._musicRepository);
+  final SetlistExportService _exportService;
+  SetlistConfigStoreBase(
+    this._audioEngine,
+    this._musicRepository,
+    this._exportService,
+  );
 
   Timer? _saveDebouncer;
 
@@ -350,6 +356,15 @@ abstract class SetlistConfigStoreBase with Store {
   @observable
   String? previewLoadingItemId;
 
+  @observable
+  bool isRendering = false;
+
+  @observable
+  double renderProgress = 0.0;
+
+  @observable
+  String renderMessage = '';
+
   @action
   Future<void> togglePreview(String itemId) async {
     // If clicking the currently playing item, just toggle pause/stop
@@ -395,6 +410,50 @@ abstract class SetlistConfigStoreBase with Store {
       // Just resume
       _audioEngine.playPreview();
       isPlaying = true;
+    }
+  }
+
+  @action
+  Future<void> renderShow() async {
+    if (currentSetlist == null) return;
+
+    if (isPlaying) {
+      await _audioEngine.pause();
+      _audioEngine.clearAllTracks();
+      isPlaying = false;
+    }
+
+    isRendering = true;
+    renderProgress = 0.0;
+    renderMessage = 'Preparando...';
+
+    try {
+      final updatedSetlist = await _exportService.exportSetlist(
+        currentSetlist!,
+        onProgress: (p) {
+          runInAction(() {
+            renderProgress = p.globalPercent;
+            final title = p.currentMusicTitle ?? '';
+            final track = p.currentTrackName ?? '';
+            final percent = (p.globalPercent * 100).round();
+            renderMessage = title.isNotEmpty && track.isNotEmpty
+                ? '$title - $track ($percent%)'
+                : 'Preparando...';
+          });
+        },
+      );
+      final toSave = updatedSetlist.copyWith(status: SetlistStatus.ready);
+      await _musicRepository.saveSetlist(toSave);
+      currentSetlist = toSave;
+    } catch (e) {
+      developer.log('Render show failed: $e', name: 'SetlistConfigStore');
+      rethrow;
+    } finally {
+      runInAction(() {
+        isRendering = false;
+        renderProgress = 0.0;
+        renderMessage = '';
+      });
     }
   }
 

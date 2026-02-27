@@ -300,6 +300,53 @@ class MockIAudioEngineService extends _i1.Mock
       ) as _i3.Future<List<double>>);
 
   @override
+  void renderTrackOffline({
+    required String? trackId,
+    required String? inputPath,
+    required String? outputPath,
+    required double? tempo,
+    required double? pitch,
+    required double? volume,
+    required double? pan,
+    required List<_i2.RenderEqBand>? eqBands,
+  }) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #renderTrackOffline,
+          [],
+          {
+            #trackId: trackId,
+            #inputPath: inputPath,
+            #outputPath: outputPath,
+            #tempo: tempo,
+            #pitch: pitch,
+            #volume: volume,
+            #pan: pan,
+            #eqBands: eqBands,
+          },
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  double getRenderProgress(String? trackId) => (super.noSuchMethod(
+        Invocation.method(
+          #getRenderProgress,
+          [trackId],
+        ),
+        returnValue: 0.0,
+      ) as double);
+
+  @override
+  void cancelRender(String? trackId) => super.noSuchMethod(
+        Invocation.method(
+          #cancelRender,
+          [trackId],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void dispose() => super.noSuchMethod(
         Invocation.method(
           #dispose,

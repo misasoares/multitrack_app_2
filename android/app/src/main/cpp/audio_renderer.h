@@ -12,14 +12,16 @@ struct EqBand {
 };
 
 /**
- * Renders an audio track to a new WAV file with DSP effects applied (Tempo, Pitch, EQ).
+ * Renders an audio track to a new WAV file with DSP effects applied (Tempo, Pitch, EQ, Volume, Pan).
  * This runs asynchronously in a background thread.
- * 
+ *
  * @param trackId Unique identifier to track progress.
  * @param inputPath Path to the source audio file (.mp3, .wav, .flac).
  * @param outputPath Path where the processed .wav file will be saved.
  * @param tempo Time-stretch factor (1.0 = normal).
  * @param pitch Pitch-shift in semitones (0 = normal).
+ * @param volume Linear gain 0.0 to 1.0 (baked into the WAV).
+ * @param pan -1.0 = full left, 0.0 = center, 1.0 = full right (constant-power panning).
  * @param eqBands Vector of EQ bands to apply.
  */
 void renderTrackOffline(
@@ -28,6 +30,8 @@ void renderTrackOffline(
     std::string outputPath,
     float tempo,
     float pitch,
+    float volume,
+    float pan,
     std::vector<EqBand> eqBands
 );
 

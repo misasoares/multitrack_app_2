@@ -128,6 +128,15 @@ static void unregisterCancelFlag(std::string trackId) {
     g_cancelFlags.erase(trackId);
 }
 
+// ─── Constant-power panning (match audio_mixer.cpp) ───────────────────────────
+
+static void computePanGains(float pan, float* panGainL, float* panGainR) {
+    float p = std::clamp(pan, -1.0f, 1.0f);
+    float angle = (p + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
+    *panGainL = std::cos(angle);
+    *panGainR = std::sin(angle);
+}
+
 // ─── Worker Function ─────────────────────────────────────────────────────────
 
 static void renderWorker(
@@ -136,6 +145,8 @@ static void renderWorker(
     std::string outputPath,
     float tempo,
     float pitch,
+    float volume,
+    float pan,
     std::vector<EqBand> eqBands
 ) {
     LOGD("Starting offline render for %s -> %s", inputPath.c_str(), outputPath.c_str());
@@ -204,7 +215,12 @@ static void renderWorker(
         return;
     }
 
-    // 5. Processing Loop
+    // 5. Volume & pan (constant-power, match audio_mixer)
+    float gain = std::clamp(volume, 0.0f, 1.0f);
+    float panGainL, panGainR;
+    computePanGains(pan, &panGainL, &panGainR);
+
+    // 6. Processing Loop
     const int CHUNK_SIZE = 4096;
     int64_t framesProcessed = 0;
     std::vector<float> outputBuffer(CHUNK_SIZE * audio.numChannels);
@@ -223,7 +239,7 @@ static void renderWorker(
             if (cancelFlag.load()) break;
             samplesReceived = st.receiveSamples(outputBuffer.data(), CHUNK_SIZE);
             if (samplesReceived > 0) {
-                // Apply EQ
+                // Apply EQ then gain & pan (constant-power panning like audio_mixer)
                 for (int i = 0; i < samplesReceived; ++i) {
                     if (audio.numChannels == 2) {
                         float& l = outputBuffer[i * 2];
@@ -232,14 +248,16 @@ static void renderWorker(
                             l = f.processL(l);
                             r = f.processR(r);
                         }
+                        l *= gain * panGainL;
+                        r *= gain * panGainR;
                     } else {
                         float& s = outputBuffer[i];
                         for (auto& f : filters) {
-                            s = f.processL(s); // Mono uses ProcessL logic
+                            s = f.processL(s); // Mono: use ProcessL only
                         }
+                        s *= gain; // Mono: pan has no effect; bake gain only
                     }
                 }
-                // Write to WAV
                 drwav_write_pcm_frames(&wav, samplesReceived, outputBuffer.data());
             }
         } while (samplesReceived > 0);
@@ -254,7 +272,7 @@ static void renderWorker(
         return;
     }
 
-    // Flush SoundTouch
+    // Flush SoundTouch (same gain/pan as main loop)
     st.flush();
     int samplesReceived;
     do {
@@ -265,9 +283,12 @@ static void renderWorker(
                     float& l = outputBuffer[i * 2];
                     float& r = outputBuffer[i * 2 + 1];
                     for (auto& f : filters) { l = f.processL(l); r = f.processR(r); }
+                    l *= gain * panGainL;
+                    r *= gain * panGainR;
                 } else {
                     float& s = outputBuffer[i];
                     for (auto& f : filters) { s = f.processL(s); }
+                    s *= gain;
                 }
             }
             drwav_write_pcm_frames(&wav, samplesReceived, outputBuffer.data());
@@ -286,9 +307,11 @@ void renderTrackOffline(
     std::string outputPath,
     float tempo,
     float pitch,
+    float volume,
+    float pan,
     std::vector<EqBand> eqBands
 ) {
     // Run in a detached thread
-    std::thread worker(renderWorker, trackId, inputPath, outputPath, tempo, pitch, eqBands);
+    std::thread worker(renderWorker, trackId, inputPath, outputPath, tempo, pitch, volume, pan, eqBands);
     worker.detach();
 }

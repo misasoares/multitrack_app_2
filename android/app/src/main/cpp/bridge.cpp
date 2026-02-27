@@ -273,6 +273,8 @@ extern "C" void engine_render_track_offline(const char* trackId,
                                             const char* outputPath,
                                             float tempo,
                                             float pitch,
+                                            float volume,
+                                            float pan,
                                             int32_t numEqBands,
                                             const int32_t* eqTypes,
                                             const float* eqFreqs,
@@ -290,6 +292,8 @@ extern "C" void engine_render_track_offline(const char* trackId,
                        std::string(outputPath),
                        tempo,
                        pitch,
+                       volume,
+                       pan,
                        eqBands);
 }
 

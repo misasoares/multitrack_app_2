@@ -79,6 +79,7 @@ class IsarMusicRepository implements IMusicRepository {
   @override
   Future<List<Setlist>> getAllSetlists() async {
     final models = await isar.setlistModels.where().findAll();
+    models.sort((a, b) => b.id.compareTo(a.id)); // mais recentes primeiro (criado em desc)
     return models.map((m) => m.toEntity()).toList();
   }
 

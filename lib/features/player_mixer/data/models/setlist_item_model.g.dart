@@ -13,91 +13,96 @@ const SetlistItemModelSchema = Schema(
   name: r'SetlistItemModel',
   id: -1248574815608723760,
   properties: {
-    r'id': PropertySchema(
+    r'exportedItemDirectory': PropertySchema(
       id: 0,
+      name: r'exportedItemDirectory',
+      type: IsarType.string,
+    ),
+    r'id': PropertySchema(
+      id: 1,
       name: r'id',
       type: IsarType.string,
     ),
     r'masterEqBands': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'masterEqBands',
       type: IsarType.objectList,
       target: r'EqBandModel',
     ),
     r'originalMusicArtist': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'originalMusicArtist',
       type: IsarType.string,
     ),
     r'originalMusicBpm': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'originalMusicBpm',
       type: IsarType.long,
     ),
     r'originalMusicCreatedAt': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'originalMusicCreatedAt',
       type: IsarType.dateTime,
     ),
     r'originalMusicId': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'originalMusicId',
       type: IsarType.string,
     ),
     r'originalMusicKey': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'originalMusicKey',
       type: IsarType.string,
     ),
     r'originalMusicMarkers': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'originalMusicMarkers',
       type: IsarType.objectList,
       target: r'MarkerModel',
     ),
     r'originalMusicTimeSignatureDenominator': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'originalMusicTimeSignatureDenominator',
       type: IsarType.long,
     ),
     r'originalMusicTimeSignatureNumerator': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'originalMusicTimeSignatureNumerator',
       type: IsarType.long,
     ),
     r'originalMusicTitle': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'originalMusicTitle',
       type: IsarType.string,
     ),
     r'originalMusicTracks': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'originalMusicTracks',
       type: IsarType.objectList,
       target: r'TrackModel',
     ),
     r'originalMusicUpdatedAt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'originalMusicUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'tempoFactor': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'tempoFactor',
       type: IsarType.double,
     ),
     r'transposableTrackIds': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'transposableTrackIds',
       type: IsarType.stringList,
     ),
     r'transposeSemitones': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'transposeSemitones',
       type: IsarType.long,
     ),
     r'volume': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'volume',
       type: IsarType.double,
     )
@@ -114,6 +119,12 @@ int _setlistItemModelEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.exportedItemDirectory;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.id;
     if (value != null) {
@@ -207,38 +218,39 @@ void _setlistItemModelSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.id);
+  writer.writeString(offsets[0], object.exportedItemDirectory);
+  writer.writeString(offsets[1], object.id);
   writer.writeObjectList<EqBandModel>(
-    offsets[1],
+    offsets[2],
     allOffsets,
     EqBandModelSchema.serialize,
     object.masterEqBands,
   );
-  writer.writeString(offsets[2], object.originalMusicArtist);
-  writer.writeLong(offsets[3], object.originalMusicBpm);
-  writer.writeDateTime(offsets[4], object.originalMusicCreatedAt);
-  writer.writeString(offsets[5], object.originalMusicId);
-  writer.writeString(offsets[6], object.originalMusicKey);
+  writer.writeString(offsets[3], object.originalMusicArtist);
+  writer.writeLong(offsets[4], object.originalMusicBpm);
+  writer.writeDateTime(offsets[5], object.originalMusicCreatedAt);
+  writer.writeString(offsets[6], object.originalMusicId);
+  writer.writeString(offsets[7], object.originalMusicKey);
   writer.writeObjectList<MarkerModel>(
-    offsets[7],
+    offsets[8],
     allOffsets,
     MarkerModelSchema.serialize,
     object.originalMusicMarkers,
   );
-  writer.writeLong(offsets[8], object.originalMusicTimeSignatureDenominator);
-  writer.writeLong(offsets[9], object.originalMusicTimeSignatureNumerator);
-  writer.writeString(offsets[10], object.originalMusicTitle);
+  writer.writeLong(offsets[9], object.originalMusicTimeSignatureDenominator);
+  writer.writeLong(offsets[10], object.originalMusicTimeSignatureNumerator);
+  writer.writeString(offsets[11], object.originalMusicTitle);
   writer.writeObjectList<TrackModel>(
-    offsets[11],
+    offsets[12],
     allOffsets,
     TrackModelSchema.serialize,
     object.originalMusicTracks,
   );
-  writer.writeDateTime(offsets[12], object.originalMusicUpdatedAt);
-  writer.writeDouble(offsets[13], object.tempoFactor);
-  writer.writeStringList(offsets[14], object.transposableTrackIds);
-  writer.writeLong(offsets[15], object.transposeSemitones);
-  writer.writeDouble(offsets[16], object.volume);
+  writer.writeDateTime(offsets[13], object.originalMusicUpdatedAt);
+  writer.writeDouble(offsets[14], object.tempoFactor);
+  writer.writeStringList(offsets[15], object.transposableTrackIds);
+  writer.writeLong(offsets[16], object.transposeSemitones);
+  writer.writeDouble(offsets[17], object.volume);
 }
 
 SetlistItemModel _setlistItemModelDeserialize(
@@ -248,38 +260,39 @@ SetlistItemModel _setlistItemModelDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = SetlistItemModel(
-    id: reader.readStringOrNull(offsets[0]),
+    exportedItemDirectory: reader.readStringOrNull(offsets[0]),
+    id: reader.readStringOrNull(offsets[1]),
     masterEqBands: reader.readObjectList<EqBandModel>(
-      offsets[1],
+      offsets[2],
       EqBandModelSchema.deserialize,
       allOffsets,
       EqBandModel(),
     ),
-    originalMusicArtist: reader.readStringOrNull(offsets[2]),
-    originalMusicBpm: reader.readLongOrNull(offsets[3]),
-    originalMusicCreatedAt: reader.readDateTimeOrNull(offsets[4]),
-    originalMusicId: reader.readStringOrNull(offsets[5]),
-    originalMusicKey: reader.readStringOrNull(offsets[6]),
+    originalMusicArtist: reader.readStringOrNull(offsets[3]),
+    originalMusicBpm: reader.readLongOrNull(offsets[4]),
+    originalMusicCreatedAt: reader.readDateTimeOrNull(offsets[5]),
+    originalMusicId: reader.readStringOrNull(offsets[6]),
+    originalMusicKey: reader.readStringOrNull(offsets[7]),
     originalMusicMarkers: reader.readObjectList<MarkerModel>(
-      offsets[7],
+      offsets[8],
       MarkerModelSchema.deserialize,
       allOffsets,
       MarkerModel(),
     ),
-    originalMusicTimeSignatureDenominator: reader.readLongOrNull(offsets[8]),
-    originalMusicTimeSignatureNumerator: reader.readLongOrNull(offsets[9]),
-    originalMusicTitle: reader.readStringOrNull(offsets[10]),
+    originalMusicTimeSignatureDenominator: reader.readLongOrNull(offsets[9]),
+    originalMusicTimeSignatureNumerator: reader.readLongOrNull(offsets[10]),
+    originalMusicTitle: reader.readStringOrNull(offsets[11]),
     originalMusicTracks: reader.readObjectList<TrackModel>(
-      offsets[11],
+      offsets[12],
       TrackModelSchema.deserialize,
       allOffsets,
       TrackModel(),
     ),
-    originalMusicUpdatedAt: reader.readDateTimeOrNull(offsets[12]),
-    tempoFactor: reader.readDoubleOrNull(offsets[13]),
-    transposableTrackIds: reader.readStringList(offsets[14]),
-    transposeSemitones: reader.readLongOrNull(offsets[15]),
-    volume: reader.readDoubleOrNull(offsets[16]),
+    originalMusicUpdatedAt: reader.readDateTimeOrNull(offsets[13]),
+    tempoFactor: reader.readDoubleOrNull(offsets[14]),
+    transposableTrackIds: reader.readStringList(offsets[15]),
+    transposeSemitones: reader.readLongOrNull(offsets[16]),
+    volume: reader.readDoubleOrNull(offsets[17]),
   );
   return object;
 }
@@ -294,51 +307,53 @@ P _setlistItemModelDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
+      return (reader.readStringOrNull(offset)) as P;
+    case 2:
       return (reader.readObjectList<EqBandModel>(
         offset,
         EqBandModelSchema.deserialize,
         allOffsets,
         EqBandModel(),
       )) as P;
-    case 2:
-      return (reader.readStringOrNull(offset)) as P;
     case 3:
-      return (reader.readLongOrNull(offset)) as P;
-    case 4:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 5:
       return (reader.readStringOrNull(offset)) as P;
+    case 4:
+      return (reader.readLongOrNull(offset)) as P;
+    case 5:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 6:
       return (reader.readStringOrNull(offset)) as P;
     case 7:
+      return (reader.readStringOrNull(offset)) as P;
+    case 8:
       return (reader.readObjectList<MarkerModel>(
         offset,
         MarkerModelSchema.deserialize,
         allOffsets,
         MarkerModel(),
       )) as P;
-    case 8:
-      return (reader.readLongOrNull(offset)) as P;
     case 9:
       return (reader.readLongOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
       return (reader.readObjectList<TrackModel>(
         offset,
         TrackModelSchema.deserialize,
         allOffsets,
         TrackModel(),
       )) as P;
-    case 12:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readStringList(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 15:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 16:
+      return (reader.readLongOrNull(offset)) as P;
+    case 17:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -347,6 +362,161 @@ P _setlistItemModelDeserializeProp<P>(
 
 extension SetlistItemModelQueryFilter
     on QueryBuilder<SetlistItemModel, SetlistItemModel, QFilterCondition> {
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'exportedItemDirectory',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'exportedItemDirectory',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'exportedItemDirectory',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'exportedItemDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'exportedItemDirectory',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'exportedItemDirectory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      exportedItemDirectoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'exportedItemDirectory',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
       idIsNull() {
     return QueryBuilder.apply(this, (query) {

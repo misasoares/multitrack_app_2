@@ -27,19 +27,24 @@ const SetlistModelSchema = CollectionSchema(
       name: r'domainId',
       type: IsarType.string,
     ),
-    r'items': PropertySchema(
+    r'exportedShowDirectory': PropertySchema(
       id: 2,
+      name: r'exportedShowDirectory',
+      type: IsarType.string,
+    ),
+    r'items': PropertySchema(
+      id: 3,
       name: r'items',
       type: IsarType.objectList,
       target: r'SetlistItemModel',
     ),
     r'name': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'name',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'status',
       type: IsarType.string,
       enumMap: _SetlistModelstatusEnumValueMap,
@@ -59,6 +64,19 @@ const SetlistModelSchema = CollectionSchema(
       properties: [
         IndexPropertySchema(
           name: r'domainId',
+          type: IndexType.hash,
+          caseSensitive: true,
+        )
+      ],
+    ),
+    r'exportedShowDirectory': IndexSchema(
+      id: -5331482496825257464,
+      name: r'exportedShowDirectory',
+      unique: false,
+      replace: false,
+      properties: [
+        IndexPropertySchema(
+          name: r'exportedShowDirectory',
           type: IndexType.hash,
           caseSensitive: true,
         )
@@ -92,6 +110,12 @@ int _setlistModelEstimateSize(
   }
   {
     final value = object.domainId;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.exportedShowDirectory;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
     }
@@ -133,14 +157,15 @@ void _setlistModelSerialize(
 ) {
   writer.writeString(offsets[0], object.description);
   writer.writeString(offsets[1], object.domainId);
+  writer.writeString(offsets[2], object.exportedShowDirectory);
   writer.writeObjectList<SetlistItemModel>(
-    offsets[2],
+    offsets[3],
     allOffsets,
     SetlistItemModelSchema.serialize,
     object.items,
   );
-  writer.writeString(offsets[3], object.name);
-  writer.writeString(offsets[4], object.status?.name);
+  writer.writeString(offsets[4], object.name);
+  writer.writeString(offsets[5], object.status?.name);
 }
 
 SetlistModel _setlistModelDeserialize(
@@ -152,15 +177,16 @@ SetlistModel _setlistModelDeserialize(
   final object = SetlistModel(
     description: reader.readStringOrNull(offsets[0]),
     domainId: reader.readStringOrNull(offsets[1]),
+    exportedShowDirectory: reader.readStringOrNull(offsets[2]),
     items: reader.readObjectList<SetlistItemModel>(
-      offsets[2],
+      offsets[3],
       SetlistItemModelSchema.deserialize,
       allOffsets,
       SetlistItemModel(),
     ),
-    name: reader.readStringOrNull(offsets[3]),
+    name: reader.readStringOrNull(offsets[4]),
     status:
-        _SetlistModelstatusValueEnumMap[reader.readStringOrNull(offsets[4])],
+        _SetlistModelstatusValueEnumMap[reader.readStringOrNull(offsets[5])],
   );
   object.id = id;
   return object;
@@ -178,15 +204,17 @@ P _setlistModelDeserializeProp<P>(
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
+      return (reader.readStringOrNull(offset)) as P;
+    case 3:
       return (reader.readObjectList<SetlistItemModel>(
         offset,
         SetlistItemModelSchema.deserialize,
         allOffsets,
         SetlistItemModel(),
       )) as P;
-    case 3:
-      return (reader.readStringOrNull(offset)) as P;
     case 4:
+      return (reader.readStringOrNull(offset)) as P;
+    case 5:
       return (_SetlistModelstatusValueEnumMap[reader.readStringOrNull(offset)])
           as P;
     default:
@@ -413,6 +441,73 @@ extension SetlistModelQueryWhere
               indexName: r'domainId',
               lower: [],
               upper: [domainId],
+              includeUpper: false,
+            ));
+      }
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterWhereClause>
+      exportedShowDirectoryIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'exportedShowDirectory',
+        value: [null],
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterWhereClause>
+      exportedShowDirectoryIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.between(
+        indexName: r'exportedShowDirectory',
+        lower: [null],
+        includeLower: false,
+        upper: [],
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterWhereClause>
+      exportedShowDirectoryEqualTo(String? exportedShowDirectory) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addWhereClause(IndexWhereClause.equalTo(
+        indexName: r'exportedShowDirectory',
+        value: [exportedShowDirectory],
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterWhereClause>
+      exportedShowDirectoryNotEqualTo(String? exportedShowDirectory) {
+    return QueryBuilder.apply(this, (query) {
+      if (query.whereSort == Sort.asc) {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'exportedShowDirectory',
+              lower: [],
+              upper: [exportedShowDirectory],
+              includeUpper: false,
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'exportedShowDirectory',
+              lower: [exportedShowDirectory],
+              includeLower: false,
+              upper: [],
+            ));
+      } else {
+        return query
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'exportedShowDirectory',
+              lower: [exportedShowDirectory],
+              includeLower: false,
+              upper: [],
+            ))
+            .addWhereClause(IndexWhereClause.between(
+              indexName: r'exportedShowDirectory',
+              lower: [],
+              upper: [exportedShowDirectory],
               includeUpper: false,
             ));
       }
@@ -725,6 +820,161 @@ extension SetlistModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'domainId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'exportedShowDirectory',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'exportedShowDirectory',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'exportedShowDirectory',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'exportedShowDirectory',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'exportedShowDirectory',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'exportedShowDirectory',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterFilterCondition>
+      exportedShowDirectoryIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'exportedShowDirectory',
         value: '',
       ));
     });
@@ -1235,6 +1485,20 @@ extension SetlistModelQuerySortBy
     });
   }
 
+  QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy>
+      sortByExportedShowDirectory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exportedShowDirectory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy>
+      sortByExportedShowDirectoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exportedShowDirectory', Sort.desc);
+    });
+  }
+
   QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy> sortByName() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'name', Sort.asc);
@@ -1284,6 +1548,20 @@ extension SetlistModelQuerySortThenBy
   QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy> thenByDomainIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'domainId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy>
+      thenByExportedShowDirectory() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exportedShowDirectory', Sort.asc);
+    });
+  }
+
+  QueryBuilder<SetlistModel, SetlistModel, QAfterSortBy>
+      thenByExportedShowDirectoryDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'exportedShowDirectory', Sort.desc);
     });
   }
 
@@ -1340,6 +1618,14 @@ extension SetlistModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<SetlistModel, SetlistModel, QDistinct>
+      distinctByExportedShowDirectory({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'exportedShowDirectory',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<SetlistModel, SetlistModel, QDistinct> distinctByName(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1372,6 +1658,13 @@ extension SetlistModelQueryProperty
   QueryBuilder<SetlistModel, String?, QQueryOperations> domainIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'domainId');
+    });
+  }
+
+  QueryBuilder<SetlistModel, String?, QQueryOperations>
+      exportedShowDirectoryProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'exportedShowDirectory');
     });
   }
 

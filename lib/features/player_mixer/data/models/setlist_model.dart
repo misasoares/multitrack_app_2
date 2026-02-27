@@ -21,12 +21,16 @@ class SetlistModel {
   @Enumerated(EnumType.name)
   SetlistStatus? status;
 
+  @Index()
+  String? exportedShowDirectory;
+
   SetlistModel({
     this.domainId,
     this.name,
     this.description,
     this.items,
     this.status,
+    this.exportedShowDirectory,
   });
 
   factory SetlistModel.fromEntity(Setlist setlist) {
@@ -36,6 +40,7 @@ class SetlistModel {
       description: setlist.description,
       items: setlist.items.map((i) => SetlistItemModel.fromEntity(i)).toList(),
       status: setlist.status,
+      exportedShowDirectory: setlist.exportedShowDirectory,
     );
   }
 
@@ -46,6 +51,7 @@ class SetlistModel {
       description: description ?? '',
       items: items?.map((i) => i.toEntity()).toList() ?? [],
       status: status ?? SetlistStatus.draft,
+      exportedShowDirectory: exportedShowDirectory,
     );
   }
 }

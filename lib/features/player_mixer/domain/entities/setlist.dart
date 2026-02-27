@@ -9,6 +9,8 @@ class Setlist extends Equatable {
   final String description;
   final List<SetlistItem> items;
   final SetlistStatus status;
+  /// Path to the exported show directory (e.g. ApplicationDocumentsDirectory/shows/{id}).
+  final String? exportedShowDirectory;
 
   const Setlist({
     required this.id,
@@ -16,6 +18,7 @@ class Setlist extends Equatable {
     this.description = '',
     this.items = const [],
     this.status = SetlistStatus.draft,
+    this.exportedShowDirectory,
   });
 
   Setlist copyWith({
@@ -24,6 +27,7 @@ class Setlist extends Equatable {
     String? description,
     List<SetlistItem>? items,
     SetlistStatus? status,
+    String? exportedShowDirectory,
   }) {
     return Setlist(
       id: id ?? this.id,
@@ -31,9 +35,10 @@ class Setlist extends Equatable {
       description: description ?? this.description,
       items: items ?? this.items,
       status: status ?? this.status,
+      exportedShowDirectory: exportedShowDirectory ?? this.exportedShowDirectory,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, description, items, status];
+  List<Object?> get props => [id, name, description, items, status, exportedShowDirectory];
 }

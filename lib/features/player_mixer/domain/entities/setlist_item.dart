@@ -12,6 +12,8 @@ class SetlistItem extends Equatable {
   final int transposeSemitones;
   final List<EqBandData> masterEqBands;
   final List<String> transposableTrackIds;
+  /// Path to this item's exported folder (e.g. shows/{setlistId}/{itemId}).
+  final String? exportedItemDirectory;
 
   const SetlistItem({
     required this.id,
@@ -21,6 +23,7 @@ class SetlistItem extends Equatable {
     this.transposeSemitones = 0,
     this.masterEqBands = const [],
     this.transposableTrackIds = const [],
+    this.exportedItemDirectory,
   });
 
   factory SetlistItem.fromMusic(Music music) {
@@ -35,6 +38,7 @@ class SetlistItem extends Equatable {
     int? transposeSemitones,
     List<EqBandData>? masterEqBands,
     List<String>? transposableTrackIds,
+    String? exportedItemDirectory,
   }) {
     return SetlistItem(
       id: id ?? this.id,
@@ -44,6 +48,7 @@ class SetlistItem extends Equatable {
       transposeSemitones: transposeSemitones ?? this.transposeSemitones,
       masterEqBands: masterEqBands ?? this.masterEqBands,
       transposableTrackIds: transposableTrackIds ?? this.transposableTrackIds,
+      exportedItemDirectory: exportedItemDirectory ?? this.exportedItemDirectory,
     );
   }
 
@@ -56,5 +61,6 @@ class SetlistItem extends Equatable {
     transposeSemitones,
     masterEqBands,
     transposableTrackIds,
+    exportedItemDirectory,
   ];
 }

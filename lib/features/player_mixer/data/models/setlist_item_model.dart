@@ -30,6 +30,7 @@ class SetlistItemModel {
   int? transposeSemitones;
   List<EqBandModel>? masterEqBands;
   List<String>? transposableTrackIds;
+  String? exportedItemDirectory;
 
   SetlistItemModel({
     this.id,
@@ -49,6 +50,7 @@ class SetlistItemModel {
     this.transposeSemitones,
     this.masterEqBands,
     this.transposableTrackIds,
+    this.exportedItemDirectory,
   });
 
   factory SetlistItemModel.fromEntity(SetlistItem item) {
@@ -78,6 +80,7 @@ class SetlistItemModel {
           .map((e) => EqBandModel.fromEntity(e))
           .toList(),
       transposableTrackIds: item.transposableTrackIds,
+      exportedItemDirectory: item.exportedItemDirectory,
     );
   }
 
@@ -102,6 +105,7 @@ class SetlistItemModel {
       transposeSemitones: transposeSemitones ?? 0,
       masterEqBands: masterEqBands?.map((e) => e.toEntity()).toList() ?? [],
       transposableTrackIds: transposableTrackIds ?? [],
+      exportedItemDirectory: exportedItemDirectory,
     );
   }
 }

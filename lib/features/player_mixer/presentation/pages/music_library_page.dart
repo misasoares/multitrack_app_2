@@ -10,6 +10,7 @@ import '../enums/music_sort_type.dart';
 import '../stores/create_music_store.dart';
 import 'create_music_page.dart';
 import 'setlist_library_page.dart';
+import 'package:multitracks_df_pro/features/performance/presentation/pages/performance_list_page.dart';
 
 class MusicLibraryPage extends StatefulWidget {
   const MusicLibraryPage({super.key});
@@ -863,7 +864,16 @@ class _BottomNavBar extends StatelessWidget {
               );
             },
           ),
-          _NavBarItem(icon: Icons.equalizer, label: 'MIXER'),
+          _NavBarItem(
+            icon: Icons.play_circle_filled,
+            label: 'PERFORMANCE',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PerformanceListPage()),
+              );
+            },
+          ),
           _NavBarItem(icon: Icons.settings, label: 'SYSTEM'),
           _NavBarItem(icon: Icons.account_circle, label: 'PROFILE'),
         ],

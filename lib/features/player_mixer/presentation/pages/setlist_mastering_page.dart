@@ -184,9 +184,10 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
             ),
             const SizedBox(width: 12),
             ElevatedButton.icon(
-              onPressed: () {
-                // TODO: Render
-              },
+              onPressed: _store.currentSetlist == null ||
+                      _store.currentSetlist!.items.isEmpty
+                  ? null
+                  : () => _onRenderShowPressed(context),
               icon: const Icon(Icons.ios_share, size: 16),
               label: const Text('RENDER SHOW'),
               style: ElevatedButton.styleFrom(
@@ -240,5 +241,79 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
     final minutes = twoDigits(duration.inMinutes);
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return '$minutes:$seconds';
+  }
+
+  Future<void> _onRenderShowPressed(BuildContext context) async {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ShowRenderDialog(store: _store),
+    );
+    try {
+      await _store.renderShow();
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Show renderizado e pronto para o palco!'),
+          backgroundColor: Color(0xFF22C55E),
+        ),
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Erro ao renderizar o show. Tente novamente.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+class _ShowRenderDialog extends StatelessWidget {
+  const _ShowRenderDialog({required this.store});
+  final SetlistConfigStore store;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1E1E1E),
+      title: Text(
+        'Preparando Show...',
+        style: GoogleFonts.spaceGrotesk(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      content: Observer(
+        builder: (_) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                store.renderMessage.isNotEmpty
+                    ? store.renderMessage
+                    : 'Preparando...',
+                style: GoogleFonts.inter(
+                  color: AppColors.textMuted,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(
+                value: store.renderProgress.clamp(0.0, 1.0),
+                backgroundColor: const Color(0xFF333333),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 }

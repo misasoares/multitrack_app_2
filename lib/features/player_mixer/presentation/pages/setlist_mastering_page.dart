@@ -158,8 +158,14 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
               ),
             ),
             OutlinedButton.icon(
-              onPressed: () {
-                // TODO: Save draft
+              onPressed: () async {
+                await _store.saveDraft();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Rascunho salvo com sucesso!'),
+                  ),
+                );
               },
               icon: const Icon(Icons.save, size: 16),
               label: const Text('SAVE DRAFT'),

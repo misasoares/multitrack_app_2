@@ -436,6 +436,17 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
+  void setProcessingState(bool value) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.setProcessingState');
+    try {
+      return super.setProcessingState(value);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void updateVolume(String trackId, double newVolume) {
     final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
         name: 'CreateMusicStoreBase.updateVolume');

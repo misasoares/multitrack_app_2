@@ -284,7 +284,7 @@ class MockIAudioEngineService extends _i1.Mock
       ) as double);
 
   @override
-  _i5.Future<List<double>> getWaveformData(
+  _i3.Future<List<double>> getWaveformData(
     String? trackId,
     int? numBins,
   ) =>
@@ -296,8 +296,8 @@ class MockIAudioEngineService extends _i1.Mock
             numBins,
           ],
         ),
-        returnValue: _i5.Future<List<double>>.value(<double>[]),
-      ) as _i5.Future<List<double>>);
+        returnValue: _i3.Future<List<double>>.value(<double>[]),
+      ) as _i3.Future<List<double>>);
 
   @override
   void dispose() => super.noSuchMethod(

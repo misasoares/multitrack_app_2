@@ -222,6 +222,11 @@ extern "C" float engine_get_track_db(const char* trackId) {
     return calculateDb(gMixer->getTrackPeak(std::string(trackId)));
 }
 
+extern "C" float engine_get_track_peak(const char* trackId) {
+    if (!gMixer || !trackId) return 0.0f;
+    return gMixer->getTrackPeak(std::string(trackId));
+}
+
 extern "C" float engine_get_master_db() {
     if (!gMixer) return -60.0f;
     return calculateDb(gMixer->getMasterPeak());
@@ -307,6 +312,26 @@ extern "C" void engine_set_master_eq(int32_t bandIndex,
 extern "C" void engine_set_master_volume(float volume) {
     if (!gMixer) return;
     gMixer->setMasterVolume(volume);
+}
+
+extern "C" void engine_set_metronome_volume(float volume) {
+    if (!gMixer) return;
+    gMixer->setMetronomeVolume(volume);
+}
+
+extern "C" void engine_set_metronome_pan(float pan) {
+    if (!gMixer) return;
+    gMixer->setMetronomePan(pan);
+}
+
+extern "C" void engine_set_metronome_bpm(float bpm) {
+    if (!gMixer) return;
+    gMixer->setMetronomeBpm(bpm);
+}
+
+extern "C" void engine_set_metronome_playing(int32_t playing) {
+    if (!gMixer) return;
+    gMixer->setMetronomePlaying(playing != 0);
 }
 
 // ─── Offline Rendering ───────────────────────────────────────────────────────

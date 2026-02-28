@@ -71,6 +71,8 @@ int32_t engine_get_sample_rate();
 
 // ── Metering ──
 float engine_get_track_db(const char* trackId);
+/// Returns current linear peak (0.0 to 1.0) for VU meter. Thread-safe.
+float engine_get_track_peak(const char* trackId);
 float engine_get_master_db();
 
 // ── Waveform ──
@@ -105,6 +107,15 @@ void engine_set_master_eq(int32_t bandIndex,
                           float frequency,
                           float gainDb,
                           float q);
+
+/// Master volume (0.0 to 1.0).
+void engine_set_master_volume(float volume);
+
+/// Metronome: volume, pan (-1..1), BPM, playing flag.
+void engine_set_metronome_volume(float volume);
+void engine_set_metronome_pan(float pan);
+void engine_set_metronome_bpm(float bpm);
+void engine_set_metronome_playing(int32_t playing);
 
 #ifdef __cplusplus
 }

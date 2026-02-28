@@ -161,6 +161,29 @@ void AudioMixer::stopTrackStreaming(MixerTrack& track) {
     }
 }
 
+// ─── Resample: linear interpolation (for disk streaming when file rate != mixer rate) ───
+
+static void resampleFrames(const float* in, size_t inFrames, int32_t numCh,
+                           int32_t inRate, int32_t outRate,
+                           float* out, size_t outFrames) {
+    if (inFrames == 0 || outFrames == 0 || numCh < 1 || inRate <= 0 || outRate <= 0) return;
+    const float ratio = static_cast<float>(inRate) / static_cast<float>(outRate);
+    const size_t inSamples = inFrames * static_cast<size_t>(numCh);
+    for (size_t i = 0; i < outFrames; ++i) {
+        const float srcFrame = static_cast<float>(i) * ratio;
+        const size_t f0 = static_cast<size_t>(srcFrame);
+        const size_t f1 = std::min(f0 + 1, inFrames - 1);
+        const float frac = srcFrame - std::floor(srcFrame);
+        for (int32_t c = 0; c < numCh; ++c) {
+            size_t i0 = f0 * numCh + c;
+            size_t i1 = f1 * numCh + c;
+            if (i0 >= inSamples) i0 = inSamples - numCh + c;
+            if (i1 >= inSamples) i1 = i0;
+            out[i * static_cast<size_t>(numCh) + c] = in[i0] * (1.0f - frac) + in[i1] * frac;
+        }
+    }
+}
+
 // ─── IO thread: fill ring from file or from preDecodedPcm ──────────────────────
 
 static void runIoThread(MixerTrack* track, int32_t sampleRate) {
@@ -168,6 +191,8 @@ static void runIoThread(MixerTrack* track, int32_t sampleRate) {
     std::vector<float> chunk(chunkSamples, 0.0f);
     drwav* wav = static_cast<drwav*>(track->wavFileHandle);
     const int32_t numCh = track->numChannels;
+    const int32_t fileRate = track->fileSampleRate;
+    const bool needsResample = (fileRate > 0 && fileRate != sampleRate);
 
     while (!track->ioStopRequested.load(std::memory_order_relaxed)) {
         // Handle seek: only the latest request is applied (exchange clears it).
@@ -195,11 +220,24 @@ static void runIoThread(MixerTrack* track, int32_t sampleRate) {
 
         size_t written = 0;
         if (wav) {
-            drwav_uint64 toRead = chunkSamples / static_cast<drwav_uint64>(numCh);
-            if (toRead > 0) {
-                drwav_uint64 got = drwav_read_pcm_frames_f32(wav, toRead, chunk.data());
-                if (got > 0)
+            // Read at file rate; if resampling, convert to mixer rate before writing to ring.
+            const size_t chunkFramesFile = chunkSamples / static_cast<size_t>(numCh);
+            drwav_uint64 toRead = chunkFramesFile;
+            drwav_uint64 got = drwav_read_pcm_frames_f32(wav, toRead, chunk.data());
+            if (got > 0) {
+                if (needsResample) {
+                    const size_t inFrames = static_cast<size_t>(got);
+                    const size_t outFrames = static_cast<size_t>(
+                        static_cast<double>(inFrames) * static_cast<double>(sampleRate) / static_cast<double>(fileRate));
+                    if (outFrames > 0) {
+                        std::vector<float> resampled(outFrames * numCh, 0.0f);
+                        resampleFrames(chunk.data(), inFrames, numCh, fileRate, sampleRate,
+                                      resampled.data(), outFrames);
+                        written = track->ringBuffer->write(resampled.data(), outFrames * numCh);
+                    }
+                } else {
                     written = track->ringBuffer->write(chunk.data(), static_cast<size_t>(got * numCh));
+                }
             }
             if (written == 0)
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -298,12 +336,10 @@ bool AudioMixer::loadTrackFromFile(const std::string& id, const std::string& fil
         delete wav;
         return false;
     }
-    // If file sample rate differs from mixer, fall back to full decode (caller will retry with decode path)
-    if (fileRate != static_cast<uint32_t>(sampleRate_)) {
-        drwav_uninit(wav);
-        delete wav;
-        LOGD_MIX("loadTrackFromFile: sample rate mismatch (%u vs %d), use decode path", fileRate, sampleRate_);
-        return false;
+    // Keep WAV open for disk streaming even when sample rate differs; resample in IO thread.
+    const bool sameRate = (fileRate == static_cast<uint32_t>(sampleRate_));
+    if (!sameRate) {
+        LOGD_MIX("loadTrackFromFile: streaming with resample %u -> %d Hz", fileRate, sampleRate_);
     }
 
     auto track = std::make_unique<MixerTrack>();
@@ -311,18 +347,33 @@ bool AudioMixer::loadTrackFromFile(const std::string& id, const std::string& fil
     track->numChannels = numCh;
     track->numFrames = totalFrames;
     track->wavFileHandle = wav;
+    track->fileSampleRate = static_cast<int32_t>(fileRate);
 
     size_t ringCapacity = static_cast<size_t>(sampleRate_ * numCh * kRingBufferSeconds);
     if (ringCapacity < 4096) ringCapacity = 4096;
     track->ringBuffer = std::make_unique<LockFreeRingBuffer>(ringCapacity);
 
-    // Pre-fill first kPreFillSeconds for instant play
-    size_t preFillFrames = static_cast<size_t>(sampleRate_ * kPreFillSeconds);
-    if (preFillFrames > static_cast<size_t>(totalFrames)) preFillFrames = static_cast<size_t>(totalFrames);
-    std::vector<float> preFill(preFillFrames * numCh, 0.0f);
-    drwav_uint64 got = drwav_read_pcm_frames_f32(wav, preFillFrames, preFill.data());
-    if (got > 0)
-        track->ringBuffer->write(preFill.data(), static_cast<size_t>(got * numCh));
+    // Pre-fill first kPreFillSeconds at mixer rate for instant play (resample if file rate differs)
+    const size_t preFillFramesOut = static_cast<size_t>(sampleRate_ * kPreFillSeconds);
+    const size_t preFillFramesFile = sameRate
+        ? preFillFramesOut
+        : static_cast<size_t>(static_cast<double>(fileRate) * kPreFillSeconds);
+    const size_t preFillFramesClamped = std::min(preFillFramesFile, static_cast<size_t>(totalFrames));
+    std::vector<float> preFill(preFillFramesClamped * numCh, 0.0f);
+    drwav_uint64 got = drwav_read_pcm_frames_f32(wav, preFillFramesClamped, preFill.data());
+    if (got > 0) {
+        if (sameRate) {
+            track->ringBuffer->write(preFill.data(), static_cast<size_t>(got * numCh));
+        } else {
+            const size_t outFrames = static_cast<size_t>(
+                static_cast<double>(got) * static_cast<double>(sampleRate_) / static_cast<double>(fileRate));
+            std::vector<float> resampled(outFrames * numCh, 0.0f);
+            resampleFrames(preFill.data(), static_cast<size_t>(got), numCh,
+                          static_cast<int32_t>(fileRate), sampleRate_,
+                          resampled.data(), outFrames);
+            track->ringBuffer->write(resampled.data(), outFrames * numCh);
+        }
+    }
 
     track->currentGain.store(1.0f);
     track->targetGain.store(1.0f);

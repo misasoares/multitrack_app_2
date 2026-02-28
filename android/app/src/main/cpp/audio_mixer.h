@@ -111,6 +111,8 @@ struct MixerTrack {
 
     // ── Disk streaming: WAV file handle (opaque; cast to drwav* in .cpp). Null if memory-backed. ──
     void* wavFileHandle = nullptr;
+    /// WAV file sample rate (Hz). When != 0 and != mixer rate, IO thread resamples to mixer rate.
+    int32_t fileSampleRate = 0;
 
     // ── Memory-backed source (for MP3/FLAC after full decode). IO thread feeds ring from this. ──
     std::vector<float> preDecodedPcm;

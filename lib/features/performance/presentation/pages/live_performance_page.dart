@@ -313,50 +313,6 @@ class _WaveformSection extends StatelessWidget {
 
   const _WaveformSection({required this.store});
 
-  /// Builds master waveform peaks from current item's tracks (pre-computed in DB).
-  /// Uses first non-muted track with waveformPeaks, or combines bins from non-muted tracks.
-  static List<double> _masterPeaksFromTracks(List<Track> tracks, int numBins) {
-    final withPeaks = tracks.where((t) => !t.isMuted && t.waveformPeaks != null && t.waveformPeaks!.isNotEmpty).toList();
-    if (withPeaks.isEmpty) return [];
-    if (withPeaks.length == 1) {
-      final p = withPeaks.first.waveformPeaks!;
-      if (p.length != numBins) {
-        return _resamplePeaks(p, numBins);
-      }
-      return p.map((v) => v.clamp(0.0, 1.0)).toList();
-    }
-    // Combine: average of peaks per bin (simple mix visualization).
-    final combined = List<double>.filled(numBins, 0.0);
-    int count = 0;
-    for (final t in withPeaks) {
-      final p = t.waveformPeaks!;
-      final resampled = p.length == numBins ? p : _resamplePeaks(p, numBins);
-      for (var i = 0; i < numBins; i++) {
-        combined[i] += resampled[i];
-      }
-      count++;
-    }
-    if (count == 0) return [];
-    final maxVal = combined.reduce((a, b) => a > b ? a : b);
-    if (maxVal <= 0) return combined;
-    return combined.map((v) => (v / count).clamp(0.0, 1.0)).toList();
-  }
-
-  static List<double> _resamplePeaks(List<double> src, int targetBins) {
-    if (src.isEmpty) return List.filled(targetBins, 0.0);
-    if (src.length == targetBins) return List.from(src);
-    if (targetBins <= 1) return [src.reduce((a, b) => a > b ? a : b)];
-    final result = <double>[];
-    for (var i = 0; i < targetBins; i++) {
-      final srcIndex = (i * (src.length - 1)) / (targetBins - 1);
-      final idx = srcIndex.floor().clamp(0, src.length - 1);
-      final next = (idx + 1).clamp(0, src.length - 1);
-      final frac = srcIndex - idx;
-      result.add(src[idx] * (1 - frac) + src[next] * frac);
-    }
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Observer(
@@ -380,8 +336,7 @@ class _WaveformSection extends StatelessWidget {
             ? (position.inMicroseconds / 1000000.0 / durationSec).clamp(0.0, 1.0)
             : 0.0;
 
-        const numBins = 80;
-        final peaks = _masterPeaksFromTracks(tracks, numBins);
+        final peaks = item.masterWaveformPeaks;
 
         return Container(
           color: const Color(0xFF0D0D0D),
@@ -391,9 +346,28 @@ class _WaveformSection extends StatelessWidget {
             children: [
               Expanded(
                 child: peaks.isEmpty
-                    ? CustomPaint(
-                        painter: _WaveformPainter(peaks: const [], progress: progress),
-                        size: Size.infinite,
+                    ? Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: LinearProgressIndicator(
+                                backgroundColor: Colors.white12,
+                                color: AppColors.primary.withValues(alpha: 0.8),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Desenhando onda...',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
                       )
                     : LayoutBuilder(
                         builder: (context, constraints) {
@@ -446,34 +420,42 @@ class _WaveformPainter extends CustomPainter {
 
   _WaveformPainter({required this.peaks, required this.progress});
 
+  static const double _maxBarWidth = 2.0;
+  static const double _minGap = 0.5;
+  static const double _playheadWidth = 2.0;
+
   @override
   void paint(Canvas canvas, Size size) {
     if (peaks.isEmpty) return;
-    final barWidth = size.width / peaks.length;
     final halfHeight = size.height / 2;
-    const radius = 2.0;
+    final slotWidth = size.width / peaks.length;
+    final barWidth = (slotWidth - _minGap).clamp(1.0, _maxBarWidth);
+    final playheadX = progress.clamp(0.0, 1.0) * size.width;
+    const colorPlayed = AppColors.primary; // Amber
+    const colorToCome = Color(0xFF404040);
+
     for (var i = 0; i < peaks.length; i++) {
-      final x = i * barWidth + barWidth / 2;
+      final x = i * slotWidth + slotWidth / 2;
       final peak = peaks[i].clamp(0.0, 1.0);
-      final barHeight = peak * halfHeight;
-      final isPlayed = (i / peaks.length) <= progress;
-      final color = isPlayed
-          ? AppColors.primary
-          : AppColors.textMuted.withValues(alpha: 0.5);
+      final barHeight = peak * halfHeight * 0.9;
+      if (barHeight < 0.5) continue;
+      final isPlayed = x <= playheadX;
+      final color = isPlayed ? colorPlayed : colorToCome;
       final rect = Rect.fromCenter(
         center: Offset(x, halfHeight),
-        width: math.max(2, barWidth - 1),
+        width: barWidth,
         height: barHeight,
       );
+      final radius = Radius.circular(barWidth / 2);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, Radius.circular(radius)),
+        RRect.fromRectAndRadius(rect, radius),
         Paint()..color = color,
       );
     }
-    final playheadX = progress * size.width;
+
     canvas.drawRect(
-      Rect.fromLTWH(playheadX - 1, 0, 2, size.height),
-      Paint()..color = AppColors.primary,
+      Rect.fromLTWH(playheadX - _playheadWidth / 2, 0, _playheadWidth, size.height),
+      Paint()..color = colorPlayed,
     );
   }
 

@@ -19,6 +19,8 @@ class TrackModel {
   List<EqBandModel>? eqBands;
   bool? applyTranspose;
   int? octaveShift;
+  /// Pre-computed waveform peak bins (from Render Show); persisted in Isar.
+  List<double>? waveformPeaks;
 
   TrackModel({
     this.id,
@@ -34,6 +36,7 @@ class TrackModel {
     this.eqBands,
     this.applyTranspose,
     this.octaveShift,
+    this.waveformPeaks,
   });
 
   factory TrackModel.fromEntity(Track track) {
@@ -53,6 +56,7 @@ class TrackModel {
           : null,
       applyTranspose: track.applyTranspose,
       octaveShift: track.octaveShift,
+      waveformPeaks: track.waveformPeaks,
     );
   }
 
@@ -71,6 +75,7 @@ class TrackModel {
       eqBands: eqBands?.map((b) => b.toEntity()).toList() ?? const [],
       applyTranspose: applyTranspose ?? true,
       octaveShift: octaveShift ?? 0,
+      waveformPeaks: waveformPeaks,
     );
   }
 }

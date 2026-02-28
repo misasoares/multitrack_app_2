@@ -78,6 +78,11 @@ const TrackModelSchema = Schema(
       id: 12,
       name: r'volume',
       type: IsarType.double,
+    ),
+    r'waveformPeaks': PropertySchema(
+      id: 13,
+      name: r'waveformPeaks',
+      type: IsarType.doubleList,
     )
   },
   estimateSize: _trackModelEstimateSize,
@@ -124,6 +129,12 @@ int _trackModelEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.waveformPeaks;
+    if (value != null) {
+      bytesCount += 3 + value.length * 8;
+    }
+  }
   return bytesCount;
 }
 
@@ -151,6 +162,7 @@ void _trackModelSerialize(
   writer.writeLong(offsets[10], object.order);
   writer.writeDouble(offsets[11], object.pan);
   writer.writeDouble(offsets[12], object.volume);
+  writer.writeDoubleList(offsets[13], object.waveformPeaks);
 }
 
 TrackModel _trackModelDeserialize(
@@ -178,6 +190,7 @@ TrackModel _trackModelDeserialize(
     order: reader.readLongOrNull(offsets[10]),
     pan: reader.readDoubleOrNull(offsets[11]),
     volume: reader.readDoubleOrNull(offsets[12]),
+    waveformPeaks: reader.readDoubleList(offsets[13]),
   );
   return object;
 }
@@ -220,6 +233,8 @@ P _trackModelDeserializeProp<P>(
       return (reader.readDoubleOrNull(offset)) as P;
     case 12:
       return (reader.readDoubleOrNull(offset)) as P;
+    case 13:
+      return (reader.readDoubleList(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1255,6 +1270,179 @@ extension TrackModelQueryFilter
         includeUpper: includeUpper,
         epsilon: epsilon,
       ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'waveformPeaks',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'waveformPeaks',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksElementEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'waveformPeaks',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksElementGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'waveformPeaks',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksElementLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'waveformPeaks',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksElementBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'waveformPeaks',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      waveformPeaksLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'waveformPeaks',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 }

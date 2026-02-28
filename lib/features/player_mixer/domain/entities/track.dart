@@ -15,6 +15,8 @@ class Track extends Equatable {
   final List<EqBandData> eqBands; // Parametric EQ state (persisted on save)
   final bool applyTranspose;
   final int octaveShift; // 0, 1, or -1
+  /// Pre-computed waveform peak bins (e.g. from Render Show); null if not yet computed.
+  final List<double>? waveformPeaks;
 
   const Track({
     required this.id,
@@ -30,6 +32,7 @@ class Track extends Equatable {
     this.eqBands = const [],
     this.applyTranspose = true,
     this.octaveShift = 0,
+    this.waveformPeaks,
   });
 
   Track copyWith({
@@ -46,6 +49,7 @@ class Track extends Equatable {
     List<EqBandData>? eqBands,
     bool? applyTranspose,
     int? octaveShift,
+    List<double>? waveformPeaks,
   }) {
     return Track(
       id: id ?? this.id,
@@ -61,6 +65,7 @@ class Track extends Equatable {
       eqBands: eqBands ?? this.eqBands,
       applyTranspose: applyTranspose ?? this.applyTranspose,
       octaveShift: octaveShift ?? this.octaveShift,
+      waveformPeaks: waveformPeaks ?? this.waveformPeaks,
     );
   }
 
@@ -79,5 +84,6 @@ class Track extends Equatable {
     eqBands,
     applyTranspose,
     octaveShift,
+    waveformPeaks,
   ];
 }

@@ -590,6 +590,11 @@ class _MetronomeSection extends StatelessWidget {
 
   const _MetronomeSection({required this.store});
 
+  static double _linearToDb(double lin) {
+    if (lin <= 0.00001) return -60.0;
+    return 20.0 * (math.log(lin) / math.ln10);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -668,10 +673,32 @@ class _MetronomeSection extends StatelessWidget {
                 thumbColor: AppColors.primary,
               ),
               child: Slider(
-                value: store.metronomeVolume,
-                onChanged: (v) => store.setMetronomeVolume(v),
+                value: _linearToDb(store.metronomeVolume).clamp(-60.0, 13.0),
+                min: -60.0,
+                max: 13.0,
+                onChanged: (db) {
+                  final lin = db <= -59.9
+                      ? 0.0
+                      : math.pow(10.0, db / 20.0).toDouble();
+                  store.setMetronomeVolume(lin);
+                },
               ),
             ),
+          ),
+          Observer(
+            builder: (_) {
+              final db = _linearToDb(store.metronomeVolume);
+              final label = db > -59.9
+                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
+                  : '-INF';
+              return Text(
+                label,
+                style: AppTextStyles.labelMuted.copyWith(
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                ),
+              );
+            },
           ),
           Text('Pan L/R', style: AppTextStyles.labelMuted.copyWith(fontSize: 9)),
           Observer(
@@ -751,9 +778,9 @@ class _MasterStrip extends StatelessWidget {
                         thumbColor: Colors.transparent,
                       ),
                       child: Slider(
-                        value: _linearToDb(store.masterVolume).clamp(-60.0, 6.0),
+                        value: _linearToDb(store.masterVolume).clamp(-60.0, 13.0),
                         min: -60.0,
-                        max: 6.0,
+                        max: 13.0,
                         onChanged: (db) {
                           final lin = db <= -59.9
                               ? 0.0
@@ -768,17 +795,21 @@ class _MasterStrip extends StatelessWidget {
             ),
           ),
           Observer(
-            builder: (_) => Text(
-              _linearToDb(store.masterVolume) > -59.9
-                  ? _linearToDb(store.masterVolume).toStringAsFixed(1)
-                  : '-INF',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                fontFamily: 'monospace',
-                color: AppColors.primary,
-              ),
-            ),
+            builder: (_) {
+              final db = _linearToDb(store.masterVolume);
+              final label = db > -59.9
+                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
+                  : '-INF';
+              return Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'monospace',
+                  color: AppColors.primary,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -897,9 +928,9 @@ class _TrackFaderStrip extends StatelessWidget {
                               thumbColor: Colors.transparent,
                             ),
                             child: Slider(
-                              value: _linearToDb(track.volume).clamp(-60.0, 6.0),
+                              value: _linearToDb(track.volume).clamp(-60.0, 13.0),
                               min: -60.0,
-                              max: 6.0,
+                              max: 13.0,
                               onChanged: (db) {
                                 final lin = db <= -59.9
                                     ? 0.0
@@ -918,18 +949,24 @@ class _TrackFaderStrip extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           // ── Base: gain (dB) in Amber ──
-          Text(
-            _linearToDb(track.volume) > -59.9
-                ? _linearToDb(track.volume).toStringAsFixed(1)
-                : '-INF',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'monospace',
-              color: (track.volume - 1.0).abs() < 0.01
-                  ? AppColors.primary
-                  : AppColors.textMuted,
-            ),
+          Builder(
+            builder: (_) {
+              final db = _linearToDb(track.volume);
+              final label = db > -59.9
+                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
+                  : '-INF';
+              return Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'monospace',
+                  color: (track.volume - 1.0).abs() < 0.01
+                      ? AppColors.primary
+                      : AppColors.textMuted,
+                ),
+              );
+            },
           ),
         ],
       ),

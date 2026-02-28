@@ -10,8 +10,10 @@ void main() async {
   // Initialize dependency injection
   await di.init();
 
-  // Enforce Landscape Mode
+  // Allow all orientations (portrait and landscape)
   await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
   ]);

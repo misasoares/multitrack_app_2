@@ -15,6 +15,7 @@ import 'features/player_mixer/presentation/stores/setlist_library_store.dart';
 import 'features/player_mixer/presentation/stores/setlist_config_store.dart';
 import 'features/player_mixer/domain/services/setlist_export_service.dart';
 import 'features/performance/presentation/stores/performance_list_store.dart';
+import 'features/performance/presentation/stores/live_performance_store.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -26,8 +27,9 @@ Future<void> init() async {
   sl.registerFactory(() => SetlistLibraryStore(sl()));
   sl.registerFactory(() => CreateSetlistStore(sl(), sl()));
   sl.registerFactory(() => SetlistConfigStore(sl(), sl(), sl()));
-  sl.registerLazySingleton<SetlistExportService>(() => SetlistExportService());
+  sl.registerLazySingleton<SetlistExportService>(() => SetlistExportService(sl()));
   sl.registerFactory(() => PerformanceListStore(sl()));
+  sl.registerFactory(() => LivePerformanceStore(sl()));
 
   // Repository
   sl.registerLazySingleton<IMusicRepository>(() => IsarMusicRepository(sl()));

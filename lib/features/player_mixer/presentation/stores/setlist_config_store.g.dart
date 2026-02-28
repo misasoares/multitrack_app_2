@@ -65,6 +65,22 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
     });
   }
 
+  late final _$trackPeaksAtom =
+      Atom(name: 'SetlistConfigStoreBase.trackPeaks', context: context);
+
+  @override
+  Map<String, double> get trackPeaks {
+    _$trackPeaksAtom.reportRead();
+    return super.trackPeaks;
+  }
+
+  @override
+  set trackPeaks(Map<String, double> value) {
+    _$trackPeaksAtom.reportWrite(value, super.trackPeaks, () {
+      super.trackPeaks = value;
+    });
+  }
+
   late final _$isLoadingAtom =
       Atom(name: 'SetlistConfigStoreBase.isLoading', context: context);
 
@@ -319,6 +335,7 @@ mixin _$SetlistConfigStore on SetlistConfigStoreBase, Store {
 currentSetlist: ${currentSetlist},
 playingItemId: ${playingItemId},
 isPlaying: ${isPlaying},
+trackPeaks: ${trackPeaks},
 isLoading: ${isLoading},
 previewLoadingItemId: ${previewLoadingItemId},
 isRendering: ${isRendering},

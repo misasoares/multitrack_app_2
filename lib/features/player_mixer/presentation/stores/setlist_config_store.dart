@@ -34,7 +34,23 @@ abstract class SetlistConfigStoreBase with Store {
   @observable
   bool isPlaying = false;
 
+  /// Linear peak per track (0.0 to 1.0) for VU meters when preview is playing.
+  @observable
+  Map<String, double> trackPeaks = {};
+
+  Timer? _peakTimer;
+
   Stream<Duration> get previewPosition => _audioEngine.onPreviewPosition;
+
+  List<String> get _currentPreviewTrackIds {
+    if (playingItemId == null || currentSetlist == null) return [];
+    try {
+      final item = currentSetlist!.items.firstWhere((i) => i.id == playingItemId);
+      return item.originalMusic.tracks.map((t) => t.id).toList();
+    } catch (_) {
+      return [];
+    }
+  }
 
   @observable
   bool isLoading = false;
@@ -372,6 +388,9 @@ abstract class SetlistConfigStoreBase with Store {
       await _audioEngine.pause();
       _audioEngine.clearAllTracks(); // Clear tracks to avoid memory usage
       isPlaying = false;
+      _peakTimer?.cancel();
+      _peakTimer = null;
+      trackPeaks = {};
       return;
     }
 
@@ -381,6 +400,9 @@ abstract class SetlistConfigStoreBase with Store {
       if (isPlaying) {
         await _audioEngine.pause();
         isPlaying = false;
+        _peakTimer?.cancel();
+        _peakTimer = null;
+        trackPeaks = {};
       }
 
       // Clear old playing ID to remove its timeline immediately
@@ -400,6 +422,7 @@ abstract class SetlistConfigStoreBase with Store {
         playingItemId = itemId;
         _audioEngine.playPreview();
         isPlaying = true;
+        _startPeakTimer();
       } catch (e) {
         developer.log('Error loading preview: $e', name: 'SetlistConfigStore');
       } finally {
@@ -410,7 +433,28 @@ abstract class SetlistConfigStoreBase with Store {
       // Just resume
       _audioEngine.playPreview();
       isPlaying = true;
+      _startPeakTimer();
     }
+  }
+
+  void _startPeakTimer() {
+    _peakTimer?.cancel();
+    _peakTimer = Timer.periodic(const Duration(milliseconds: 32), (_) {
+      final ids = _currentPreviewTrackIds;
+      if (ids.isEmpty) return;
+      runInAction(() {
+        final m = Map<String, double>.from(trackPeaks);
+        for (final id in ids) {
+          final raw = _audioEngine.getTrackPeak(id);
+          final prev = m[id] ?? 0.0;
+          final smoothed = raw > prev
+              ? prev + (raw - prev) * 0.42
+              : prev * 0.88;
+          m[id] = smoothed < 0.005 ? 0.0 : smoothed.clamp(0.0, 1.0);
+        }
+        trackPeaks = m;
+      });
+    });
   }
 
   @action
@@ -421,6 +465,9 @@ abstract class SetlistConfigStoreBase with Store {
       await _audioEngine.pause();
       _audioEngine.clearAllTracks();
       isPlaying = false;
+      _peakTimer?.cancel();
+      _peakTimer = null;
+      trackPeaks = {};
     }
 
     isRendering = true;
@@ -481,6 +528,8 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   void dispose() {
+    _peakTimer?.cancel();
+    _peakTimer = null;
     _audioEngine.clearAllTracks();
     _audioEngine.pause();
     isPlaying = false;

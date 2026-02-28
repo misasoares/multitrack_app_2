@@ -257,6 +257,42 @@ class MockIAudioEngineService extends _i1.Mock
       );
 
   @override
+  void setMetronomeVolume(double? volume) => super.noSuchMethod(
+        Invocation.method(
+          #setMetronomeVolume,
+          [volume],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setMetronomePan(double? pan) => super.noSuchMethod(
+        Invocation.method(
+          #setMetronomePan,
+          [pan],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setMetronomeBpm(double? bpm) => super.noSuchMethod(
+        Invocation.method(
+          #setMetronomeBpm,
+          [bpm],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setMetronomePlaying(bool? playing) => super.noSuchMethod(
+        Invocation.method(
+          #setMetronomePlaying,
+          [playing],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void setMasterEq({
     required int? bandIndex,
     required int? filterType,
@@ -283,6 +319,15 @@ class MockIAudioEngineService extends _i1.Mock
   double getTrackVolumeDb(String? trackId) => (super.noSuchMethod(
         Invocation.method(
           #getTrackVolumeDb,
+          [trackId],
+        ),
+        returnValue: 0.0,
+      ) as double);
+
+  @override
+  double getTrackPeak(String? trackId) => (super.noSuchMethod(
+        Invocation.method(
+          #getTrackPeak,
           [trackId],
         ),
         returnValue: 0.0,

@@ -23,6 +23,13 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
           Computed<List<double>>(() => super.unifiedWaveform,
               name: 'CreateMusicStoreBase.unifiedWaveform'))
       .value;
+  Computed<List<double>>? _$masterWaveformPeaksComputed;
+
+  @override
+  List<double> get masterWaveformPeaks => (_$masterWaveformPeaksComputed ??=
+          Computed<List<double>>(() => super.masterWaveformPeaks,
+              name: 'CreateMusicStoreBase.masterWaveformPeaks'))
+      .value;
 
   late final _$titleAtom =
       Atom(name: 'CreateMusicStoreBase.title', context: context);
@@ -544,7 +551,8 @@ saveSuccess: ${saveSuccess},
 currentPosition: ${currentPosition},
 editingMusicId: ${editingMusicId},
 totalDuration: ${totalDuration},
-unifiedWaveform: ${unifiedWaveform}
+unifiedWaveform: ${unifiedWaveform},
+masterWaveformPeaks: ${masterWaveformPeaks}
     ''';
   }
 }

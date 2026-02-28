@@ -133,33 +133,18 @@ abstract class CreateMusicStoreBase with Store {
     return tracks.map((t) => t.duration).reduce((a, b) => a > b ? a : b);
   }
 
-  /// Unified waveform data (merged peaks from all tracks)
+  /// Unified waveform data (merged peaks from all tracks) — deprecated for timeline.
+  /// Prefer [masterWaveformPeaks] which excludes utility tracks.
   @computed
-  List<double> get unifiedWaveform {
-    if (tracks.isEmpty) return [];
+  List<double> get unifiedWaveform => masterWaveformPeaks;
 
-    // If no waveform data loaded yet, return empty
-    if (waveformData.isEmpty) return [];
-
-    // Combine all track waveforms into one.
-    // Logic: normalize all to same length (150 bins) and take max at each point.
-    // In a real DAW, this would be complex mixing. Here we simplify for UI.
-    const int numBins = 150;
-    final List<double> combined = List.filled(numBins, 0.0);
-
-    for (final track in tracks) {
-      final peaks = waveformData[track.id];
-      if (peaks != null && peaks.isNotEmpty) {
-        final length = peaks.length < numBins ? peaks.length : numBins;
-        for (int i = 0; i < length; i++) {
-          if (peaks[i] > combined[i]) {
-            combined[i] = peaks[i];
-          }
-        }
-      }
-    }
-    return combined;
-  }
+  /// Master waveform peaks (musical tracks only, normalized). For timeline display.
+  @computed
+  List<double> get masterWaveformPeaks => Music.computeMasterWaveformPeaks(
+        tracks,
+        numBins: 400,
+        getPeaks: (t) => t.waveformPeaks ?? waveformData[t.id],
+      );
 
   ReactionDisposer? _tickerReaction;
 
@@ -214,10 +199,10 @@ abstract class CreateMusicStoreBase with Store {
     isProcessingAudio = true;
     await _yieldFrame(); // Let Flutter render the spinner first
     try {
-      // Attempt to get duration using a temporary player
+      // Get duration using a temporary player
       Duration duration = Duration.zero;
       try {
-        final player = AudioPlayer(); // from just_audio
+        final player = AudioPlayer();
         await player.setFilePath(filePath);
         duration = player.duration ?? Duration.zero;
         await player.dispose();
@@ -230,15 +215,40 @@ abstract class CreateMusicStoreBase with Store {
         name: name,
         filePath: filePath,
         volume: 1.0,
-        pan: 0.0, // Default: center
+        pan: 0.0,
         isClick: isClick,
         order: tracks.length,
         duration: duration,
       );
       tracks.add(newTrack);
 
-      // Auto-load preview data to update timeline
-      await _reloadPreviewData();
+      // Load into engine immediately so user can play
+      await _audioEngine.loadPreview(List<Track>.from(tracks));
+      await _yieldFrame();
+
+      // Extract waveform peaks in background (isolate); update track and persist
+      final peaks = await _audioEngine.getWaveformPeaks(filePath, numBins: 400);
+      final trackId = newTrack.id;
+      final index = tracks.indexWhere((t) => t.id == trackId);
+      if (index != -1 && peaks.isNotEmpty) {
+        tracks[index] = tracks[index].copyWith(waveformPeaks: peaks);
+        waveformData[trackId] = peaks;
+        if (editingMusicId != null) {
+          final music = Music(
+            id: editingMusicId!,
+            title: title,
+            artist: artist,
+            bpm: int.tryParse(bpm) ?? 120,
+            timeSignatureNumerator: timeSignatureNumerator,
+            timeSignatureDenominator: timeSignatureDenominator,
+            key: key,
+            tracks: List<Track>.from(tracks),
+            createdAt: originalCreatedAt ?? DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+          await _repository.saveMusic(music);
+        }
+      }
     } finally {
       isProcessingAudio = false;
     }
@@ -391,18 +401,23 @@ abstract class CreateMusicStoreBase with Store {
   Future<void> _reloadPreviewData() async {
     try {
       await _audioEngine.loadPreview(List<Track>.from(tracks));
-      await _yieldFrame(); // Breathe after heavy FFI decode
+      await _yieldFrame();
 
-      // Extract waveform peaks for each track (150 bins).
+      // Extract waveform peaks from file (async, per track) when not already on entity
       waveformData.clear();
-      for (final t in tracks) {
-        final peaks = await _audioEngine.getWaveformData(t.id, 150);
+      for (var i = 0; i < tracks.length; i++) {
+        final t = tracks[i];
+        if (t.waveformPeaks != null && t.waveformPeaks!.isNotEmpty) {
+          waveformData[t.id] = t.waveformPeaks!;
+          continue;
+        }
+        final peaks = await _audioEngine.getWaveformPeaks(t.filePath, numBins: 400);
         if (peaks.isNotEmpty) {
           waveformData[t.id] = peaks;
+          tracks[i] = t.copyWith(waveformPeaks: peaks);
         }
-        await _yieldFrame(); // Yield between per-track waveform extraction
+        await _yieldFrame();
       }
-      // Restore position if valid
       await _audioEngine.seekTo(currentPosition);
     } catch (e) {
       errorMessage = 'Error loading preview: $e';
@@ -413,10 +428,10 @@ abstract class CreateMusicStoreBase with Store {
   Future<void> playPreview() async {
     if (tracks.isEmpty) return;
 
-    // If we haven't loaded waveforms yet, strictly we should load.
-    // But since we auto-load on add/remove, we assume engine is ready.
-    // However, to be safe, if waveformData.isEmpty, we force reload.
-    if (waveformData.isEmpty) {
+    // If we haven't loaded waveforms yet, force reload (peaks from file).
+    if (tracks.isNotEmpty &&
+        tracks.every((t) => t.waveformPeaks == null || t.waveformPeaks!.isEmpty) &&
+        waveformData.isEmpty) {
       isProcessingAudio = true;
       await _yieldFrame(); // Let Flutter render the spinner first
       await _reloadPreviewData();

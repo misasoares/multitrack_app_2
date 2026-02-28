@@ -642,6 +642,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   }
 
   Widget _buildTrackItem(Track track, int index, {bool showWaveform = true}) {
+    final bool isNarrow = !showWaveform;
     final bool isSpecial =
         track.isClick ||
         track.name.toLowerCase().contains('click') ||
@@ -669,7 +670,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
           // ── Track Name + dB ──
           SizedBox(
-            width: 88,
+            width: isNarrow ? 46 : 88,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -680,7 +681,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                         ? AppColors.primary
                         : AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: isNarrow ? 10 : 12,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -701,7 +702,8 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
               width: 300,
               child: Observer(
                 builder: (_) {
-                  final peaks = widget.store.waveformData[track.id];
+                  final peaks = track.waveformPeaks ?? widget.store.waveformData[track.id];
+                  final isLoading = (peaks == null || peaks.isEmpty);
                   return Container(
                     height: 44,
                     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -711,7 +713,36 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: CustomPaint(painter: _WaveformPainter(peaks: peaks)),
+                      child: isLoading
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: LinearProgressIndicator(
+                                        backgroundColor: Colors.white12,
+                                        color: AppColors.primary.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Desenhando onda...',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : CustomPaint(
+                              painter: _WaveformPainter(peaks: peaks),
+                            ),
                     ),
                   );
                 },
@@ -720,8 +751,8 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
           // ── Pan Slider ──
           Container(
-            width: 100,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            width: isNarrow ? 58 : 100,
+            padding: EdgeInsets.symmetric(horizontal: isNarrow ? 4 : 8),
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
@@ -810,40 +841,51 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
           // ── Volume Slider ──
           Expanded(
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.volume_down,
-                  color: AppColors.textMuted,
-                  size: 12,
-                ),
-                Expanded(
-                  child: Observer(
-                    builder: (_) => SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 6,
-                        ),
-                        activeTrackColor: AppColors.primary,
-                        inactiveTrackColor: AppColors.surfaceDark,
-                        thumbColor: AppColors.primary,
-                        overlayShape: const RoundSliderOverlayShape(
-                          overlayRadius: 12,
-                        ),
-                        overlayColor: AppColors.primary.withValues(alpha: 0.15),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final w = constraints.maxWidth;
+                final showIcon = w >= 28;
+                return Row(
+                  children: [
+                    if (showIcon) ...[
+                      const Icon(
+                        Icons.volume_down,
+                        color: AppColors.textMuted,
+                        size: 12,
                       ),
-                      child: Slider(
-                        value: track.volume,
-                        min: 0.0,
-                        max: 1.0,
-                        onChanged: (v) =>
-                            widget.store.updateVolume(track.id, v),
-                      ),
+                      SizedBox(width: showIcon ? 4 : 0),
+                    ],
+                    Expanded(
+                      child: w < 20
+                          ? const SizedBox.shrink()
+                          : Observer(
+                              builder: (_) => SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 3,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6,
+                                  ),
+                                  activeTrackColor: AppColors.primary,
+                                  inactiveTrackColor: AppColors.surfaceDark,
+                                  thumbColor: AppColors.primary,
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 12,
+                                  ),
+                                  overlayColor: AppColors.primary.withValues(alpha: 0.15),
+                                ),
+                                child: Slider(
+                                  value: track.volume,
+                                  min: 0.0,
+                                  max: 1.0,
+                                  onChanged: (v) =>
+                                      widget.store.updateVolume(track.id, v),
+                                ),
+                              ),
+                            ),
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
 
@@ -1182,14 +1224,37 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                                           painter: _TimelineGridPainter(),
                                         ),
                                       ),
-                                      // Waveform
+                                      // Waveform (master: musical tracks only; loading when empty)
                                       Positioned.fill(
-                                        child: CustomPaint(
-                                          painter: _UnifiedWaveformPainter(
-                                            waveform:
-                                                widget.store.unifiedWaveform,
-                                          ),
-                                        ),
+                                        child: widget.store.masterWaveformPeaks.isEmpty
+                                            ? Center(
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child: LinearProgressIndicator(
+                                                        backgroundColor: Colors.white12,
+                                                        color: AppColors.primary.withValues(alpha: 0.8),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'Desenhando onda...',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: AppColors.textMuted,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : CustomPaint(
+                                                painter: _UnifiedWaveformPainter(
+                                                  waveform: widget.store.masterWaveformPeaks,
+                                                ),
+                                              ),
                                       ),
                                       // Playhead
                                       Positioned.fill(

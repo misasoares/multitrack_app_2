@@ -41,12 +41,16 @@ class TransposeConfigDialog extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'CONFIGURAÇÕES DE TOM',
-                        style: GoogleFonts.spaceGrotesk(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          'CONFIGURAÇÕES DE TOM',
+                          style: GoogleFonts.spaceGrotesk(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
                       ),
                       IconButton(
@@ -59,62 +63,73 @@ class TransposeConfigDialog extends StatelessWidget {
 
                   // Global Transpose Selector
                   Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          'TRANSPOSE GERAL',
-                          style: GoogleFonts.jetBrainsMono(
-                            color: AppColors.textMuted,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isNarrow = constraints.maxWidth < 340;
+                        final centerWidth = isNarrow ? 90.0 : 140.0;
+                        final semitoneFontSize = isNarrow ? 32.0 : 42.0;
+                        return Column(
                           children: [
-                            _buildCircleButton(
-                              icon: Icons.remove,
-                              onTap: () => store.updateItemTranspose(
-                                itemId,
-                                item.transposeSemitones - 1,
+                            Text(
+                              'TRANSPOSE GERAL',
+                              style: GoogleFonts.jetBrainsMono(
+                                color: AppColors.textMuted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Container(
-                              width: 140,
-                              alignment: Alignment.center,
-                              child: Column(
-                                children: [
-                                  Text(
-                                    item.transposeSemitones > 0
-                                        ? '+${item.transposeSemitones}'
-                                        : '${item.transposeSemitones}',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: AppColors.primary,
-                                      fontSize: 42,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildCircleButton(
+                                  icon: Icons.remove,
+                                  compact: isNarrow,
+                                  onTap: () => store.updateItemTranspose(
+                                    itemId,
+                                    item.transposeSemitones - 1,
                                   ),
-                                  Text(
-                                    'SEMITONES',
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: Colors.white24,
-                                      fontSize: 10,
-                                    ),
+                                ),
+                                Container(
+                                  width: centerWidth,
+                                  alignment: Alignment.center,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        item.transposeSemitones > 0
+                                            ? '+${item.transposeSemitones}'
+                                            : '${item.transposeSemitones}',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: AppColors.primary,
+                                          fontSize: semitoneFontSize,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      Text(
+                                        'SEMITONES',
+                                        style: GoogleFonts.jetBrainsMono(
+                                          color: Colors.white24,
+                                          fontSize: isNarrow ? 9 : 10,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                            ),
-                            _buildCircleButton(
-                              icon: Icons.add,
-                              onTap: () => store.updateItemTranspose(
-                                itemId,
-                                item.transposeSemitones + 1,
-                              ),
+                                ),
+                                _buildCircleButton(
+                                  icon: Icons.add,
+                                  compact: isNarrow,
+                                  onTap: () => store.updateItemTranspose(
+                                    itemId,
+                                    item.transposeSemitones + 1,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -193,7 +208,10 @@ class TransposeConfigDialog extends StatelessWidget {
   Widget _buildCircleButton({
     required IconData icon,
     required VoidCallback onTap,
+    bool compact = false,
   }) {
+    final padding = compact ? 8.0 : 12.0;
+    final iconSize = compact ? 20.0 : 24.0;
     return Material(
       color: const Color(0xFF2A2A2A),
       shape: const CircleBorder(),
@@ -201,8 +219,8 @@ class TransposeConfigDialog extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: Colors.white, size: 24),
+          padding: EdgeInsets.all(padding),
+          child: Icon(icon, color: Colors.white, size: iconSize),
         ),
       ),
     );

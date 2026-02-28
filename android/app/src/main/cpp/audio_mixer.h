@@ -235,7 +235,7 @@ public:
                      float gainDb,
                      float q);
 
-    /// Set the Master Volume (0.0 to 1.0).
+    /// Set the Master Volume (linear gain 0.0 to 5.0, ~+13 dB headroom).
     void setMasterVolume(float volume);
 
     /// Metronome (synthetic click when VS is paused/stopped).

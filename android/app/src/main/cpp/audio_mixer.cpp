@@ -413,7 +413,7 @@ void AudioMixer::setVolume(const std::string& id, float volume) {
     if (it == tracks_.end()) return;
 
     MixerTrack& track = *(it->second);
-    float clamped = std::clamp(volume, 0.0f, 1.0f);
+    float clamped = std::clamp(volume, 0.0f, 5.0f);  // Headroom up to +13 dB (~4.46 linear)
 
     if (std::abs(clamped - track.currentGain.load()) < 1e-6f) {
         // Already at target — skip ramp
@@ -514,11 +514,11 @@ void AudioMixer::setMasterEq(int bandIndex, int filterType, float frequency, flo
 }
 
 void AudioMixer::setMasterVolume(float volume) {
-    masterVolume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+    masterVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
 }
 
 void AudioMixer::setMetronomeVolume(float volume) {
-    metronomeVolume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+    metronomeVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
 }
 
 void AudioMixer::setMetronomePan(float pan) {

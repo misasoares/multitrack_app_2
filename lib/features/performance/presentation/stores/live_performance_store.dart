@@ -308,10 +308,10 @@ abstract class LivePerformanceStoreBase with Store {
     isMixerVisible = !isMixerVisible;
   }
 
-  /// Master volume (0.0 to 1.0). Synced to native.
+  /// Master volume (linear gain 0.0 to 5.0, ~+13 dB headroom). Synced to native.
   @action
   void setMasterVolume(double volume) {
-    masterVolume = volume.clamp(0.0, 1.0);
+    masterVolume = volume.clamp(0.0, 5.0);
     _audioEngine.setMasterVolume(masterVolume);
   }
 
@@ -324,7 +324,7 @@ abstract class LivePerformanceStoreBase with Store {
 
   @action
   void setMetronomeVolume(double volume) {
-    metronomeVolume = volume.clamp(0.0, 1.0);
+    metronomeVolume = volume.clamp(0.0, 5.0);  // Linear gain, headroom up to +13 dB
     _audioEngine.setMetronomeVolume(metronomeVolume);
   }
 

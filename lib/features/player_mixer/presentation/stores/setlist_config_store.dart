@@ -46,7 +46,10 @@ abstract class SetlistConfigStoreBase with Store {
     if (playingItemId == null || currentSetlist == null) return [];
     try {
       final item = currentSetlist!.items.firstWhere((i) => i.id == playingItemId);
-      return item.originalMusic.tracks.map((t) => t.id).toList();
+      return item.originalMusic.tracks
+          .where((t) => !t.isMuted)
+          .map((t) => t.id)
+          .toList();
     } catch (_) {
       return [];
     }
@@ -60,12 +63,13 @@ abstract class SetlistConfigStoreBase with Store {
     if (currentSetlist == null || currentSetlist!.items.isEmpty) {
       return Duration.zero;
     }
-    // Sum of the longest track in each music
+    // Sum of the longest active (non-muted) track in each music
     return currentSetlist!.items.fold(Duration.zero, (prev, item) {
-      if (item.originalMusic.tracks.isEmpty) return prev;
-      final musicDuration = item.originalMusic.tracks
-          .map((t) => t.duration)
-          .reduce((a, b) => a > b ? a : b);
+      final activeTracks =
+          item.originalMusic.tracks.where((t) => !t.isMuted).toList();
+      if (activeTracks.isEmpty) return prev;
+      final musicDuration =
+          activeTracks.map((t) => t.duration).reduce((a, b) => a > b ? a : b);
       return prev + (musicDuration * (1 / item.tempoFactor));
     });
   }
@@ -413,9 +417,11 @@ abstract class SetlistConfigStoreBase with Store {
 
       try {
         final item = currentSetlist!.items.firstWhere((i) => i.id == itemId);
+        final tracksToRender =
+            item.originalMusic.tracks.where((t) => !t.isMuted).toList();
 
-        // Load tracks (this now handles direct decoding in C++)
-        await _audioEngine.loadPreview(item.originalMusic.tracks);
+        // Load only active (non-muted) tracks to save RAM/CPU
+        await _audioEngine.loadPreview(tracksToRender);
         _applyMastering(item); // Apply tempo/pitch/volume
 
         // Ready to play
@@ -505,7 +511,9 @@ abstract class SetlistConfigStoreBase with Store {
   }
 
   void _applyMastering(SetlistItem item) {
-    for (final track in item.originalMusic.tracks) {
+    final activeTracks =
+        item.originalMusic.tracks.where((t) => !t.isMuted).toList();
+    for (final track in activeTracks) {
       _audioEngine.setTrackTempo(track.id, item.tempoFactor);
       _audioEngine.setTrackPitch(track.id, _calculateTrackPitch(item, track));
       _audioEngine.setTrackVolume(track.id, track.volume);

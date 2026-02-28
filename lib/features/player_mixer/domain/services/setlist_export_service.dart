@@ -56,7 +56,8 @@ class SetlistExportService {
     final showDir = path.join(baseDir.path, 'shows', setlist.id);
     final totalTracks = setlist.items.fold<int>(
       0,
-      (sum, item) => sum + item.originalMusic.tracks.length,
+      (sum, item) =>
+          sum + item.originalMusic.tracks.where((t) => !t.isMuted).length,
     );
     if (totalTracks == 0) {
       return setlist.copyWith(exportedShowDirectory: showDir);
@@ -89,6 +90,7 @@ class SetlistExportService {
       final updatedTracks = <Track>[];
 
       for (final track in item.originalMusic.tracks) {
+        if (track.isMuted) continue;
         final isBypass = shouldBypassRender(item, track);
         final destFileName =
             isBypass ? '${track.id}${path.extension(track.filePath)}' : '${track.id}.wav';

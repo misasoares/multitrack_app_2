@@ -330,6 +330,20 @@ class MockIAudioEngineService extends _i1.Mock
       ) as _i4.Future<List<double>>);
 
   @override
+  _i4.Future<List<double>> getWaveformPeaks(
+    String? filePath, {
+    int? numBins = 400,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getWaveformPeaks,
+          [filePath],
+          {#numBins: numBins},
+        ),
+        returnValue: _i4.Future<List<double>>.value(<double>[]),
+      ) as _i4.Future<List<double>>);
+
+  @override
   void renderTrackOffline({
     required String? trackId,
     required String? inputPath,

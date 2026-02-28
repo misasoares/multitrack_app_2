@@ -207,11 +207,12 @@ class _MetronomePanelRight extends StatelessWidget {
           left: BorderSide(color: AppColors.primary.withValues(alpha: 0.35), width: 1),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
           Center(
             child: Text(
               'METRONOME',
@@ -362,7 +363,8 @@ class _MetronomePanelRight extends StatelessWidget {
               ),
             ],
           ),
-        ],
+        ],  // outer Column children
+        ),
       ),
     );
   }

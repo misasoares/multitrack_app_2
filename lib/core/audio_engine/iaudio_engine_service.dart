@@ -151,6 +151,10 @@ abstract class IAudioEngineService {
   /// Returns a list of [numBins] values in [0.0, 1.0]. Returns empty list on error.
   Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins);
 
+  /// Extracts waveform peaks from a file path for the Timeline (async, non-blocking).
+  /// Default 400 bins for tablet landscape density.
+  Future<List<double>> getWaveformPeaks(String filePath, {int numBins = 400});
+
   // ─── Offline Render (Export Show) ────────────────────────────────────
 
   /// Single EQ band for offline render (DSP-only; matches C++ EqBand).

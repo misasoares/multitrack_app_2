@@ -68,6 +68,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isPortrait =
+        MediaQuery.of(context).orientation == Orientation.portrait;
+
     return Scaffold(
       backgroundColor: AppColors.rackBlack,
       body: SafeArea(
@@ -77,12 +80,23 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
             _buildStatusBar(),
             // ── Main Content ──
             Expanded(
-              child: Row(
-                children: [
-                  _buildLeftPanel(),
-                  Expanded(child: _buildRightPanel()),
-                ],
-              ),
+              child: isPortrait
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.40,
+                          child: _buildLeftPanel(isPortrait: true),
+                        ),
+                        Expanded(child: _buildRightPanel()),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        _buildLeftPanel(isPortrait: false),
+                        Expanded(child: _buildRightPanel()),
+                      ],
+                    ),
             ),
             // ── Bottom Bar ──
             _buildBottomBar(),
@@ -135,13 +149,18 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
   // LEFT PANEL — Metadata
   // ═══════════════════════════════════════════════════════════════════
 
-  Widget _buildLeftPanel() {
+  Widget _buildLeftPanel({bool isPortrait = false}) {
     return Container(
-      width: 320,
+      width: isPortrait ? null : 320,
       decoration: BoxDecoration(
         color: AppColors.rackDark,
         border: Border(
-          right: BorderSide(color: AppColors.primary.withValues(alpha: 0.1)),
+          right: isPortrait
+              ? BorderSide.none
+              : BorderSide(color: AppColors.primary.withValues(alpha: 0.1)),
+          bottom: isPortrait
+              ? BorderSide(color: AppColors.primary.withValues(alpha: 0.1))
+              : BorderSide.none,
         ),
       ),
       padding: const EdgeInsets.all(24),
@@ -615,12 +634,14 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
       itemCount: widget.store.tracks.length,
       itemBuilder: (context, index) {
         final track = widget.store.tracks[index];
-        return _buildTrackItem(track, index);
+        final showWaveform =
+            MediaQuery.of(context).size.shortestSide >= 600;
+        return _buildTrackItem(track, index, showWaveform: showWaveform);
       },
     );
   }
 
-  Widget _buildTrackItem(Track track, int index) {
+  Widget _buildTrackItem(Track track, int index, {bool showWaveform = true}) {
     final bool isSpecial =
         track.isClick ||
         track.name.toLowerCase().contains('click') ||
@@ -674,27 +695,28 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
             ),
           ),
 
-          // ── Waveform ──
-          SizedBox(
-            width: 300,
-            child: Observer(
-              builder: (_) {
-                final peaks = widget.store.waveformData[track.id];
-                return Container(
-                  height: 44,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: CustomPaint(painter: _WaveformPainter(peaks: peaks)),
-                  ),
-                );
-              },
+          // ── Waveform (hidden on small screens) ──
+          if (showWaveform)
+            SizedBox(
+              width: 300,
+              child: Observer(
+                builder: (_) {
+                  final peaks = widget.store.waveformData[track.id];
+                  return Container(
+                    height: 44,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: CustomPaint(painter: _WaveformPainter(peaks: peaks)),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
           // ── Pan Slider ──
           Container(
@@ -829,13 +851,18 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
           // ── M / S Buttons ──
           Observer(
-            builder: (_) => Row(
-              children: [
-                _buildMuteButton(track),
-                const SizedBox(width: 4),
-                _buildSoloButton(track),
-              ],
-            ),
+            builder: (_) {
+              final isMuted = track.isMuted;
+              final isSolo = track.isSolo;
+              return Row(
+                key: ValueKey('mute-$isMuted-solo-$isSolo'),
+                children: [
+                  _buildMuteButton(track),
+                  const SizedBox(width: 4),
+                  _buildSoloButton(track),
+                ],
+              );
+            },
           ),
 
           const SizedBox(width: 8),

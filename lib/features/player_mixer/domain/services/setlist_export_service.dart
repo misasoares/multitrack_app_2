@@ -11,6 +11,8 @@ import '../entities/setlist_item.dart';
 import '../entities/track.dart';
 import 'offline_render_isolate.dart';
 
+import '../../../../core/audio_engine/iaudio_engine_service.dart';
+
 /// Progress reported during setlist export (one track at a time).
 class ExportProgress {
   const ExportProgress({
@@ -33,9 +35,15 @@ class ExportProgress {
 }
 
 /// Orchestrates offline export of a setlist: Smart Bypass (copy) or C++ render per track,
-/// then returns the [Setlist] with [exportedShowDirectory] and each item's [exportedItemDirectory].
+/// then extracts waveform peaks from each exported file and attaches them to tracks.
+/// Returns the [Setlist] with [exportedShowDirectory], each item's [exportedItemDirectory],
+/// and each track's [waveformPeaks] filled.
 class SetlistExportService {
-  SetlistExportService();
+  SetlistExportService(this._audioEngine);
+
+  final IAudioEngineService _audioEngine;
+
+  static const int _waveformBins = 150;
 
   /// Exports the setlist to disk. Processes one track at a time (bypass = copy, else native render).
   /// [onProgress] is called from the main isolate with progress updates.
@@ -77,6 +85,8 @@ class SetlistExportService {
       final itemDir = path.join(showDir, item.id);
       final dir = Directory(itemDir);
       if (!await dir.exists()) await dir.create(recursive: true);
+
+      final updatedTracks = <Track>[];
 
       for (final track in item.originalMusic.tracks) {
         final isBypass = shouldBypassRender(item, track);
@@ -125,6 +135,23 @@ class SetlistExportService {
             );
           }
         }
+
+        // Pre-compute waveform peaks from the exported file (low RAM, chunked read).
+        List<double>? waveformPeaks;
+        final destFile = File(destPath);
+        if (await destFile.exists()) {
+          try {
+            final peaks = await _audioEngine.extractWaveformPeaksFromFile(destPath, _waveformBins);
+            if (peaks.isNotEmpty) {
+              waveformPeaks = peaks;
+            }
+          } catch (_) {
+            // Non-fatal; track will have null waveformPeaks
+          }
+        }
+
+        updatedTracks.add(track.copyWith(waveformPeaks: waveformPeaks));
+
         completedTracks++;
         report(
           musicTitle: item.originalMusic.title,
@@ -134,7 +161,12 @@ class SetlistExportService {
         );
       }
 
-      updatedItems.add(item.copyWith(exportedItemDirectory: itemDir));
+      updatedItems.add(
+        item.copyWith(
+          exportedItemDirectory: itemDir,
+          originalMusic: item.originalMusic.copyWith(tracks: updatedTracks),
+        ),
+      );
     }
 
     return setlist.copyWith(

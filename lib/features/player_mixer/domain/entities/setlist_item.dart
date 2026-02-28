@@ -30,6 +30,9 @@ class SetlistItem extends Equatable {
     return SetlistItem(id: const Uuid().v4(), originalMusic: music);
   }
 
+  /// Master waveform peaks for this item (from originalMusic, musical tracks only).
+  List<double> get masterWaveformPeaks => originalMusic.masterWaveformPeaks;
+
   SetlistItem copyWith({
     String? id,
     Music? originalMusic,

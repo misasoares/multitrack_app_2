@@ -43,7 +43,7 @@ class SetlistExportService {
 
   final IAudioEngineService _audioEngine;
 
-  static const int _waveformBins = 150;
+  static const int _waveformBins = 400;
 
   /// Exports the setlist to disk. Processes one track at a time (bypass = copy, else native render).
   /// [onProgress] is called from the main isolate with progress updates.

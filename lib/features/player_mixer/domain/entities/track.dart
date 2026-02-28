@@ -18,6 +18,14 @@ class Track extends Equatable {
   /// Pre-computed waveform peak bins (e.g. from Render Show); null if not yet computed.
   final List<double>? waveformPeaks;
 
+  /// True if this track is a utility track (click, metronome, guide voice, etc.)
+  /// and should be excluded from the master waveform composition.
+  bool get isUtilityTrack {
+    if (isClick) return true;
+    const pattern = r'\b(click|metronomo|metronome|guia|guide|voz guia|locucao|vs)\b';
+    return RegExp(pattern, caseSensitive: false).hasMatch(name);
+  }
+
   const Track({
     required this.id,
     required this.name,

@@ -9,8 +9,12 @@
 #include "audio_mixer.h"
 #include "oboe_player.h"
 #include "audio_decoder.h"
+#include "libs/dr_wav.h"
 
 #include <string>
+#include <vector>
+#include <cmath>
+#include <algorithm>
 #include "audio_renderer.h"
 
 #ifdef __ANDROID__
@@ -90,18 +94,33 @@ extern "C" int32_t engine_load_file(const char* trackId,
                                      const char* filePath) {
     if (!gMixer || !trackId || !filePath) return 0;
 
-    std::string idStr(trackId);
-    
-    LOGD("engine_load_file: decoding %s for track %s", filePath, trackId);
+    std::string path(filePath);
+    std::string ext;
+    auto dot = path.rfind('.');
+    if (dot != std::string::npos) {
+        ext = path.substr(dot);
+        for (char& c : ext) c = static_cast<char>(::tolower(static_cast<unsigned char>(c)));
+    }
 
-    DecodedAudio audio = decodeAudioFile(std::string(filePath));
+    // WAV: instant load via disk streaming (no full decode, O(1))
+    if (ext == ".wav") {
+        if (gMixer->loadTrackFromFile(std::string(trackId), path)) {
+            LOGD("engine_load_file: streaming load WAV for track %s", trackId);
+            return 1;
+        }
+        LOGE("engine_load_file: streaming open failed, falling back to decode");
+    }
+
+    // Non-WAV or streaming failed: full decode then load into ring buffer (memory-backed)
+    LOGD("engine_load_file: decoding %s for track %s", filePath, trackId);
+    DecodedAudio audio = decodeAudioFile(path);
     if (!audio.success) {
         LOGE("engine_load_file: failed — %s", audio.error.c_str());
         return 0;
     }
 
     gMixer->loadTrack(
-        idStr,
+        std::string(trackId),
         audio.pcmData.data(),
         audio.numFrames,
         audio.numChannels
@@ -231,6 +250,63 @@ extern "C" int32_t engine_get_waveform_peaks(const char* trackId,
                                               int32_t numBins) {
     if (!gMixer || !trackId || !outPeaks || numBins <= 0) return 0;
     return gMixer->getWaveformPeaks(std::string(trackId), outPeaks, numBins);
+}
+
+// ─── Peak extraction from file (low RAM, chunked read) ────────────────────────
+
+static constexpr size_t kPeakExtractChunkFrames = 4096;
+
+extern "C" void engine_extract_peaks_from_file(const char* filePath,
+                                                int32_t numBins,
+                                                float* outPeaks) {
+    if (!filePath || !outPeaks || numBins <= 0) return;
+
+    for (int32_t i = 0; i < numBins; ++i)
+        outPeaks[i] = 0.0f;
+
+    drwav wav;
+    if (!drwav_init_file(&wav, filePath, nullptr)) {
+        LOGE("engine_extract_peaks_from_file: failed to open %s", filePath);
+        return;
+    }
+
+    const drwav_uint64 totalFrames = wav.totalPCMFrameCount;
+    const unsigned int numCh = wav.channels;
+    if (totalFrames == 0 || numCh == 0) {
+        drwav_uninit(&wav);
+        return;
+    }
+
+    const size_t chunkFrames = kPeakExtractChunkFrames;
+    const size_t chunkSamples = chunkFrames * numCh;
+    std::vector<float> chunk(chunkSamples, 0.0f);
+
+    drwav_uint64 framesRead = 0;
+    while (framesRead < totalFrames) {
+        drwav_uint64 toRead = (totalFrames - framesRead < chunkFrames)
+            ? (totalFrames - framesRead)
+            : chunkFrames;
+        drwav_uint64 got = drwav_read_pcm_frames_f32(&wav, toRead, chunk.data());
+        if (got == 0) break;
+
+        for (drwav_uint64 f = 0; f < got; ++f) {
+            const drwav_uint64 globalFrame = framesRead + f;
+            const int32_t bin = static_cast<int32_t>(
+                (globalFrame * static_cast<drwav_uint64>(numBins)) / totalFrames);
+            const int32_t b = (bin >= numBins) ? (numBins - 1) : bin;
+
+            for (unsigned int c = 0; c < numCh; ++c) {
+                float s = chunk[static_cast<size_t>(f * numCh + c)];
+                float absVal = std::fabs(s);
+                if (absVal > outPeaks[b])
+                    outPeaks[b] = absVal;
+            }
+        }
+        framesRead += got;
+    }
+
+    drwav_uninit(&wav);
+    LOGD("engine_extract_peaks_from_file: %s -> %d bins", filePath, numBins);
 }
 
 // ─── EQ ──────────────────────────────────────────────────────────────────────

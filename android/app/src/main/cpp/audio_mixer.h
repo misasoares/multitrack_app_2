@@ -15,9 +15,12 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 #include <queue>
+
+#include "lock_free_ring_buffer.h"
 
 // ─── SoundTouch ──────────────────────────────────────────────────────────────
 #include "SoundTouch.h" // Requires target_include_directories to point to soundtouch/include
@@ -34,6 +37,22 @@ constexpr float kGainSmoothingSeconds = 0.05f;
 
 /// Number of parametric EQ bands per track.
 constexpr int kNumEqBands = 5;
+
+/// Ring buffer capacity: seconds of audio per track (e.g. 4 sec at 48 kHz stereo = 384000 samples).
+constexpr int32_t kRingBufferSeconds = 4;
+
+/// Chunk size for background IO (samples). When free space >= this, IO thread reads from disk.
+constexpr size_t kIoChunkSamples = 32768;  // 16KB stereo @ 48kHz ≈ 0.17 s
+
+/// Maximum frames per audio callback. Pre-allocated buffers are sized for this.
+/// Prevents any allocation in the real-time process() path.
+constexpr int32_t kMaxProcessFrames = 4096;
+
+/// SoundTouch mono→stereo feed chunk size (frames). stMonoInputBuffer = kStMonoChunkSize * 2.
+constexpr int32_t kStMonoChunkSize = 1024;
+
+/// Pre-fill duration (seconds) on load so play can start immediately.
+constexpr float kPreFillSeconds = 1.0f;
 
 // ─── Filter Types ────────────────────────────────────────────────────────────
 enum class FilterType {
@@ -79,30 +98,46 @@ struct BiquadFilter {
 
 /// Represents a single audio track loaded into the mixer.
 ///
-/// The PCM data is stored as **interleaved float samples** normalised to
-/// [-1.0, 1.0].  Mono files use `numChannels = 1`; stereo uses `2`.
+/// PCM is consumed from a **lock-free ring buffer** (disk streaming or pre-decoded).
+/// Interleaved float samples [-1.0, 1.0]. Mono = 1 ch, stereo = 2 ch.
 struct MixerTrack {
     std::string id;
 
-    // ── Audio Data ──
-    std::vector<float> pcmData;   // Interleaved PCM samples
+    // ── Ring buffer (single consumer: audio thread; single producer: IO thread or pre-fill) ──
+    std::unique_ptr<LockFreeRingBuffer> ringBuffer;
     int32_t numChannels = 0;      // 1 = mono, 2 = stereo
-    int64_t numFrames   = 0;      // Total frames (samples / channels)
+    int64_t numFrames   = 0;      // Total frames (samples / channels) in the source
 
-    // ── Gain (volume) ──
-    float currentGain = 1.0f;     // Value being output RIGHT NOW
-    float targetGain  = 1.0f;     // Value we're ramping towards
-    float gainIncrement = 0.0f;   // Per-sample delta for the ramp
-    int32_t gainRampSamplesRemaining = 0;
+    // ── Disk streaming: WAV file handle (opaque; cast to drwav* in .cpp). Null if memory-backed. ──
+    void* wavFileHandle = nullptr;
 
-    // ── Pan ──
-    float pan = 0.0f;             // -1.0 = full left, 0.0 = center, 1.0 = full right
-    float panGainL = 0.707107f;   // Pre-computed left channel gain  (cos)
-    float panGainR = 0.707107f;   // Pre-computed right channel gain (sin)
+    // ── Memory-backed source (for MP3/FLAC after full decode). IO thread feeds ring from this. ──
+    std::vector<float> preDecodedPcm;
+    size_t preDecodedReadOffset = 0;  // Next sample index to feed into ring
 
-    // ── Routing ──
-    bool isMuted = false;
-    bool isSolo  = false;
+    // ── Background IO thread: fills ring from file or preDecodedPcm ──
+    std::thread ioThread;
+    std::atomic<bool> ioStopRequested{false};
+    std::atomic<int64_t> seekFrameRequested{-1};  // >= 0 means seek to this frame
+
+    // ── Gain (volume) — atomic for lock-free read in audio thread ──
+    std::atomic<float> currentGain{1.0f};
+    std::atomic<float> targetGain{1.0f};
+    std::atomic<float> gainIncrement{0.0f};
+    std::atomic<int32_t> gainRampSamplesRemaining{0};
+
+    // ── Pan — atomic for lock-free read in audio thread ──
+    std::atomic<float> pan{0.0f};
+    std::atomic<float> panGainL{0.707107f};
+    std::atomic<float> panGainR{0.707107f};
+
+    // ── Routing — atomic for lock-free read in audio thread ──
+    std::atomic<bool> isMuted{false};
+    std::atomic<bool> isSolo{false};
+
+    // ── Pre-allocated buffers (resized once in loadTrack; zero allocation in process()) ──
+    std::vector<float> processBuffer;      // stereo: kMaxProcessFrames * 2
+    std::vector<float> stMonoInputBuffer;  // mono→stereo feed: kStMonoChunkSize * 2
 
     // ── Parametric EQ ──
     std::array<BiquadFilter, kNumEqBands> eqBands{};
@@ -120,7 +155,7 @@ struct MixerTrack {
     bool isPercussive = false;
 
     // ── Playback ──
-    int64_t playheadFrame = 0;    // Current read position in frames
+    int64_t playheadFrame = 0;    // Current logical position in frames (for seek/sync; consumption is from ring)
 
     // ── Metering ──
     std::atomic<float> currentPeak{0.0f}; // Absolute peak (0.0 to 1.0)
@@ -160,12 +195,15 @@ public:
     void dispose();
 
     // ── Track management ──
-    /// Loads interleaved PCM float data for a track.
-    /// If a track with the same `id` already exists it is replaced.
+    /// Loads from pre-decoded PCM (e.g. after MP3/FLAC decode). Pre-fills ring and starts feeder thread.
     void loadTrack(const std::string& id,
                    const float* pcmData,
                    int64_t numFrames,
                    int32_t numChannels);
+
+    /// Instant load for WAV: opens file, reads header, pre-fills ring with first kPreFillSeconds, starts IO thread.
+    /// Returns true on success. Does not decode the entire file.
+    bool loadTrackFromFile(const std::string& id, const std::string& filePath);
 
     void removeTrack(const std::string& id);
     void removeAllTracks();
@@ -218,14 +256,17 @@ public:
     float getTrackPeak(const std::string& id) const;
     float getMasterPeak() const;
 
-    /// Extracts downsampled peak amplitudes from a loaded track's PCM data.
-    /// Fills `outPeaks` with `numBins` values in [0.0, 1.0].
-    /// Returns the number of bins actually filled (0 if track not found).
+    /// Extracts downsampled peak amplitudes from a loaded track.
+    /// For streaming tracks, uses pre-decoded cache or ring buffer; may be approximate for very long files.
     int32_t getWaveformPeaks(const std::string& id,
                               float* outPeaks,
                               int32_t numBins) const;
 
 private:
+    /// Stops the track's IO thread (if running) and closes the WAV file (if open).
+    /// Must be called before removing or replacing a track. Not real-time safe.
+    void stopTrackStreaming(MixerTrack& track);
+
     /// Recomputes the left/right pan gains for a track using constant-power
     /// panning (equal-power cosine/sine law).
     static void computePanGains(MixerTrack& track);

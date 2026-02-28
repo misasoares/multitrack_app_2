@@ -4,6 +4,8 @@
 
 #include "oboe_player.h"
 
+#include <cstring>
+
 #ifdef __ANDROID__
 #include <android/log.h>
 #define LOG_TAG "OboePlayer"
@@ -23,10 +25,12 @@ OboePlayer::~OboePlayer() {
 }
 
 bool OboePlayer::start() {
-    // Build an Oboe output stream — stereo, float, low-latency
+    // Backing Tracks / VS Player: stability over sub-ms latency.
+    // PerformanceMode::None lets the system choose a stable media path and avoids thermal throttling issues.
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output);
     builder.setPerformanceMode(oboe::PerformanceMode::None);
+    builder.setUsage(oboe::Usage::Media);
     builder.setSharingMode(oboe::SharingMode::Exclusive);
     builder.setFormat(oboe::AudioFormat::Float);
     builder.setChannelCount(oboe::ChannelCount::Stereo);
@@ -40,9 +44,14 @@ bool OboePlayer::start() {
     }
 
     sampleRate_ = stream_->getSampleRate();
-    
-    // Increase buffer size to provide more CPU margin (stability over latency)
-    stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 4);
+
+    // Stage shield: large buffer to absorb CPU throttling / thermal spikes (8x burst)
+    stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 8);
+
+    // Pre-allocate scratch buffers once (zero allocation in onAudioReady)
+    const int32_t bufferFrames = stream_->getBufferSizeInFrames();
+    tempL_.resize(static_cast<size_t>(bufferFrames), 0.0f);
+    tempR_.resize(static_cast<size_t>(bufferFrames), 0.0f);
 
     LOGD("Oboe stream opened: %d Hz, %d ch, buffer=%d frames, burst=%d",
          sampleRate_, stream_->getChannelCount(),
@@ -83,10 +92,10 @@ oboe::DataCallbackResult OboePlayer::onAudioReady(
 
     auto* output = static_cast<float*>(audioData);
 
-    // Resize scratch buffers if needed (no allocation after first call)
-    if (static_cast<int32_t>(tempL_.size()) < numFrames) {
-        tempL_.resize(numFrames);
-        tempR_.resize(numFrames);
+    // Buffers pre-allocated in start(); never allocate here
+    if (numFrames <= 0 || static_cast<size_t>(numFrames) > tempL_.size()) {
+        std::memset(output, 0, sizeof(float) * 2 * static_cast<size_t>(numFrames > 0 ? numFrames : 0));
+        return oboe::DataCallbackResult::Continue;
     }
 
     // Ask the mixer to fill split L/R buffers

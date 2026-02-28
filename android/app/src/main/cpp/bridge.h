@@ -80,6 +80,13 @@ int32_t engine_get_waveform_peaks(const char* trackId,
                                    float* outPeaks,
                                    int32_t numBins);
 
+/// Low-RAM peak extraction from a WAV file (chunked read, never loads full file).
+/// Fills `outPeaks[0..numBins-1]` with max absolute sample value per bin.
+/// Caller must allocate at least numBins floats. Safe to call from any thread.
+void engine_extract_peaks_from_file(const char* filePath,
+                                    int32_t numBins,
+                                    float* outPeaks);
+
 // ── EQ ──
 /// Set parametric EQ parameters for a single band on a track.
 void engine_set_track_eq(const char* trackId,

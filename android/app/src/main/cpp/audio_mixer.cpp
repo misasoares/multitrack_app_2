@@ -1,16 +1,30 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // audio_mixer.cpp — LiveStage Pro Native Audio Mixer
 // ─────────────────────────────────────────────────────────────────────────────
+// Disk streaming: lock-free ring buffers + background IO thread (dr_wav).
+// ─────────────────────────────────────────────────────────────────────────────
 
 #include "audio_mixer.h"
+#include "libs/dr_wav.h"
 
 #include <android/log.h>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
+#include <thread>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
+#endif
+
+#ifdef __ANDROID__
+#define LOG_TAG "AudioMixer"
+#define LOGD_MIX(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGE_MIX(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGD_MIX(...)
+#define LOGE_MIX(...)
 #endif
 
 // ─── BiquadFilter Implementation ───────────────────────────────────────────────
@@ -125,10 +139,79 @@ void AudioMixer::setSampleRate(int32_t sampleRate) {
 
 void AudioMixer::dispose() {
     std::lock_guard<std::mutex> lock(mutex_);
-    // unique_ptr handles cleanup automatically
+    for (auto& [_, track] : tracks_)
+        stopTrackStreaming(*track);
     tracks_.clear();
     isPlaying_ = false;
     hasSoloedTracks_ = false;
+}
+
+// ─── Streaming: stop IO thread and close file ─────────────────────────────────
+
+void AudioMixer::stopTrackStreaming(MixerTrack& track) {
+    track.ioStopRequested.store(true);
+    if (track.ioThread.joinable())
+        track.ioThread.join();
+    track.ioStopRequested.store(false);
+    if (track.wavFileHandle) {
+        drwav* wav = static_cast<drwav*>(track.wavFileHandle);
+        drwav_uninit(wav);
+        delete wav;
+        track.wavFileHandle = nullptr;
+    }
+}
+
+// ─── IO thread: fill ring from file or from preDecodedPcm ──────────────────────
+
+static void runIoThread(MixerTrack* track, int32_t sampleRate) {
+    const size_t chunkSamples = kIoChunkSamples;
+    std::vector<float> chunk(chunkSamples, 0.0f);
+    drwav* wav = static_cast<drwav*>(track->wavFileHandle);
+    const int32_t numCh = track->numChannels;
+
+    while (!track->ioStopRequested.load(std::memory_order_relaxed)) {
+        // Handle seek request
+        int64_t seekFrame = track->seekFrameRequested.exchange(-1);
+        if (seekFrame >= 0) {
+            if (wav) {
+                if (drwav_seek_to_pcm_frame(wav, static_cast<drwav_uint64>(seekFrame)))
+                    track->ringBuffer->reset();
+            } else {
+                track->preDecodedReadOffset = static_cast<size_t>(seekFrame * numCh);
+                if (track->preDecodedReadOffset >= track->preDecodedPcm.size())
+                    track->preDecodedReadOffset = track->preDecodedPcm.size();
+                track->ringBuffer->reset();
+            }
+        }
+
+        if (track->ringBuffer->availableToWrite() < chunkSamples) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            continue;
+        }
+
+        size_t written = 0;
+        if (wav) {
+            drwav_uint64 toRead = chunkSamples / static_cast<drwav_uint64>(numCh);
+            if (toRead > 0) {
+                drwav_uint64 got = drwav_read_pcm_frames_f32(wav, toRead, chunk.data());
+                if (got > 0)
+                    written = track->ringBuffer->write(chunk.data(), static_cast<size_t>(got * numCh));
+            }
+            if (written == 0)
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        } else {
+            // Memory-backed: feed from preDecodedPcm
+            size_t totalSamples = track->preDecodedPcm.size();
+            if (track->preDecodedReadOffset >= totalSamples) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            size_t toFeed = std::min(chunkSamples, totalSamples - track->preDecodedReadOffset);
+            written = track->ringBuffer->write(
+                track->preDecodedPcm.data() + track->preDecodedReadOffset, toFeed);
+            track->preDecodedReadOffset += written;
+        }
+    }
 }
 
 // ─── Track Management ────────────────────────────────────────────────────────
@@ -139,51 +222,142 @@ void AudioMixer::loadTrack(const std::string& id,
                            int32_t numChannels) {
     std::lock_guard<std::mutex> lock(mutex_);
 
+    auto it = tracks_.find(id);
+    if (it != tracks_.end())
+        stopTrackStreaming(*it->second);
+
     auto track = std::make_unique<MixerTrack>();
     track->id = id;
     track->numChannels = numChannels;
     track->numFrames = numFrames;
 
-    const int64_t totalSamples = numFrames * numChannels;
-    track->pcmData.assign(pcmData, pcmData + totalSamples);
+    const size_t totalSamples = static_cast<size_t>(numFrames * numChannels);
+    track->preDecodedPcm.assign(pcmData, pcmData + totalSamples);
+    track->preDecodedReadOffset = 0;
+    track->wavFileHandle = nullptr;
 
-    // Initialise gain ramp — no ramp needed on load
-    track->currentGain = 1.0f;
-    track->targetGain  = 1.0f;
-    track->gainIncrement = 0.0f;
-    track->gainRampSamplesRemaining = 0;
+    size_t ringCapacity = static_cast<size_t>(sampleRate_ * numChannels * kRingBufferSeconds);
+    if (ringCapacity < 4096) ringCapacity = 4096;
+    track->ringBuffer = std::make_unique<LockFreeRingBuffer>(ringCapacity);
 
-    // Centre pan
-    track->pan = 0.0f;
+    // Pre-fill first kPreFillSeconds so play can start immediately
+    size_t preFillSamples = static_cast<size_t>(sampleRate_ * numChannels * kPreFillSeconds);
+    if (preFillSamples > totalSamples) preFillSamples = totalSamples;
+    track->ringBuffer->write(pcmData, preFillSamples);
+    track->preDecodedReadOffset = preFillSamples;
+
+    track->currentGain.store(1.0f);
+    track->targetGain.store(1.0f);
+    track->gainIncrement.store(0.0f);
+    track->gainRampSamplesRemaining.store(0);
+    track->pan.store(0.0f);
     computePanGains(*track);
-
-    track->isMuted = false;
-    track->isSolo  = false;
+    track->isMuted.store(false);
+    track->isSolo.store(false);
     track->playheadFrame = 0;
 
-    // ── SoundTouch Init ──
+    track->processBuffer.resize(static_cast<size_t>(kMaxProcessFrames * 2), 0.0f);
+    track->stMonoInputBuffer.resize(static_cast<size_t>(kStMonoChunkSize * 2), 0.0f);
+
     track->soundTouchProcessor = std::make_unique<soundtouch::SoundTouch>();
     track->soundTouchProcessor->setSampleRate(sampleRate_);
-    track->soundTouchProcessor->setChannels(2); // Always output stereo for the mix bus
-    // Optimise for performance (QuickSeek is good for music)
+    track->soundTouchProcessor->setChannels(2);
     track->soundTouchProcessor->setSetting(SETTING_USE_QUICKSEEK, 1);
-    // Disable AA filter if percussive (optional, default false)
     track->soundTouchProcessor->setSetting(SETTING_USE_AA_FILTER, 1);
 
+    track->ioStopRequested.store(false);
+    track->seekFrameRequested.store(-1);
+    track->ioThread = std::thread(runIoThread, track.get(), sampleRate_);
+
     tracks_[id] = std::move(track);
+}
+
+bool AudioMixer::loadTrackFromFile(const std::string& id, const std::string& filePath) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    auto it = tracks_.find(id);
+    if (it != tracks_.end())
+        stopTrackStreaming(*it->second);
+
+    drwav* wav = new drwav{};
+    if (!drwav_init_file(wav, filePath.c_str(), nullptr)) {
+        LOGE_MIX("loadTrackFromFile: failed to open WAV %s", filePath.c_str());
+        delete wav;
+        return false;
+    }
+
+    const int32_t numCh = static_cast<int32_t>(wav->channels);
+    const int64_t totalFrames = static_cast<int64_t>(wav->totalPCMFrameCount);
+    const uint32_t fileRate = wav->sampleRate;
+    if (numCh < 1 || numCh > 2 || totalFrames <= 0) {
+        drwav_uninit(wav);
+        delete wav;
+        return false;
+    }
+    // If file sample rate differs from mixer, fall back to full decode (caller will retry with decode path)
+    if (fileRate != static_cast<uint32_t>(sampleRate_)) {
+        drwav_uninit(wav);
+        delete wav;
+        LOGD_MIX("loadTrackFromFile: sample rate mismatch (%u vs %d), use decode path", fileRate, sampleRate_);
+        return false;
+    }
+
+    auto track = std::make_unique<MixerTrack>();
+    track->id = id;
+    track->numChannels = numCh;
+    track->numFrames = totalFrames;
+    track->wavFileHandle = wav;
+
+    size_t ringCapacity = static_cast<size_t>(sampleRate_ * numCh * kRingBufferSeconds);
+    if (ringCapacity < 4096) ringCapacity = 4096;
+    track->ringBuffer = std::make_unique<LockFreeRingBuffer>(ringCapacity);
+
+    // Pre-fill first kPreFillSeconds for instant play
+    size_t preFillFrames = static_cast<size_t>(sampleRate_ * kPreFillSeconds);
+    if (preFillFrames > static_cast<size_t>(totalFrames)) preFillFrames = static_cast<size_t>(totalFrames);
+    std::vector<float> preFill(preFillFrames * numCh, 0.0f);
+    drwav_uint64 got = drwav_read_pcm_frames_f32(wav, preFillFrames, preFill.data());
+    if (got > 0)
+        track->ringBuffer->write(preFill.data(), static_cast<size_t>(got * numCh));
+
+    track->currentGain.store(1.0f);
+    track->targetGain.store(1.0f);
+    track->gainIncrement.store(0.0f);
+    track->gainRampSamplesRemaining.store(0);
+    track->pan.store(0.0f);
+    computePanGains(*track);
+    track->isMuted.store(false);
+    track->isSolo.store(false);
+    track->playheadFrame = 0;
+
+    track->processBuffer.resize(static_cast<size_t>(kMaxProcessFrames * 2), 0.0f);
+    track->stMonoInputBuffer.resize(static_cast<size_t>(kStMonoChunkSize * 2), 0.0f);
+
+    track->soundTouchProcessor = std::make_unique<soundtouch::SoundTouch>();
+    track->soundTouchProcessor->setSampleRate(sampleRate_);
+    track->soundTouchProcessor->setChannels(2);
+    track->soundTouchProcessor->setSetting(SETTING_USE_QUICKSEEK, 1);
+    track->soundTouchProcessor->setSetting(SETTING_USE_AA_FILTER, 1);
+
+    track->ioStopRequested.store(false);
+    track->seekFrameRequested.store(-1);
+    track->ioThread = std::thread(runIoThread, track.get(), sampleRate_);
+
+    tracks_[id] = std::move(track);
+    LOGD_MIX("loadTrackFromFile: instant load %s, %lld frames", filePath.c_str(), (long long)totalFrames);
+    return true;
 }
 
 void AudioMixer::removeTrack(const std::string& id) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = tracks_.find(id);
     if (it != tracks_.end()) {
+        stopTrackStreaming(*it->second);
         tracks_.erase(it);
     }
-
-    // Recalculate solo flag from scratch after removal
     hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t->isSolo) {
+        if (t->isSolo.load()) {
             hasSoloedTracks_ = true;
             break;
         }
@@ -210,17 +384,13 @@ void AudioMixer::pause() {
 void AudioMixer::seekTo(int64_t framePosition) {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto& [_, track] : tracks_) {
-        track->playheadFrame = std::clamp(framePosition,
-                                         static_cast<int64_t>(0),
-                                         track->numFrames);
-        // Reset EQ filter state to avoid artifacts after seek
-        for (auto& band : track->eqBands) {
+        int64_t pos = std::clamp(framePosition, static_cast<int64_t>(0), track->numFrames);
+        track->playheadFrame = pos;
+        track->seekFrameRequested.store(pos);
+        for (auto& band : track->eqBands)
             band.resetState();
-        }
-        // Reset SoundTouch state
-        if (track->soundTouchProcessor) {
+        if (track->soundTouchProcessor)
             track->soundTouchProcessor->clear();
-        }
     }
 }
 
@@ -234,19 +404,19 @@ void AudioMixer::setVolume(const std::string& id, float volume) {
     MixerTrack& track = *(it->second);
     float clamped = std::clamp(volume, 0.0f, 1.0f);
 
-    if (std::abs(clamped - track.currentGain) < 1e-6f) {
+    if (std::abs(clamped - track.currentGain.load()) < 1e-6f) {
         // Already at target — skip ramp
-        track.targetGain = clamped;
-        track.gainIncrement = 0.0f;
-        track.gainRampSamplesRemaining = 0;
+        track.targetGain.store(clamped);
+        track.gainIncrement.store(0.0f);
+        track.gainRampSamplesRemaining.store(0);
         return;
     }
 
-    track.targetGain = clamped;
-    track.gainRampSamplesRemaining = gainSmoothSamples_;
-    track.gainIncrement =
-        (track.targetGain - track.currentGain) /
-        static_cast<float>(gainSmoothSamples_);
+    track.targetGain.store(clamped);
+    track.gainRampSamplesRemaining.store(gainSmoothSamples_);
+    track.gainIncrement.store(
+        (track.targetGain.load() - track.currentGain.load()) /
+        static_cast<float>(gainSmoothSamples_));
 }
 
 void AudioMixer::setPan(const std::string& id, float pan) {
@@ -254,7 +424,7 @@ void AudioMixer::setPan(const std::string& id, float pan) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second->pan = std::clamp(pan, -1.0f, 1.0f);
+    it->second->pan.store(std::clamp(pan, -1.0f, 1.0f));
     computePanGains(*(it->second));
 }
 
@@ -263,7 +433,7 @@ void AudioMixer::setMute(const std::string& id, bool muted) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second->isMuted = muted;
+    it->second->isMuted.store(muted);
 }
 
 void AudioMixer::setSolo(const std::string& id, bool solo) {
@@ -271,12 +441,12 @@ void AudioMixer::setSolo(const std::string& id, bool solo) {
     auto it = tracks_.find(id);
     if (it == tracks_.end()) return;
 
-    it->second->isSolo = solo;
+    it->second->isSolo.store(solo);
 
     // Recalculate solo flag from scratch to avoid stale state
     hasSoloedTracks_ = false;
     for (const auto& [_, t] : tracks_) {
-        if (t->isSolo) {
+        if (t->isSolo.load()) {
             hasSoloedTracks_ = true;
             break;
         }
@@ -363,19 +533,32 @@ void AudioMixer::setTrackPitch(const std::string& id, int semitones) {
     commandQueue_.push({EngineCommand::SET_PITCH, id, 0.0f, semitones});
 }
 
-// ─── DSP — Core Mix Loop ────────────────────────────────────────────────────
+// ─── DSP — Core Mix Loop (Wait-Free, Allocation-Free) ────────────────────────
 
 int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
-    static int log_counter = 0;
-    
-    // ─── Process Command Queue (Lock-Free from Audio Thread perspective) ───
-    std::queue<CommandMessage> localQueue;
-    {
-        std::lock_guard<std::mutex> qLock(queueMutex_);
-        std::swap(localQueue, commandQueue_);
+    // Cap to pre-allocated buffer size; never allocate in this path
+    if (numFrames <= 0) return 0;
+    if (numFrames > kMaxProcessFrames) {
+        std::memset(outputL, 0, sizeof(float) * static_cast<size_t>(numFrames));
+        std::memset(outputR, 0, sizeof(float) * static_cast<size_t>(numFrames));
+        return numFrames;
     }
 
-    std::lock_guard<std::mutex> lock(mutex_);
+    // Try to drain command queue (non-blocking)
+    std::queue<CommandMessage> localQueue;
+    {
+        std::unique_lock<std::mutex> qLock(queueMutex_, std::try_to_lock);
+        if (qLock.owns_lock())
+            std::swap(localQueue, commandQueue_);
+    }
+
+    // Audio thread must never block: if we can't get the mixer lock, output silence
+    std::unique_lock<std::mutex> lock(mutex_, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        std::memset(outputL, 0, sizeof(float) * static_cast<size_t>(numFrames));
+        std::memset(outputR, 0, sizeof(float) * static_cast<size_t>(numFrames));
+        return numFrames;
+    }
 
     // Execute all pending commands
     while (!localQueue.empty()) {
@@ -384,7 +567,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
         switch (cmd.type) {
             case EngineCommand::CLEAR_TRACKS:
-                // unique_ptr handles cleanup automatically
+                for (auto& [_, t] : tracks_)
+                    stopTrackStreaming(*t);
                 tracks_.clear();
                 hasSoloedTracks_ = false;
                 break;
@@ -440,80 +624,113 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             continue;
         }
 
-        std::vector<float> trackOutput(numFrames * 2, 0.0f); 
-        int samplesReceived = 0;
-
-        // 1. ST Bypass Check
-        bool bypassST = (track.tempoFactor == 1.0f && track.pitchSemiTones == 0);
+        // Hard bypass: pre-rendered live tracks (tempo 1, pitch 0). No SoundTouch, no processBuffer.
+        const bool bypassST = (track.tempoFactor == 1.0f && track.pitchSemiTones == 0);
 
         if (bypassST) {
-            // Direct PCM Copy Fast-Path
-            int64_t available = track.numFrames - track.playheadFrame;
-            int64_t toCopy = std::min((int64_t)numFrames, available);
-            
-            if (toCopy > 0) {
-                const float* pcm = track.pcmData.data() + track.playheadFrame * track.numChannels;
-                for (int i = 0; i < toCopy; ++i) {
-                    if (track.numChannels == 2) {
-                        trackOutput[i * 2] = pcm[i * 2];
-                        trackOutput[i * 2 + 1] = pcm[i * 2 + 1];
-                    } else {
-                        trackOutput[i * 2] = pcm[i];
-                        trackOutput[i * 2 + 1] = pcm[i];
+            // Fast path: read from ring buffer (underflow = silence), then volume + pan + optional EQ
+            const size_t toReadSamples = static_cast<size_t>(numFrames * track.numChannels);
+            if (!track.ringBuffer) { track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames); continue; }
+            track.ringBuffer->read(track.processBuffer.data(), toReadSamples);
+            const float* pcm = track.processBuffer.data();
+            const float gain = track.currentGain.load(std::memory_order_relaxed);
+            const float panL = track.panGainL.load(std::memory_order_relaxed);
+            const float panR = track.panGainR.load(std::memory_order_relaxed);
+            float trackPeak = 0.0f;
+
+            for (int32_t i = 0; i < numFrames; ++i) {
+                float sampleL, sampleR;
+                if (track.numChannels == 2) {
+                    sampleL = pcm[i * 2];
+                    sampleR = pcm[i * 2 + 1];
+                } else {
+                    sampleL = sampleR = pcm[i];
+                }
+                if (!track.isEqFlat) {
+                    for (auto& band : track.eqBands) {
+                        if (band.active) {
+                            sampleL = band.processL(sampleL);
+                            sampleR = band.processR(sampleR);
+                        }
                     }
                 }
-                track.playheadFrame += toCopy;
+                sampleL *= gain;
+                sampleR *= gain;
+                outputL[i] += sampleL * panL;
+                outputR[i] += sampleR * panR;
+                trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));
             }
-            samplesReceived = numFrames; // Pad rest with zeros implicitly (std::vector init)
-        } else {
-            // 2. SoundTouch Loop (Strict Sync)
+            track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames);
+            track.currentPeak.store(trackPeak, std::memory_order_relaxed);
+
+            int32_t rampRem = track.gainRampSamplesRemaining.load(std::memory_order_relaxed);
+            if (rampRem > 0) {
+                const float inc = track.gainIncrement.load(std::memory_order_relaxed);
+                float curGain = track.currentGain.load(std::memory_order_relaxed);
+                curGain += inc * numFrames;
+                rampRem -= numFrames;
+                if (rampRem <= 0) {
+                    curGain = track.targetGain.load(std::memory_order_relaxed);
+                    rampRem = 0;
+                }
+                track.currentGain.store(curGain, std::memory_order_relaxed);
+                track.gainRampSamplesRemaining.store(rampRem, std::memory_order_relaxed);
+            }
+            continue;
+        }
+
+        // SoundTouch path: tempo/pitch changed on the fly (not used for pre-rendered live set)
+        float* const trackOutput = track.processBuffer.data();
+        std::fill(trackOutput, trackOutput + numFrames * 2, 0.0f);
+        int samplesReceived = 0;
+            // 2. SoundTouch Loop (Strict Sync) — use pre-allocated stMonoInputBuffer
             soundtouch::SoundTouch* st = track.soundTouchProcessor.get();
             if (!st) continue;
 
             while (samplesReceived < numFrames) {
-                int gotten = st->receiveSamples(trackOutput.data() + samplesReceived * 2, 
-                                                numFrames - samplesReceived);
-                if (gotten > 0) {
+                const int want = numFrames - samplesReceived;
+                const int gotten = static_cast<int>(st->receiveSamples(
+                    trackOutput + samplesReceived * 2,
+                    static_cast<unsigned int>(want)));
+                    if (gotten > 0) {
                     samplesReceived += gotten;
-                } else {
-                    // FEED LOOP
-                    if (track.playheadFrame < track.numFrames) {
-                        const int kChunkSize = 1024; 
-                        int64_t remaining = track.numFrames - track.playheadFrame;
-                        int64_t feed = std::min((int64_t)kChunkSize, remaining);
-                        
-                        // Force stereo feed since ST is configured for 2 channels
-                        if (track.numChannels == 2) {
-                            st->putSamples(track.pcmData.data() + track.playheadFrame * 2, feed);
-                        } else {
-                            std::vector<float> stInput(feed * 2);
-                            const float* pcm = track.pcmData.data() + track.playheadFrame;
-                            for (int i = 0; i < feed; ++i) {
-                                stInput[i * 2] = pcm[i];
-                                stInput[i * 2 + 1] = pcm[i];
-                            }
-                            st->putSamples(stInput.data(), feed);
-                        }
-                        track.playheadFrame += feed;
                     } else {
-                        // EOF reached - pad with silence to maintain exact sync
-                        // The loop will break because gotten=0 and playheadFrame >= numFrames.
-                        break; 
+                        // Feed SoundTouch from ring buffer (underflow = silence)
+                        if (track.ringBuffer) {
+                            const size_t wantSamples = static_cast<size_t>(kStMonoChunkSize) * static_cast<size_t>(track.numChannels);
+                            size_t gotSamples = track.ringBuffer->read(track.stMonoInputBuffer.data(), wantSamples);
+                            int gotFrames = static_cast<int>(gotSamples / track.numChannels);
+                            if (gotFrames > 0) {
+                                if (track.numChannels == 2) {
+                                    st->putSamples(track.stMonoInputBuffer.data(), static_cast<unsigned int>(gotFrames));
+                                } else {
+                                    float* stInput = track.stMonoInputBuffer.data();
+                                    const float* mono = track.stMonoInputBuffer.data();
+                                    for (int i = gotFrames - 1; i >= 0; --i) {
+                                        stInput[i * 2] = mono[i];
+                                        stInput[i * 2 + 1] = mono[i];
+                                    }
+                                    st->putSamples(stInput, static_cast<unsigned int>(gotFrames));
+                                }
+                                track.playheadFrame = std::min(track.numFrames, track.playheadFrame + gotFrames);
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
                     }
                 }
-            }
-            // Ensure we return exactly numFrames (rest is already 0.0f)
-            samplesReceived = numFrames; 
-        }
+            samplesReceived = numFrames;
 
         float trackPeak = 0.0f;
+        const float gain = track.currentGain.load(std::memory_order_relaxed);
+        const float panL = track.panGainL.load(std::memory_order_relaxed);
+        const float panR = track.panGainR.load(std::memory_order_relaxed);
 
-        // MIXING LOOP
         for (int32_t i = 0; i < numFrames; ++i) {
             float sampleL = trackOutput[i * 2];
             float sampleR = trackOutput[i * 2 + 1];
-
-            // ── Parametric EQ ──
             if (!track.isEqFlat) {
                 for (auto& band : track.eqBands) {
                     if (band.active) {
@@ -522,33 +739,29 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     }
                 }
             }
-            // ── Apply gain & pan ──
-            sampleL *= track.currentGain;
-            sampleR *= track.currentGain;
-
-            outputL[i] += sampleL * track.panGainL;
-            outputR[i] += sampleR * track.panGainR;
-
-            // Track Metering
-            trackPeak = std::max(trackPeak, std::abs(sampleL));
-            trackPeak = std::max(trackPeak, std::abs(sampleR));
+            sampleL *= gain;
+            sampleR *= gain;
+            outputL[i] += sampleL * panL;
+            outputR[i] += sampleR * panR;
+            trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));
         }
-        
-        track.currentPeak = trackPeak;
-        
-        // Update gain ramp
-        if (track.gainRampSamplesRemaining > 0) {
-            int processed = numFrames; 
-            float totalChange = track.gainIncrement * processed;
-            track.currentGain += totalChange;
-            track.gainRampSamplesRemaining -= processed;
-            if (track.gainRampSamplesRemaining <= 0) {
-                track.currentGain = track.targetGain;
-                track.gainRampSamplesRemaining = 0;
+        track.currentPeak.store(trackPeak, std::memory_order_relaxed);
+
+        int32_t rampRem = track.gainRampSamplesRemaining.load(std::memory_order_relaxed);
+        if (rampRem > 0) {
+            const float inc = track.gainIncrement.load(std::memory_order_relaxed);
+            float curGain = track.currentGain.load(std::memory_order_relaxed);
+            curGain += inc * numFrames;
+            rampRem -= numFrames;
+            if (rampRem <= 0) {
+                curGain = track.targetGain.load(std::memory_order_relaxed);
+                rampRem = 0;
             }
+            track.currentGain.store(curGain, std::memory_order_relaxed);
+            track.gainRampSamplesRemaining.store(rampRem, std::memory_order_relaxed);
         }
     }
-    
+
     // ── Master Bus Processing (with Bypass) ──
     bool skipMasterEq = true;
     for (const auto& b : masterEqBands_) {
@@ -594,23 +807,16 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
 void AudioMixer::computePanGains(MixerTrack& track) {
     // Constant-power panning using cosine/sine law.
-    //
-    // Map pan from [-1, 1]  →  angle [0, π/2]:
-    //   pan = -1  →  angle = 0      →  L = cos(0)    = 1.0,  R = sin(0)    = 0.0
-    //   pan =  0  →  angle = π/4    →  L = cos(π/4)  ≈ 0.707, R = sin(π/4) ≈ 0.707
-    //   pan =  1  →  angle = π/2    →  L = cos(π/2)  = 0.0,  R = sin(π/2)  = 1.0
-    //
-    // This preserves perceived loudness across the stereo field.
+    const float p = track.pan.load();
     const float angle =
-        (track.pan + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
-
-    track.panGainL = std::cos(angle);
-    track.panGainR = std::sin(angle);
+        (p + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
+    track.panGainL.store(std::cos(angle));
+    track.panGainR.store(std::sin(angle));
 }
 
 bool AudioMixer::isTrackAudible(const MixerTrack& track) const {
-    if (track.isMuted) return false;
-    if (hasSoloedTracks_ && !track.isSolo) return false;
+    if (track.isMuted.load()) return false;
+    if (hasSoloedTracks_ && !track.isSolo.load()) return false;
     return true;
 }
 
@@ -647,6 +853,10 @@ int32_t AudioMixer::getWaveformPeaks(const std::string& id,
     const MixerTrack& track = *(it->second);
     if (track.numFrames == 0) return 0;
 
+    // Use preDecodedPcm when available (memory-backed); streaming-only tracks have no full PCM.
+    const std::vector<float>* src = track.preDecodedPcm.empty() ? nullptr : &track.preDecodedPcm;
+    if (!src) return 0;
+
     const int32_t bins = std::min(numBins, static_cast<int32_t>(track.numFrames));
     const double framesPerBin = static_cast<double>(track.numFrames) / bins;
 
@@ -656,10 +866,12 @@ int32_t AudioMixer::getWaveformPeaks(const std::string& id,
 
         float peak = 0.0f;
         for (int64_t f = startFrame; f < endFrame && f < track.numFrames; ++f) {
-            const int64_t idx = f * track.numChannels;
+            const size_t idx = static_cast<size_t>(f * track.numChannels);
             for (int32_t ch = 0; ch < track.numChannels; ++ch) {
-                const float absVal = std::abs(track.pcmData[idx + ch]);
-                if (absVal > peak) peak = absVal;
+                if (idx + ch < src->size()) {
+                    const float absVal = std::abs((*src)[idx + ch]);
+                    if (absVal > peak) peak = absVal;
+                }
             }
         }
         outPeaks[b] = std::min(peak, 1.0f);

@@ -41,6 +41,45 @@ abstract class LivePerformanceStoreBase with Store {
   @observable
   bool isLoadingSong = false;
 
+  /// True while the user is dragging the waveform playhead (scrubbing).
+  /// Position updates from the engine are ignored so the UI is not overwritten.
+  @observable
+  bool isScrubbing = false;
+
+  /// Linear peak per track (0.0 to 1.0) for VU meters. Updated by _peakTimer when isPlaying.
+  @observable
+  Map<String, double> trackPeaks = {};
+
+  Timer? _peakTimer;
+
+  /// When true, the bottom mixer panel (tracks + metronome + master) is visible.
+  @observable
+  bool isMixerVisible = false;
+
+  /// Master output volume (0.0 to 1.0). Synced to native.
+  @observable
+  double masterVolume = 1.0;
+
+  /// Metronome BPM. Synced to native.
+  @observable
+  double metronomeBpm = 120.0;
+
+  /// Metronome click volume (0.0 to 1.0). Synced to native.
+  @observable
+  double metronomeVolume = 0.8;
+
+  /// Metronome pan (-1 = left, 0 = center, 1 = right). Synced to native.
+  @observable
+  double metronomePan = -1.0;
+
+  /// When true, synthetic click plays (only when VS is paused/stopped). Synced to native.
+  @observable
+  bool isMetronomePlaying = false;
+
+  /// Last 4 tap timestamps (ms since epoch) for Tap Tempo.
+  final List<int> _tapTempoTimestamps = [];
+  static const int _tapTempoMaxTaps = 4;
+
   /// Returns the currently active setlist item, or null if none.
   SetlistItem? get currentItem {
     final list = currentSetlist;
@@ -63,18 +102,25 @@ abstract class LivePerformanceStoreBase with Store {
   @action
   Future<void> loadSetlist(Setlist setlist) async {
     _disposed = false;
+    _peakTimer?.cancel();
+    _peakTimer = null;
     _positionSubscription?.cancel();
     currentSetlist = setlist;
     activeSongIndex = 0;
     currentPosition = Duration.zero;
     isPlaying = false;
+    trackPeaks = {};
     isLoadingSong = true;
     try {
+      // Same rite of passage as nextSong/prevSong: pause + clear so C++ is in a known state
+      // before loading. clearAllTracks() is synchronous in C++ so new tracks are not wiped.
+      _audioEngine.pausePreview();
+      _audioEngine.clearAllTracks();
       await _loadCurrentSong();
       if (_disposed) return;
       _positionSubscription = _audioEngine.onPreviewPosition.listen((d) {
         if (_disposed) return;
-        runInAction(() => currentPosition = d);
+        if (!isScrubbing) runInAction(() => currentPosition = d);
       });
     } finally {
       if (!_disposed) isLoadingSong = false;
@@ -107,14 +153,70 @@ abstract class LivePerformanceStoreBase with Store {
     if (isPlaying) {
       _audioEngine.pausePreview();
       isPlaying = false;
+      _peakTimer?.cancel();
+      _peakTimer = null;
+      trackPeaks = {};
     } else {
+      // Regra de Ouro: ao iniciar a música, desligar o metrônomo.
+      isMetronomePlaying = false;
+      _audioEngine.setMetronomePlaying(false);
       _audioEngine.playPreview();
       isPlaying = true;
+      _startPeakTimer();
     }
+  }
+
+  void _startPeakTimer() {
+    _peakTimer?.cancel();
+    _peakTimer = Timer.periodic(const Duration(milliseconds: 32), (_) {
+      if (_disposed) return;
+      final tracks = currentTracks;
+      if (tracks.isEmpty) return;
+      runInAction(() {
+        final m = Map<String, double>.from(trackPeaks);
+        for (final t in tracks) {
+          final raw = _audioEngine.getTrackPeak(t.id);
+          final prev = m[t.id] ?? 0.0;
+          final smoothed = raw > prev
+              ? prev + (raw - prev) * 0.42
+              : prev * 0.88;
+          m[t.id] = smoothed < 0.005 ? 0.0 : smoothed.clamp(0.0, 1.0);
+        }
+        trackPeaks = m;
+      });
+    });
+  }
+
+  /// Seeks to [position] and updates the engine (C++ playhead + ring buffer).
+  /// Safe to call when paused; scrubbing is only allowed when [isPlaying] is false.
+  @action
+  void seekToPosition(Duration position) {
+    currentPosition = position;
+    _audioEngine.seekTo(position);
+  }
+
+  /// Called when the user starts dragging the waveform. Stops applying engine position to UI.
+  @action
+  void startScrubbing() {
+    isScrubbing = true;
+  }
+
+  /// Called on each drag move. Updates only [currentPosition] (UI); does NOT call C++.
+  @action
+  void updateScrubPosition(Duration position) {
+    currentPosition = position;
+  }
+
+  /// Called when the user releases the drag. Applies [currentPosition] to the engine once.
+  @action
+  void endScrubbing() {
+    isScrubbing = false;
+    _audioEngine.seekTo(currentPosition);
   }
 
   @action
   void nextSong() {
+    if (isPlaying) return;
     final list = currentSetlist;
     if (list == null || list.items.isEmpty) return;
     if (isLoadingSong) return;
@@ -135,6 +237,7 @@ abstract class LivePerformanceStoreBase with Store {
 
   @action
   void prevSong() {
+    if (isPlaying) return;
     final list = currentSetlist;
     if (list == null || list.items.isEmpty) return;
     if (isLoadingSong) return;
@@ -155,9 +258,9 @@ abstract class LivePerformanceStoreBase with Store {
     });
   }
 
-  /// Jumps to the song at [index] (e.g. from setlist ribbon tap). Does not change play state.
   @action
   void goToSong(int index) {
+    if (isPlaying) return;
     final list = currentSetlist;
     if (list == null || list.items.isEmpty) return;
     if (isLoadingSong) return;
@@ -199,6 +302,64 @@ abstract class LivePerformanceStoreBase with Store {
     _updateCurrentItemTrack(trackId, (t) => t.copyWith(isSolo: isSolo));
   }
 
+  /// Toggle mixer panel visibility (timeline expands when hidden).
+  @action
+  void toggleMixerVisible() {
+    isMixerVisible = !isMixerVisible;
+  }
+
+  /// Master volume (0.0 to 1.0). Synced to native.
+  @action
+  void setMasterVolume(double volume) {
+    masterVolume = volume.clamp(0.0, 1.0);
+    _audioEngine.setMasterVolume(masterVolume);
+  }
+
+  /// Metronome: BPM, volume, pan, playing. All synced to native.
+  @action
+  void setMetronomeBpm(double bpm) {
+    metronomeBpm = bpm.clamp(20.0, 300.0);
+    _audioEngine.setMetronomeBpm(metronomeBpm);
+  }
+
+  @action
+  void setMetronomeVolume(double volume) {
+    metronomeVolume = volume.clamp(0.0, 1.0);
+    _audioEngine.setMetronomeVolume(metronomeVolume);
+  }
+
+  @action
+  void setMetronomePan(double pan) {
+    metronomePan = pan.clamp(-1.0, 1.0);
+    _audioEngine.setMetronomePan(metronomePan);
+  }
+
+  @action
+  void setMetronomePlaying(bool playing) {
+    isMetronomePlaying = playing;
+    _audioEngine.setMetronomePlaying(playing);
+  }
+
+  /// Tap Tempo: record tap, compute average interval from last 4 taps, set metronomeBpm = 60000/avgMs.
+  @action
+  void tapTempo() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    _tapTempoTimestamps.add(now);
+    if (_tapTempoTimestamps.length > _tapTempoMaxTaps) {
+      _tapTempoTimestamps.removeAt(0);
+    }
+    if (_tapTempoTimestamps.length < 2) return;
+    final diffs = <int>[];
+    for (var i = 1; i < _tapTempoTimestamps.length; i++) {
+      diffs.add(_tapTempoTimestamps[i] - _tapTempoTimestamps[i - 1]);
+    }
+    final avgDiff = diffs.reduce((a, b) => a + b) / diffs.length;
+    if (avgDiff > 0) {
+      final bpm = 60000.0 / avgDiff;
+      setMetronomeBpm(bpm.clamp(20.0, 300.0));
+    }
+  }
+
   void _updateCurrentItemTrack(String trackId, Track Function(Track) update) {
     final setlist = currentSetlist;
     final item = currentItem;
@@ -225,6 +386,8 @@ abstract class LivePerformanceStoreBase with Store {
   /// Stops playback, clears engine tracks, and cancels the position stream so no leaks occur.
   void dispose() {
     _disposed = true;
+    _peakTimer?.cancel();
+    _peakTimer = null;
     _positionSubscription?.cancel();
     _positionSubscription = null;
     _audioEngine.pausePreview();

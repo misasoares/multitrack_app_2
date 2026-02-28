@@ -89,6 +89,134 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
     });
   }
 
+  late final _$isScrubbingAtom =
+      Atom(name: 'LivePerformanceStoreBase.isScrubbing', context: context);
+
+  @override
+  bool get isScrubbing {
+    _$isScrubbingAtom.reportRead();
+    return super.isScrubbing;
+  }
+
+  @override
+  set isScrubbing(bool value) {
+    _$isScrubbingAtom.reportWrite(value, super.isScrubbing, () {
+      super.isScrubbing = value;
+    });
+  }
+
+  late final _$trackPeaksAtom =
+      Atom(name: 'LivePerformanceStoreBase.trackPeaks', context: context);
+
+  @override
+  Map<String, double> get trackPeaks {
+    _$trackPeaksAtom.reportRead();
+    return super.trackPeaks;
+  }
+
+  @override
+  set trackPeaks(Map<String, double> value) {
+    _$trackPeaksAtom.reportWrite(value, super.trackPeaks, () {
+      super.trackPeaks = value;
+    });
+  }
+
+  late final _$isMixerVisibleAtom =
+      Atom(name: 'LivePerformanceStoreBase.isMixerVisible', context: context);
+
+  @override
+  bool get isMixerVisible {
+    _$isMixerVisibleAtom.reportRead();
+    return super.isMixerVisible;
+  }
+
+  @override
+  set isMixerVisible(bool value) {
+    _$isMixerVisibleAtom.reportWrite(value, super.isMixerVisible, () {
+      super.isMixerVisible = value;
+    });
+  }
+
+  late final _$masterVolumeAtom =
+      Atom(name: 'LivePerformanceStoreBase.masterVolume', context: context);
+
+  @override
+  double get masterVolume {
+    _$masterVolumeAtom.reportRead();
+    return super.masterVolume;
+  }
+
+  @override
+  set masterVolume(double value) {
+    _$masterVolumeAtom.reportWrite(value, super.masterVolume, () {
+      super.masterVolume = value;
+    });
+  }
+
+  late final _$metronomeBpmAtom =
+      Atom(name: 'LivePerformanceStoreBase.metronomeBpm', context: context);
+
+  @override
+  double get metronomeBpm {
+    _$metronomeBpmAtom.reportRead();
+    return super.metronomeBpm;
+  }
+
+  @override
+  set metronomeBpm(double value) {
+    _$metronomeBpmAtom.reportWrite(value, super.metronomeBpm, () {
+      super.metronomeBpm = value;
+    });
+  }
+
+  late final _$metronomeVolumeAtom =
+      Atom(name: 'LivePerformanceStoreBase.metronomeVolume', context: context);
+
+  @override
+  double get metronomeVolume {
+    _$metronomeVolumeAtom.reportRead();
+    return super.metronomeVolume;
+  }
+
+  @override
+  set metronomeVolume(double value) {
+    _$metronomeVolumeAtom.reportWrite(value, super.metronomeVolume, () {
+      super.metronomeVolume = value;
+    });
+  }
+
+  late final _$metronomePanAtom =
+      Atom(name: 'LivePerformanceStoreBase.metronomePan', context: context);
+
+  @override
+  double get metronomePan {
+    _$metronomePanAtom.reportRead();
+    return super.metronomePan;
+  }
+
+  @override
+  set metronomePan(double value) {
+    _$metronomePanAtom.reportWrite(value, super.metronomePan, () {
+      super.metronomePan = value;
+    });
+  }
+
+  late final _$isMetronomePlayingAtom = Atom(
+      name: 'LivePerformanceStoreBase.isMetronomePlaying', context: context);
+
+  @override
+  bool get isMetronomePlaying {
+    _$isMetronomePlayingAtom.reportRead();
+    return super.isMetronomePlaying;
+  }
+
+  @override
+  set isMetronomePlaying(bool value) {
+    _$isMetronomePlayingAtom.reportWrite(value, super.isMetronomePlaying, () {
+      super.isMetronomePlaying = value;
+    });
+  }
+
   late final _$loadSetlistAsyncAction =
       AsyncAction('LivePerformanceStoreBase.loadSetlist', context: context);
 
@@ -106,6 +234,50 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
         name: 'LivePerformanceStoreBase.togglePlay');
     try {
       return super.togglePlay();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void seekToPosition(Duration position) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.seekToPosition');
+    try {
+      return super.seekToPosition(position);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void startScrubbing() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.startScrubbing');
+    try {
+      return super.startScrubbing();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateScrubPosition(Duration position) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.updateScrubPosition');
+    try {
+      return super.updateScrubPosition(position);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void endScrubbing() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.endScrubbing');
+    try {
+      return super.endScrubbing();
     } finally {
       _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
     }
@@ -178,13 +350,98 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
   }
 
   @override
+  void toggleMixerVisible() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.toggleMixerVisible');
+    try {
+      return super.toggleMixerVisible();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMasterVolume(double volume) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.setMasterVolume');
+    try {
+      return super.setMasterVolume(volume);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomeBpm(double bpm) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.setMetronomeBpm');
+    try {
+      return super.setMetronomeBpm(bpm);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomeVolume(double volume) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.setMetronomeVolume');
+    try {
+      return super.setMetronomeVolume(volume);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomePan(double pan) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.setMetronomePan');
+    try {
+      return super.setMetronomePan(pan);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomePlaying(bool playing) {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.setMetronomePlaying');
+    try {
+      return super.setMetronomePlaying(playing);
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void tapTempo() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.tapTempo');
+    try {
+      return super.tapTempo();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentSetlist: ${currentSetlist},
 activeSongIndex: ${activeSongIndex},
 isPlaying: ${isPlaying},
 currentPosition: ${currentPosition},
-isLoadingSong: ${isLoadingSong}
+isLoadingSong: ${isLoadingSong},
+isScrubbing: ${isScrubbing},
+trackPeaks: ${trackPeaks},
+isMixerVisible: ${isMixerVisible},
+masterVolume: ${masterVolume},
+metronomeBpm: ${metronomeBpm},
+metronomeVolume: ${metronomeVolume},
+metronomePan: ${metronomePan},
+isMetronomePlaying: ${isMetronomePlaying}
     ''';
   }
 }

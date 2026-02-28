@@ -89,30 +89,24 @@ class _LivePerformancePageState extends State<LivePerformancePage> {
             _SetlistRibbon(store: _store),
             const SizedBox(height: 12),
             Expanded(
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  _WaveformSection(store: _store),
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: IconButton.filled(
-                      onPressed: () => _store.toggleMixerVisible(),
-                      icon: Icon(
-                        _store.isMixerVisible ? Icons.tune : Icons.tune_outlined,
-                        color: AppColors.primary,
-                        size: 40,
+              child: Observer(
+                builder: (_) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            _WaveformSection(store: _store),
+                            _WaveformFloatingButtons(store: _store),
+                          ],
+                        ),
                       ),
-                      iconSize: 40,
-                      style: IconButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A1A1A),
-                        foregroundColor: AppColors.primary,
-                        minimumSize: const Size(56, 56),
-                        padding: const EdgeInsets.all(12),
-                      ),
-                      tooltip: 'Mixer',
-                    ),
-                  ),
-                ],
+                      if (_store.isMetronomeVisible) _MetronomePanelRight(store: _store),
+                    ],
+                  );
+                },
               ),
             ),
             Observer(
@@ -128,6 +122,247 @@ class _LivePerformancePageState extends State<LivePerformancePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Floating toggle buttons over the waveform (metronome panel + mixer panel).
+class _WaveformFloatingButtons extends StatelessWidget {
+  final LivePerformanceStore store;
+
+  const _WaveformFloatingButtons({required this.store});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Observer(
+            builder: (_) => IconButton.filled(
+              onPressed: () => store.toggleMetronomeVisible(),
+              icon: Icon(
+                store.isMetronomeVisible ? Icons.timer : Icons.timer_outlined,
+                color: AppColors.primary,
+                size: 28,
+              ),
+              iconSize: 28,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xE61A1A1A),
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.all(10),
+              ),
+              tooltip: 'Metrônomo',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Observer(
+            builder: (_) => IconButton.filled(
+              onPressed: () => store.toggleMixerVisible(),
+              icon: Icon(
+                store.isMixerVisible ? Icons.tune : Icons.tune_outlined,
+                color: AppColors.primary,
+                size: 28,
+              ),
+              iconSize: 28,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xE61A1A1A),
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.all(10),
+              ),
+              tooltip: 'Mixer',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Right-side metronome panel: large BPM, TAP, Play/Stop, Vol + Pan faders.
+class _MetronomePanelRight extends StatelessWidget {
+  final LivePerformanceStore store;
+
+  const _MetronomePanelRight({required this.store});
+
+  static const double _panelWidth = 280.0;
+
+  static double _linearToDb(double lin) {
+    if (lin <= 0.00001) return -60.0;
+    return 20.0 * (math.log(lin) / math.ln10);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _panelWidth,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0A0A),
+        border: Border(
+          left: BorderSide(color: AppColors.primary.withValues(alpha: 0.35), width: 1),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Center(
+            child: Text(
+              'METRONOME',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMuted,
+                letterSpacing: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Observer(
+            builder: (_) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  '${store.metronomeBpm.round()}',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    height: 1.0,
+                  ),
+                ),
+                Text(
+                  'bpm',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Observer(
+            builder: (_) => Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => store.tapTempo(),
+                borderRadius: BorderRadius.circular(50),
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    border: Border.all(color: AppColors.primary, width: 2.5),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'TAP',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Observer(
+            builder: (_) => IconButton(
+              onPressed: () => store.setMetronomePlaying(!store.isMetronomePlaying),
+              icon: Icon(
+                store.isMetronomePlaying ? Icons.stop_circle : Icons.play_circle_outline,
+                color: AppColors.primary,
+                size: 48,
+              ),
+              iconSize: 48,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFF1A1A1A),
+                minimumSize: const Size(64, 64),
+              ),
+              tooltip: store.isMetronomePlaying ? 'Parar click' : 'Play click',
+            ),
+          ),
+          const SizedBox(height: 24),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text('Vol', style: AppTextStyles.labelMuted.copyWith(fontSize: 10)),
+              const SizedBox(height: 4),
+              Observer(
+                builder: (_) => SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 6,
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor: const Color(0xFF2A2A2A),
+                    thumbColor: AppColors.primary,
+                  ),
+                  child: Slider(
+                    value: _linearToDb(store.metronomeVolume).clamp(-60.0, 13.0),
+                    min: -60.0,
+                    max: 13.0,
+                    onChanged: (db) {
+                      final lin = db <= -59.9
+                          ? 0.0
+                          : math.pow(10.0, db / 20.0).toDouble();
+                      store.setMetronomeVolume(lin);
+                    },
+                  ),
+                ),
+              ),
+              Observer(
+                builder: (_) {
+                  final db = _linearToDb(store.metronomeVolume);
+                  final label = db > -59.9
+                      ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
+                      : '-INF';
+                  return Center(
+                    child: Text(
+                      label,
+                      style: AppTextStyles.labelMuted.copyWith(
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: Text('Pan L/R', style: AppTextStyles.labelMuted.copyWith(fontSize: 10)),
+              ),
+              const SizedBox(height: 4),
+              Observer(
+                builder: (_) => SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 6,
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor: const Color(0xFF2A2A2A),
+                    thumbColor: AppColors.primary,
+                  ),
+                  child: Slider(
+                    value: (store.metronomePan + 1) / 2,
+                    onChanged: (v) => store.setMetronomePan(v * 2 - 1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -384,7 +619,7 @@ class _WaveformSection extends StatelessWidget {
                         builder: (context, constraints) {
                           final width = constraints.maxWidth;
                           final height = constraints.maxHeight;
-                          return GestureDetector(
+                          final gestureChild = GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onHorizontalDragStart: (details) {
                               if (store.isPlaying) return;
@@ -416,6 +651,14 @@ class _WaveformSection extends StatelessWidget {
                               ),
                               size: Size(width, height),
                             ),
+                          );
+                          return Observer(
+                            builder: (_) {
+                              if (store.isPlaying) {
+                                return AbsorbPointer(child: gestureChild);
+                              }
+                              return gestureChild;
+                            },
                           );
                         },
                       ),
@@ -506,7 +749,7 @@ class _WaveformPainter extends CustomPainter {
       oldDelegate.progress != progress || oldDelegate.peaks != peaks;
 }
 
-/// Bottom panel (height 280): Metronome | Tracks | Master. Dark/Amber.
+/// Bottom panel (height 340): Tracks scroll + Master. No metronome (moved to right panel).
 class _SuperMixerPanel extends StatelessWidget {
   final LivePerformanceStore store;
   final IAudioEngineService audioEngine;
@@ -519,7 +762,7 @@ class _SuperMixerPanel extends StatelessWidget {
   });
 
   static const double _stripWidth = 86.0;
-  static const double _panelHeight = 280;
+  static const double _panelHeight = 340;
 
   @override
   Widget build(BuildContext context) {
@@ -530,8 +773,6 @@ class _SuperMixerPanel extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _MetronomeSection(store: store),
-          const SizedBox(width: 16),
           Expanded(
             child: Observer(
               builder: (_) {
@@ -578,143 +819,6 @@ class _SuperMixerPanel extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           _MasterStrip(store: store),
-        ],
-      ),
-    );
-  }
-}
-
-/// Left section: BPM display, TAP button, click Play/Stop, volume slider, pan slider.
-class _MetronomeSection extends StatelessWidget {
-  final LivePerformanceStore store;
-
-  const _MetronomeSection({required this.store});
-
-  static double _linearToDb(double lin) {
-    if (lin <= 0.00001) return -60.0;
-    return 20.0 * (math.log(lin) / math.ln10);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E0E0E),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A2A)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'CLICK',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textMuted,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Observer(
-            builder: (_) => Text(
-              '${store.metronomeBpm.round()} BPM',
-              style: GoogleFonts.jetBrainsMono(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Observer(
-            builder: (_) => Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => store.tapTempo(),
-                borderRadius: BorderRadius.circular(32),
-                child: Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    border: Border.all(color: AppColors.primary, width: 2),
-                  ),
-                  child: const Center(
-                    child: Text('TAP', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary)),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Observer(
-            builder: (_) => IconButton(
-              onPressed: () => store.setMetronomePlaying(!store.isMetronomePlaying),
-              icon: Icon(
-                store.isMetronomePlaying ? Icons.stop_circle : Icons.play_circle_outline,
-                color: AppColors.primary,
-                size: 32,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text('Vol', style: AppTextStyles.labelMuted.copyWith(fontSize: 9)),
-          Observer(
-            builder: (_) => SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 4,
-                activeTrackColor: AppColors.primary,
-                inactiveTrackColor: const Color(0xFF2A2A2A),
-                thumbColor: AppColors.primary,
-              ),
-              child: Slider(
-                value: _linearToDb(store.metronomeVolume).clamp(-60.0, 13.0),
-                min: -60.0,
-                max: 13.0,
-                onChanged: (db) {
-                  final lin = db <= -59.9
-                      ? 0.0
-                      : math.pow(10.0, db / 20.0).toDouble();
-                  store.setMetronomeVolume(lin);
-                },
-              ),
-            ),
-          ),
-          Observer(
-            builder: (_) {
-              final db = _linearToDb(store.metronomeVolume);
-              final label = db > -59.9
-                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
-                  : '-INF';
-              return Text(
-                label,
-                style: AppTextStyles.labelMuted.copyWith(
-                  fontSize: 10,
-                  fontFamily: 'monospace',
-                ),
-              );
-            },
-          ),
-          Text('Pan L/R', style: AppTextStyles.labelMuted.copyWith(fontSize: 9)),
-          Observer(
-            builder: (_) => SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 4,
-                activeTrackColor: AppColors.primary,
-                inactiveTrackColor: const Color(0xFF2A2A2A),
-                thumbColor: AppColors.primary,
-              ),
-              child: Slider(
-                value: (store.metronomePan + 1) / 2,
-                onChanged: (v) => store.setMetronomePan(v * 2 - 1),
-              ),
-            ),
-          ),
         ],
       ),
     );

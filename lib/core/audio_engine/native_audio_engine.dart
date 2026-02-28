@@ -123,6 +123,18 @@ typedef _SetMasterEqDart =
 typedef _SetMasterVolumeNative = Void Function(Float volume);
 typedef _SetMasterVolumeDart = void Function(double volume);
 
+typedef _SetMetronomeVolumeNative = Void Function(Float volume);
+typedef _SetMetronomeVolumeDart = void Function(double volume);
+
+typedef _SetMetronomePanNative = Void Function(Float pan);
+typedef _SetMetronomePanDart = void Function(double pan);
+
+typedef _SetMetronomeBpmNative = Void Function(Float bpm);
+typedef _SetMetronomeBpmDart = void Function(double bpm);
+
+typedef _SetMetronomePlayingNative = Void Function(Int32 playing);
+typedef _SetMetronomePlayingDart = void Function(int playing);
+
 typedef _ClearAllTracksNative = Void Function();
 typedef _ClearAllTracksDart = void Function();
 
@@ -134,6 +146,9 @@ typedef _GetSampleRateDart = int Function();
 
 typedef _GetTrackDbNative = Float Function(Pointer<Utf8> trackId);
 typedef _GetTrackDbDart = double Function(Pointer<Utf8> trackId);
+
+typedef _GetTrackPeakNative = Float Function(Pointer<Utf8> trackId);
+typedef _GetTrackPeakDart = double Function(Pointer<Utf8> trackId);
 
 typedef _GetMasterDbNative = Float Function();
 typedef _GetMasterDbDart = double Function();
@@ -211,11 +226,16 @@ class NativeAudioEngine implements IAudioEngineService {
   _SetTrackPitchDart? _setTrackPitch;
   _SetMasterEqDart? _setMasterEq;
   _SetMasterVolumeDart? _setMasterVolume;
+  _SetMetronomeVolumeDart? _setMetronomeVolume;
+  _SetMetronomePanDart? _setMetronomePan;
+  _SetMetronomeBpmDart? _setMetronomeBpm;
+  _SetMetronomePlayingDart? _setMetronomePlaying;
   _ClearAllTracksDart? _clearAllTracks;
   late final _GetPositionDart _getPosition;
   late final _GetSampleRateDart _getSampleRate;
 
   late final _GetTrackDbDart _getTrackDb;
+  late final _GetTrackPeakDart _getTrackPeak;
   late final _GetMasterDbDart _getMasterDb;
 
   _RenderTrackOfflineDart? _renderTrackOffline;
@@ -319,6 +339,30 @@ class NativeAudioEngine implements IAudioEngineService {
           )
           .asFunction<_SetMasterVolumeDart>();
 
+      _setMetronomeVolume = lib
+          .lookup<NativeFunction<_SetMetronomeVolumeNative>>(
+            'engine_set_metronome_volume',
+          )
+          .asFunction<_SetMetronomeVolumeDart>();
+
+      _setMetronomePan = lib
+          .lookup<NativeFunction<_SetMetronomePanNative>>(
+            'engine_set_metronome_pan',
+          )
+          .asFunction<_SetMetronomePanDart>();
+
+      _setMetronomeBpm = lib
+          .lookup<NativeFunction<_SetMetronomeBpmNative>>(
+            'engine_set_metronome_bpm',
+          )
+          .asFunction<_SetMetronomeBpmDart>();
+
+      _setMetronomePlaying = lib
+          .lookup<NativeFunction<_SetMetronomePlayingNative>>(
+            'engine_set_metronome_playing',
+          )
+          .asFunction<_SetMetronomePlayingDart>();
+
       _clearAllTracks = lib
           .lookup<NativeFunction<_ClearAllTracksNative>>(
             'engine_clear_all_tracks',
@@ -369,6 +413,10 @@ class NativeAudioEngine implements IAudioEngineService {
     _getTrackDb = lib
         .lookup<NativeFunction<_GetTrackDbNative>>('engine_get_track_db')
         .asFunction<_GetTrackDbDart>();
+
+    _getTrackPeak = lib
+        .lookup<NativeFunction<_GetTrackPeakNative>>('engine_get_track_peak')
+        .asFunction<_GetTrackPeakDart>();
 
     _getMasterDb = lib
         .lookup<NativeFunction<_GetMasterDbNative>>('engine_get_master_db')
@@ -483,8 +531,8 @@ class NativeAudioEngine implements IAudioEngineService {
 
   @override
   void playPreview() {
-    // Seek all tracks to the beginning and start playback.
-    _seekTo(0);
+    // Resume from current position (do not seek to 0 — LivePerformanceStore
+    // calls seekTo(Duration.zero) only on load/next/prev/goToSong).
     _play();
   }
 
@@ -615,11 +663,39 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   @override
+  void setMetronomeVolume(double volume) {
+    _setMetronomeVolume?.call(volume);
+  }
+
+  @override
+  void setMetronomePan(double pan) {
+    _setMetronomePan?.call(pan);
+  }
+
+  @override
+  void setMetronomeBpm(double bpm) {
+    _setMetronomeBpm?.call(bpm);
+  }
+
+  @override
+  void setMetronomePlaying(bool playing) {
+    _setMetronomePlaying?.call(playing ? 1 : 0);
+  }
+
+  @override
   double getTrackVolumeDb(String trackId) {
     final idPtr = trackId.toNativeUtf8();
     final db = _getTrackDb(idPtr);
     calloc.free(idPtr);
     return db;
+  }
+
+  @override
+  double getTrackPeak(String trackId) {
+    final idPtr = trackId.toNativeUtf8();
+    final peak = _getTrackPeak(idPtr);
+    calloc.free(idPtr);
+    return peak.clamp(0.0, 1.0);
   }
 
   @override

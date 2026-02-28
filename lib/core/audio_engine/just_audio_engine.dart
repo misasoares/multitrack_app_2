@@ -210,8 +210,19 @@ class JustAudioEngine implements IAudioEngineService {
   @override
   void setMasterVolume(double volume) {
     // Master Volume is only supported by the native C++ engine.
-    // (Or could iterate all players, but that scales poorly).
   }
+
+  @override
+  void setMetronomeVolume(double volume) {}
+
+  @override
+  void setMetronomePan(double pan) {}
+
+  @override
+  void setMetronomeBpm(double bpm) {}
+
+  @override
+  void setMetronomePlaying(bool playing) {}
 
   @override
   void setTrackTempo(String trackId, double factor) {
@@ -234,6 +245,9 @@ class JustAudioEngine implements IAudioEngineService {
 
   @override
   double getTrackVolumeDb(String trackId) => -60.0;
+
+  @override
+  double getTrackPeak(String trackId) => 0.0;
 
   @override
   double getMasterVolumeDb() => -60.0;

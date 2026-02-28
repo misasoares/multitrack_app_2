@@ -117,6 +117,12 @@ abstract class IAudioEngineService {
   /// Sets the Master Volume (0.0 to 1.0).
   void setMasterVolume(double volume);
 
+  /// Metronome (synthetic click when VS is paused). Volume 0..1, pan -1..1, BPM, playing.
+  void setMetronomeVolume(double volume);
+  void setMetronomePan(double pan);
+  void setMetronomeBpm(double bpm);
+  void setMetronomePlaying(bool playing);
+
   /// Sets a parametric EQ band for the Master Output.
   void setMasterEq({
     required int bandIndex,
@@ -131,6 +137,9 @@ abstract class IAudioEngineService {
   /// Returns the current peak volume in dB for a track.
   /// Returns a value between -60.0 and 0.0.
   double getTrackVolumeDb(String trackId);
+
+  /// Returns the current linear peak (0.0 to 1.0) for a track for VU meters.
+  double getTrackPeak(String trackId);
 
   /// Returns the current peak volume in dB for the master output.
   /// Returns a value between -60.0 and 0.0.

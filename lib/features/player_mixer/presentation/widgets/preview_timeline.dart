@@ -11,6 +11,8 @@ class PreviewTimeline extends StatefulWidget {
   final VoidCallback onPlayPause;
   final ValueChanged<Duration> onSeek;
   final bool isPlaying;
+  /// Optional master waveform peaks (musical tracks only). When null or empty, no waveform is drawn.
+  final List<double>? waveformPeaks;
 
   const PreviewTimeline({
     super.key,
@@ -19,6 +21,7 @@ class PreviewTimeline extends StatefulWidget {
     required this.onPlayPause,
     required this.onSeek,
     required this.isPlaying,
+    this.waveformPeaks,
   });
 
   @override
@@ -100,33 +103,56 @@ class _PreviewTimelineState extends State<PreviewTimeline> {
             fontSize: 12,
           ),
         ),
+        const SizedBox(width: 8),
         Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppColors.primary,
-              inactiveTrackColor: const Color(0xFF333333),
-              thumbColor: Colors.white,
-              trackHeight: 2,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-            ),
-            child: Slider(
-              value: value,
-              min: 0.0,
-              max: max > 0 ? max : 1.0,
-              onChanged: (val) {
-                setState(() {
-                  _isDragging = true;
-                  _currentPosition = val;
-                });
-              },
-              onChangeEnd: (val) {
-                setState(() {
-                  _isDragging = false;
-                });
-                widget.onSeek(Duration(milliseconds: val.toInt()));
-              },
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final h = constraints.maxHeight.isFinite && constraints.maxHeight > 0
+                  ? constraints.maxHeight
+                  : 36.0;
+              final peaks = widget.waveformPeaks;
+              final hasWaveform = peaks != null && peaks.isNotEmpty;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (hasWaveform)
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _PreviewWaveformPainter(peaks: peaks),
+                        size: Size(w, h),
+                      ),
+                    ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: const Color(0xFF333333),
+                      thumbColor: Colors.white,
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    ),
+                    child: Slider(
+                      value: value,
+                      min: 0.0,
+                      max: max > 0 ? max : 1.0,
+                      onChanged: (val) {
+                        setState(() {
+                          _isDragging = true;
+                          _currentPosition = val;
+                        });
+                      },
+                      onChangeEnd: (val) {
+                        setState(() {
+                          _isDragging = false;
+                        });
+                        widget.onSeek(Duration(milliseconds: val.toInt()));
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
         Text(
@@ -140,4 +166,29 @@ class _PreviewTimelineState extends State<PreviewTimeline> {
       ],
     );
   }
+}
+
+class _PreviewWaveformPainter extends CustomPainter {
+  final List<double> peaks;
+
+  _PreviewWaveformPainter({required this.peaks});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (peaks.isEmpty) return;
+    final barWidth = size.width / peaks.length;
+    final center = size.height / 2;
+    final paint = Paint()
+      ..color = AppColors.primary.withValues(alpha: 0.2)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < peaks.length; i++) {
+      final x = i * barWidth + barWidth / 2;
+      final h = (peaks[i].clamp(0.0, 1.0) * size.height * 0.8) / 2;
+      canvas.drawLine(Offset(x, center - h), Offset(x, center + h), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PreviewWaveformPainter old) => old.peaks != peaks;
 }

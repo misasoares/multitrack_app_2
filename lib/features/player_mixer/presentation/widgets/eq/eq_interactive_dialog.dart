@@ -219,19 +219,26 @@ class _EqInteractiveDialogState extends State<EqInteractiveDialog> {
       backgroundColor: const Color(0xFF121212),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 12),
-            _buildEqGraph(),
-            const SizedBox(height: 12),
-            _buildBandReadouts(),
-            const SizedBox(height: 8),
-            _buildFooter(),
-          ],
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 12),
+                _buildEqGraph(),
+                const SizedBox(height: 12),
+                _buildBandReadouts(),
+                const SizedBox(height: 8),
+                _buildFooter(),
+              ],
+            ),
+          ),
         ),
       ),
     );

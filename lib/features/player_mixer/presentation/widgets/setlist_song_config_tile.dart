@@ -55,51 +55,64 @@ class SetlistSongConfigTile extends StatelessWidget {
               width: isPlaying ? 1 : 0,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header: Index + Title + Badges
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 380;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    index.toString().padLeft(2, '0'),
-                    style: GoogleFonts.jetBrainsMono(
-                      color: isPlaying
-                          ? AppColors.primary
-                          : AppColors.textMuted,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.originalMusic.title.toUpperCase(),
-                          style: GoogleFonts.spaceGrotesk(
-                            color: isPlaying
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.9),
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+                  // Header: Index + Title + Badges
+                  Row(
+                    children: [
+                      Text(
+                        index.toString().padLeft(2, '0'),
+                        style: GoogleFonts.jetBrainsMono(
+                          color: isPlaying
+                              ? AppColors.primary
+                              : AppColors.textMuted,
+                          fontSize: isNarrow ? 16 : 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(width: isNarrow ? 8 : 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              item.originalMusic.title.toUpperCase(),
+                              style: GoogleFonts.spaceGrotesk(
+                                color: isPlaying
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.9),
+                                fontSize: isNarrow ? 14 : 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                          ],
+                        ),
+                      ),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _buildBadge('Orig Key: ${item.originalMusic.key}'),
+                              const SizedBox(height: 4),
+                              _buildBadge('Orig BPM: ${item.originalMusic.bpm}'),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      _buildBadge('Orig Key: ${item.originalMusic.key}'),
-                      const SizedBox(height: 4),
-                      _buildBadge('Orig BPM: ${item.originalMusic.bpm}'),
+                      ),
                     ],
                   ),
-                ],
-              ),
               const SizedBox(height: 24),
 
               // Volume Control
@@ -293,11 +306,13 @@ class SetlistSongConfigTile extends StatelessWidget {
                   label: 'PREVIEW SONG',
                   onTap: onPreviewToggle,
                 ),
-            ],
-          ),
-        );
-      },
-    );
+                ],
+              );
+          },
+        ),
+      );
+    },
+  );
   }
 
   Widget _buildLoadingState(String label) {
@@ -347,6 +362,8 @@ class SetlistSongConfigTile extends StatelessWidget {
           color: AppColors.textMuted,
           fontSize: 10,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -405,14 +422,17 @@ class SetlistSongConfigTile extends StatelessWidget {
               Icon(icon, color: AppColors.textMuted, size: 16),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: GoogleFonts.jetBrainsMono(
-                color: onTap == null
-                    ? AppColors.textMuted.withValues(alpha: 0.5)
-                    : AppColors.textMuted,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.jetBrainsMono(
+                  color: onTap == null
+                      ? AppColors.textMuted.withValues(alpha: 0.5)
+                      : AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -517,6 +537,7 @@ class SetlistSongConfigTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
                   Icons.auto_fix_high,
@@ -524,12 +545,15 @@ class SetlistSongConfigTile extends StatelessWidget {
                   size: 16,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'EFFECTS',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                Flexible(
+                  child: Text(
+                    'EFFECTS',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 4),

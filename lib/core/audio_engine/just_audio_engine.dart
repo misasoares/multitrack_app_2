@@ -242,6 +242,10 @@ class JustAudioEngine implements IAudioEngineService {
   Future<List<double>> getWaveformData(String trackId, int numBins) async => [];
 
   @override
+  Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins) async =>
+      []; // Peak extraction from file is only supported by NativeAudioEngine.
+
+  @override
   void renderTrackOffline({
     required String trackId,
     required String inputPath,

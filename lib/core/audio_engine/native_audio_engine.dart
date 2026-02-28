@@ -60,6 +60,18 @@ typedef _GetWaveformPeaksNative =
 typedef _GetWaveformPeaksDart =
     int Function(Pointer<Utf8> trackId, Pointer<Float> outPeaks, int numBins);
 
+/// Extract peaks from file (low RAM, chunked); for use after render/copy.
+typedef _ExtractPeaksFromFileNative = Void Function(
+  Pointer<Utf8> filePath,
+  Int32 numBins,
+  Pointer<Float> outPeaks,
+);
+typedef _ExtractPeaksFromFileDart = void Function(
+  Pointer<Utf8> filePath,
+  int numBins,
+  Pointer<Float> outPeaks,
+);
+
 // ── Parametric EQ ──
 typedef _SetTrackEqNative =
     Void Function(
@@ -209,6 +221,8 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _GetRenderProgressDart _getRenderProgress;
   late final _CancelRenderDart _cancelRender;
 
+  _ExtractPeaksFromFileDart? _extractPeaksFromFile;
+
   late final DynamicLibrary _lib;
 
   // ── Volume cache ──
@@ -317,6 +331,16 @@ class NativeAudioEngine implements IAudioEngineService {
           .asFunction<_RenderTrackOfflineDart>();
     } catch (e) {
       print('NativeAudioEngine Warning: engine_render_track_offline not found: $e');
+    }
+
+    try {
+      _extractPeaksFromFile = lib
+          .lookup<NativeFunction<_ExtractPeaksFromFileNative>>(
+            'engine_extract_peaks_from_file',
+          )
+          .asFunction<_ExtractPeaksFromFileDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: engine_extract_peaks_from_file not found: $e');
     }
 
     _getRenderProgress = lib
@@ -617,6 +641,28 @@ class NativeAudioEngine implements IAudioEngineService {
   @override
   Future<List<double>> getWaveformData(String trackId, int numBins) async {
     return _getWaveformDataInBackground(trackId, numBins);
+  }
+
+  @override
+  Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins) async {
+    if (_extractPeaksFromFile == null || numBins <= 0) return [];
+    return Isolate.run<List<double>>(() {
+      final lib = NativeAudioEngine._loadLibrary();
+      final fn = lib
+          .lookup<NativeFunction<_ExtractPeaksFromFileNative>>(
+            'engine_extract_peaks_from_file',
+          )
+          .asFunction<_ExtractPeaksFromFileDart>();
+      final pathPtr = filePath.toNativeUtf8();
+      final outPtr = calloc<Float>(numBins);
+      try {
+        fn(pathPtr, numBins, outPtr);
+        return List<double>.generate(numBins, (i) => outPtr[i].clamp(0.0, 1.0));
+      } finally {
+        calloc.free(pathPtr);
+        calloc.free(outPtr);
+      }
+    });
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────

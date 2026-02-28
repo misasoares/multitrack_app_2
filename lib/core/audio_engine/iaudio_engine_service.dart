@@ -146,6 +146,11 @@ abstract class IAudioEngineService {
   /// per bin.  Returns an empty list if the track is not loaded.
   Future<List<double>> getWaveformData(String trackId, int numBins);
 
+  /// Extracts waveform peak bins from a WAV file on disk (low RAM, chunked read).
+  /// Use after offline render or file copy to pre-compute peaks for the UI.
+  /// Returns a list of [numBins] values in [0.0, 1.0]. Returns empty list on error.
+  Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins);
+
   // ─── Offline Render (Export Show) ────────────────────────────────────
 
   /// Single EQ band for offline render (DSP-only; matches C++ EqBand).

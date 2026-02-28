@@ -52,9 +52,13 @@ abstract class LivePerformanceStoreBase with Store {
 
   Timer? _peakTimer;
 
-  /// When true, the bottom mixer panel (tracks + metronome + master) is visible.
+  /// When true, the bottom mixer panel (tracks + master) is visible.
   @observable
   bool isMixerVisible = false;
+
+  /// When true, the right-side metronome panel is visible.
+  @observable
+  bool isMetronomeVisible = false;
 
   /// Master output volume (0.0 to 1.0). Synced to native.
   @observable
@@ -303,9 +307,19 @@ abstract class LivePerformanceStoreBase with Store {
   }
 
   /// Toggle mixer panel visibility (timeline expands when hidden).
+  /// Opening the mixer closes the metronome panel (only one can be open at a time).
   @action
   void toggleMixerVisible() {
+    if (!isMixerVisible) isMetronomeVisible = false;
     isMixerVisible = !isMixerVisible;
+  }
+
+  /// Toggle right-side metronome panel visibility.
+  /// Opening the metronome closes the mixer panel (only one can be open at a time).
+  @action
+  void toggleMetronomeVisible() {
+    if (!isMetronomeVisible) isMixerVisible = false;
+    isMetronomeVisible = !isMetronomeVisible;
   }
 
   /// Master volume (linear gain 0.0 to 5.0, ~+13 dB headroom). Synced to native.

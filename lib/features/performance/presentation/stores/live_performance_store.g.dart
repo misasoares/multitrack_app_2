@@ -137,6 +137,22 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
     });
   }
 
+  late final _$isMetronomeVisibleAtom = Atom(
+      name: 'LivePerformanceStoreBase.isMetronomeVisible', context: context);
+
+  @override
+  bool get isMetronomeVisible {
+    _$isMetronomeVisibleAtom.reportRead();
+    return super.isMetronomeVisible;
+  }
+
+  @override
+  set isMetronomeVisible(bool value) {
+    _$isMetronomeVisibleAtom.reportWrite(value, super.isMetronomeVisible, () {
+      super.isMetronomeVisible = value;
+    });
+  }
+
   late final _$masterVolumeAtom =
       Atom(name: 'LivePerformanceStoreBase.masterVolume', context: context);
 
@@ -361,6 +377,17 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
   }
 
   @override
+  void toggleMetronomeVisible() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.toggleMetronomeVisible');
+    try {
+      return super.toggleMetronomeVisible();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void setMasterVolume(double volume) {
     final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
         name: 'LivePerformanceStoreBase.setMasterVolume');
@@ -437,6 +464,7 @@ isLoadingSong: ${isLoadingSong},
 isScrubbing: ${isScrubbing},
 trackPeaks: ${trackPeaks},
 isMixerVisible: ${isMixerVisible},
+isMetronomeVisible: ${isMetronomeVisible},
 masterVolume: ${masterVolume},
 metronomeBpm: ${metronomeBpm},
 metronomeVolume: ${metronomeVolume},

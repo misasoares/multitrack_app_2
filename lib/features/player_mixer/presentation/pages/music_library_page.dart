@@ -213,120 +213,146 @@ class _LibraryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0A0A0A),
-        border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
-      ),
-      child: Row(
-        children: [
-          // Left: Icon + Title
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.2),
-              ),
-            ),
-            child: const Icon(Icons.library_music, color: AppColors.primary),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 450;
+        return Container(
+          height: 80,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0A0A0A),
+            border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
           ),
-          const SizedBox(width: 16),
-          Text('SONG LIBRARY', style: AppTextStyles.h1),
-
-          const SizedBox(width: 48),
-
-          // Center: Search Bar
-          Expanded(
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF181818),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(color: const Color(0xFF333333)),
+          child: Row(
+            children: [
+              // Left: Icon + Title (hidden on narrow)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: const Icon(Icons.library_music, color: AppColors.primary),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.search,
-                    color: AppColors.textMuted,
-                    size: 20,
+              SizedBox(width: isNarrow ? 8 : 16),
+              if (!isNarrow) ...[
+                Flexible(
+                  child: Text(
+                    'SONG LIBRARY',
+                    style: AppTextStyles.h1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      onChanged: (value) =>
-                          sl<MusicLibraryStore>().setSearchQuery(value),
-                      style: GoogleFonts.jetBrainsMono(
-                        color: Colors.white,
-                        fontSize: 13,
-                      ),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        border: InputBorder.none,
-                        hintText: 'SEARCH TRACKS, ARTISTS, OR TAGS_',
-                        hintStyle: GoogleFonts.jetBrainsMono(
-                          color: const Color(0xFF666666),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
+                ),
+                SizedBox(width: isNarrow ? 8 : 48),
+              ],
+
+              // Center: Search Bar (hidden on narrow/portrait)
+              if (!isNarrow)
+                Expanded(
+                  child: Container(
+                    height: 40,
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF444444)),
-                      borderRadius: BorderRadius.circular(4),
+                      color: const Color(0xFF181818),
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(color: const Color(0xFF333333)),
                     ),
-                    child: Text(
-                      '⌘K',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.textMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.search,
+                          color: AppColors.textMuted,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            onChanged: (value) =>
+                                sl<MusicLibraryStore>().setSearchQuery(value),
+                            style: GoogleFonts.jetBrainsMono(
+                              color: Colors.white,
+                              fontSize: 13,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                              hintText: 'SEARCH TRACKS, ARTISTS, OR TAGS_',
+                              hintStyle: GoogleFonts.jetBrainsMono(
+                                color: const Color(0xFF666666),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: const Color(0xFF444444)),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '⌘K',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: AppColors.textMuted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
+              if (isNarrow) const Spacer(),
 
-          const SizedBox(width: 48),
+              SizedBox(width: isNarrow ? 8 : 48),
 
-          // Right: Create Button
-          ElevatedButton.icon(
-            onPressed: onCreate,
-            icon: const Icon(Icons.add, size: 20),
-            label: Text(
-              'CREATE NEW SONG',
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                letterSpacing: 0.5,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.black,
-              elevation: 4,
-              shadowColor: AppColors.primary.withValues(alpha: 0.4),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
+              // Right: Create Button (icon-only on narrow)
+              if (isNarrow)
+                IconButton(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add, size: 24),
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.all(12),
+                  ),
+                  tooltip: 'Create new song',
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add, size: 20),
+                  label: Text(
+                    'CREATE NEW SONG',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    elevation: 4,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -338,46 +364,49 @@ class _FilterBar extends StatelessWidget {
 
     return Container(
       height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: const BoxDecoration(
         color: Color(0xFF0F0F0F),
         border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
       ),
-      child: Row(
-        children: [
-          _FilterTab(label: 'All Songs', isActive: true),
-          const SizedBox(width: 32),
-          _FilterTab(label: 'Recent', isActive: false),
-          const SizedBox(width: 32),
-          _FilterTab(label: 'Favorites', isActive: false),
-          const Spacer(),
-          // Duration Filter Button
-          TextButton.icon(
-            onPressed: () => _showDurationFilterDialog(context, store),
-            icon: const Icon(Icons.timer, size: 16, color: AppColors.textMuted),
-            label: Text(
-              'DURATION',
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FilterTab(label: 'All Songs', isActive: true),
+            const SizedBox(width: 32),
+            _FilterTab(label: 'Recent', isActive: false),
+            const SizedBox(width: 32),
+            _FilterTab(label: 'Favorites', isActive: false),
+            const SizedBox(width: 24),
+            // Duration Filter Button
+            TextButton.icon(
+              onPressed: () => _showDurationFilterDialog(context, store),
+              icon: const Icon(Icons.timer, size: 16, color: AppColors.textMuted),
+              label: Text(
+                'DURATION',
+                style: GoogleFonts.jetBrainsMono(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Container(width: 1, height: 24, color: Color(0xFF2A2A2A)),
+            const SizedBox(width: 16),
+            Text(
+              'SORT BY:',
               style: GoogleFonts.jetBrainsMono(
                 color: AppColors.textMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w500,
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Container(width: 1, height: 24, color: Color(0xFF2A2A2A)),
-          const SizedBox(width: 16),
-          Text(
-            'SORT BY:',
-            style: GoogleFonts.jetBrainsMono(
-              color: AppColors.textMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Observer(
-            builder: (_) => DropdownButton<MusicSortType>(
+            const SizedBox(width: 8),
+            Observer(
+              builder: (_) => DropdownButton<MusicSortType>(
               value: store.sortBy,
               dropdownColor: const Color(0xFF1E1E1E),
               underline: const SizedBox(),
@@ -405,6 +434,7 @@ class _FilterBar extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

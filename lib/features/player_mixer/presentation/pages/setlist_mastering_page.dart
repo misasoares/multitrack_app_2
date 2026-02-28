@@ -87,14 +87,17 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
-                    final crossAxisCount = constraints.maxWidth > 900 ? 3 : 2;
+                    final isNarrow = constraints.maxWidth < 600;
+                    final crossAxisCount =
+                        isNarrow ? 1 : (constraints.maxWidth > 900 ? 3 : 2);
                     return GridView.builder(
                       padding: const EdgeInsets.all(16),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
-                        mainAxisExtent: 360, // Increased to fit new UI elements
+                        mainAxisExtent: isNarrow ? 380 : 360,
                       ),
                       itemCount: setlist.items.length,
                       itemBuilder: (context, index) {
@@ -126,88 +129,119 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
   }
 
   Widget _buildBottomBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0F0F0F),
-        border: Border(top: BorderSide(color: Color(0xFF2A2A2A))),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: Observer(
-                builder: (_) {
-                  final setlist = _store.currentSetlist;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildStat(
-                        'SONG COUNT:',
-                        (setlist?.items.length ?? 0).toString().padLeft(2, '0'),
-                      ),
-                      const SizedBox(height: 4),
-                      _buildStat(
-                        'TOTAL TIME:',
-                        _formatDuration(_store.totalDuration),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            OutlinedButton.icon(
-              onPressed: () async {
-                await _store.saveDraft();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Rascunho salvo com sucesso!'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 600;
+        final btnPadding = isNarrow
+            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 10)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 16);
+        final iconSize = isNarrow ? 14.0 : 16.0;
+        final fontSize = isNarrow ? 11.0 : null;
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isNarrow ? 12 : 24,
+            vertical: isNarrow ? 10 : 16,
+          ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F0F0F),
+            border: Border(top: BorderSide(color: Color(0xFF2A2A2A))),
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Observer(
+                    builder: (_) {
+                      final setlist = _store.currentSetlist;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildStat(
+                            'SONG COUNT:',
+                            (setlist?.items.length ?? 0)
+                                .toString()
+                                .padLeft(2, '0'),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildStat(
+                            'TOTAL TIME:',
+                            _formatDuration(_store.totalDuration),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                );
-              },
-              icon: const Icon(Icons.save, size: 16),
-              label: const Text('SAVE DRAFT'),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                foregroundColor: AppColors.textMuted,
-                side: const BorderSide(color: Color(0xFF333333)),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await _store.saveDraft();
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Rascunho salvo com sucesso!'),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.save, size: iconSize),
+                  label: Text(
+                    'SAVE DRAFT',
+                    style: fontSize != null
+                        ? GoogleFonts.jetBrainsMono(
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize,
+                          )
+                        : null,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A1A1A),
+                    foregroundColor: AppColors.textMuted,
+                    side: const BorderSide(color: Color(0xFF333333)),
+                    padding: btnPadding,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
                 ),
-              ),
+                SizedBox(width: isNarrow ? 8 : 12),
+                ElevatedButton.icon(
+                  onPressed: _store.currentSetlist == null ||
+                          _store.currentSetlist!.items.isEmpty
+                      ? null
+                      : () => _onRenderShowPressed(context),
+                  icon: Icon(Icons.ios_share, size: iconSize),
+                  label: Text(
+                    'RENDER SHOW',
+                    style: fontSize != null
+                        ? GoogleFonts.jetBrainsMono(
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize,
+                          )
+                        : null,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    padding: btnPadding,
+                    textStyle: fontSize == null
+                        ? GoogleFonts.jetBrainsMono(
+                            fontWeight: FontWeight.bold,
+                          )
+                        : GoogleFonts.jetBrainsMono(
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize,
+                          ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: _store.currentSetlist == null ||
-                      _store.currentSetlist!.items.isEmpty
-                  ? null
-                  : () => _onRenderShowPressed(context),
-              icon: const Icon(Icons.ios_share, size: 16),
-              label: const Text('RENDER SHOW'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                textStyle: GoogleFonts.jetBrainsMono(
-                  fontWeight: FontWeight.bold,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -224,12 +258,15 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          value,
-          style: GoogleFonts.jetBrainsMono(
-            color: AppColors.primary,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+        Flexible(
+          child: Text(
+            value,
+            style: GoogleFonts.jetBrainsMono(
+              color: AppColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],

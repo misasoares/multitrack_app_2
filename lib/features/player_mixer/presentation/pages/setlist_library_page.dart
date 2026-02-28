@@ -34,194 +34,228 @@ class _SetlistLibraryPageState extends State<SetlistLibraryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isNarrow = width < 600;
+
     return Scaffold(
       backgroundColor: AppColors.background,
+      drawer: isNarrow ? Drawer(child: _buildSidebar(forDrawer: true)) : null,
       body: SafeArea(
-        child: Row(
-          children: [
-            // Sidebar (Simplified)
-            Container(
-              width: 280,
-              decoration: const BoxDecoration(
-                color: Color(0xFF0A0A0A),
-                border: Border(right: BorderSide(color: Color(0xFF2A2A2A))),
-              ),
-              child: Column(
+        child: isNarrow
+            ? Column(
                 children: [
-                  const SizedBox(height: 32),
-                  // App Branding or Title
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Row(
+                  _SetlistHeader(
+                    onMenuTap: () => Scaffold.of(context).openDrawer(),
+                  ),
+                  Expanded(child: _buildMainContent()),
+                ],
+              )
+            : Row(
+                children: [
+                  _buildSidebar(forDrawer: false),
+                  Expanded(
+                    child: Column(
                       children: [
-                        const Icon(
-                          Icons.grid_view,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'MY SETLISTS',
-                          style: AppTextStyles.headingS.copyWith(fontSize: 18),
-                        ),
+                        const _SetlistHeader(),
+                        Expanded(child: _buildMainContent()),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 48),
-                  // Navigation Items
-                  _SidebarItem(
-                    icon: Icons.queue_music,
-                    label: 'All Setlists',
-                    isActive: true,
-                    count: _store.setlists.length,
-                  ),
-                  _SidebarItem(
-                    icon: Icons.calendar_today,
-                    label: 'Upcoming',
-                    count: 0,
-                  ),
-                  _SidebarItem(icon: Icons.archive, label: 'Archive', count: 0),
-                  _SidebarItem(
-                    icon: Icons.delete_outline,
-                    label: 'Trash',
-                    count: 0,
-                  ),
                 ],
               ),
-            ),
-
-            // Main Content
-            Expanded(
-              child: Column(
-                children: [
-                  _SetlistHeader(),
-                  Expanded(
-                    child: Observer(
-                      builder: (_) {
-                        if (_store.isLoading || _musicStore.isLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primary,
-                            ),
-                          );
-                        }
-
-                        if (_store.errorMessage != null) {
-                          return Center(
-                            child: Text(
-                              _store.errorMessage!,
-                              style: AppTextStyles.bodyMuted.copyWith(
-                                color: AppColors.alert,
-                              ),
-                            ),
-                          );
-                        }
-
-                        final allItems = [
-                          null, // Represents "New Setlist" card
-                          ..._store.setlists,
-                        ];
-
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(32),
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 400,
-                                crossAxisSpacing: 24,
-                                mainAxisSpacing: 24,
-                                childAspectRatio:
-                                    0.85, // Adjust for card height
-                              ),
-                          itemCount: allItems.length,
-                          itemBuilder: (context, index) {
-                            final item = allItems[index];
-
-                            if (item == null) {
-                              return _NewSetlistCard(
-                                onTap: () async {
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => CreateSetlistPage(
-                                        store: sl<CreateSetlistStore>(),
-                                      ),
-                                    ),
-                                  );
-                                  _store.loadAllSetlists();
-                                },
-                              );
-                            }
-
-                            // Resolve music for preview (now available directly in items)
-                            final previewMusics = item.items
-                                .take(3)
-                                .map((sli) => sli.originalMusic)
-                                .toList();
-
-                            return _SetlistGridCard(
-                              setlist: item,
-                              previewMusics: previewMusics,
-                              onTap: () async {
-                                final editStore = sl<CreateSetlistStore>();
-                                editStore.initFromSetlist(item);
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        CreateSetlistPage(store: editStore),
-                                  ),
-                                );
-                                _store.loadAllSetlists();
-                              },
-                              onDelete: () => _store.deleteSetlist(item.id),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
+    );
+  }
+
+  Widget _buildSidebar({required bool forDrawer}) {
+    return Container(
+      width: forDrawer ? null : 280,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A0A),
+        border: Border(right: BorderSide(color: Color(0xFF2A2A2A))),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.grid_view,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'MY SETLISTS',
+                  style: AppTextStyles.headingS.copyWith(fontSize: 18),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 48),
+          _SidebarItem(
+            icon: Icons.queue_music,
+            label: 'All Setlists',
+            isActive: true,
+            count: _store.setlists.length,
+          ),
+          _SidebarItem(
+            icon: Icons.calendar_today,
+            label: 'Upcoming',
+            count: 0,
+          ),
+          _SidebarItem(icon: Icons.archive, label: 'Archive', count: 0),
+          _SidebarItem(
+            icon: Icons.delete_outline,
+            label: 'Trash',
+            count: 0,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return Observer(
+      builder: (_) {
+        if (_store.isLoading || _musicStore.isLoading) {
+          return const Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primary,
+            ),
+          );
+        }
+
+        if (_store.errorMessage != null) {
+          return Center(
+            child: Text(
+              _store.errorMessage!,
+              style: AppTextStyles.bodyMuted.copyWith(
+                color: AppColors.alert,
+              ),
+            ),
+          );
+        }
+
+        final allItems = [
+          null,
+          ..._store.setlists,
+        ];
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isNarrow = constraints.maxWidth < 600;
+            return GridView.builder(
+              padding: EdgeInsets.all(isNarrow ? 16 : 32),
+              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: isNarrow ? 280 : 400,
+                crossAxisSpacing: isNarrow ? 12 : 24,
+                mainAxisSpacing: isNarrow ? 12 : 24,
+                childAspectRatio: isNarrow ? 0.72 : 0.85,
+              ),
+              itemCount: allItems.length,
+              itemBuilder: (context, index) {
+                final item = allItems[index];
+
+                if (item == null) {
+                  return _NewSetlistCard(
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreateSetlistPage(
+                            store: sl<CreateSetlistStore>(),
+                          ),
+                        ),
+                      );
+                      _store.loadAllSetlists();
+                    },
+                  );
+                }
+
+                final previewMusics = item.items
+                    .take(3)
+                    .map((sli) => sli.originalMusic)
+                    .toList();
+
+                return _SetlistGridCard(
+                  setlist: item,
+                  previewMusics: previewMusics,
+                  onTap: () async {
+                    final editStore = sl<CreateSetlistStore>();
+                    editStore.initFromSetlist(item);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CreateSetlistPage(store: editStore),
+                      ),
+                    );
+                    _store.loadAllSetlists();
+                  },
+                  onDelete: () => _store.deleteSetlist(item.id),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
 
 class _SetlistHeader extends StatelessWidget {
+  final VoidCallback? onMenuTap;
+
+  const _SetlistHeader({this.onMenuTap});
+
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(
+        horizontal: onMenuTap != null ? 16 : 32,
+      ),
       decoration: const BoxDecoration(
         color: Color(0xFF0F0F0F),
         border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
       ),
       child: Row(
         children: [
-          // Breadcrumb or Filter
-          Text(
-            'LIBRARY / ALL SETLISTS',
-            style: GoogleFonts.jetBrainsMono(
-              color: AppColors.textMuted,
-              fontSize: 12,
-              letterSpacing: 1.0,
+          if (onMenuTap != null) ...[
+            IconButton(
+              onPressed: onMenuTap,
+              icon: const Icon(Icons.menu, color: AppColors.textMuted),
+              tooltip: 'Open menu',
             ),
-          ),
-          const Spacer(),
-          // Search/Filter Actions (Mock)
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.search, color: AppColors.textMuted),
-          ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              'LIBRARY / ALL SETLISTS',
+              style: GoogleFonts.jetBrainsMono(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                letterSpacing: 1.0,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            ),
           const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.filter_list, color: AppColors.textMuted),
-          ),
+          if (onMenuTap == null) ...[
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.search, color: AppColors.textMuted),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.filter_list, color: AppColors.textMuted),
+            ),
+          ],
         ],
       ),
     );
@@ -351,9 +385,10 @@ class _SetlistGridCard extends StatelessWidget {
 
             // Preview Content
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -469,40 +504,44 @@ class _NewSetlistCard extends StatelessWidget {
         child: Container(
           color: const Color(0xFF0F0F0F), // Slightly lighter detail
           alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.primary.withValues(alpha: 0.1),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                  ),
+                  child: const Icon(
+                    Icons.add,
+                    color: AppColors.primary,
+                    size: 32,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.add,
-                  color: AppColors.primary,
-                  size: 32,
+                const SizedBox(height: 16),
+                Text(
+                  'New Setlist',
+                  style: GoogleFonts.spaceGrotesk(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'New Setlist',
-                style: GoogleFonts.spaceGrotesk(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 8),
+                Text(
+                  'Create a new empty setlist\nor import from previous',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Create a new empty setlist\nor import from previous',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  color: AppColors.textMuted,
-                  fontSize: 13,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

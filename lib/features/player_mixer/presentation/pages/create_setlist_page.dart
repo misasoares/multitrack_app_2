@@ -40,24 +40,44 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isNarrow = width < 600;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      resizeToAvoidBottomInset: false, // Prevent keyboard from resizing UI
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(isNarrow: isNarrow),
             Expanded(
-              child: Row(
-                children: [
-                  // Left Panel: Setlist (Chosen Music)
-                  Expanded(flex: 5, child: _buildLeftPanel()),
-                  // Divider
-                  Container(width: 1, color: const Color(0xFF2A2A2A)),
-                  // Right Panel: Library (All Music)
-                  Expanded(flex: 4, child: _buildRightPanel()),
-                ],
-              ),
+              child: isNarrow
+                  ? Column(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: _buildRightPanel(isNarrow: true),
+                        ),
+                        Container(
+                          height: 1,
+                          color: const Color(0xFF2A2A2A),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: _buildLeftPanel(isNarrow: true),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(flex: 5, child: _buildLeftPanel(isNarrow: false)),
+                        Container(
+                            width: 1, color: const Color(0xFF2A2A2A)),
+                        Expanded(
+                            flex: 4,
+                            child: _buildRightPanel(isNarrow: false)),
+                      ],
+                    ),
             ),
             _buildPlaybackBar(),
           ],
@@ -66,7 +86,108 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({bool isNarrow = false}) {
+    if (isNarrow) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        decoration: const BoxDecoration(
+          color: Color(0xFF0A0A0A),
+          border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back,
+                      color: AppColors.textMuted),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _nameController,
+                    onChanged: (v) => widget.store.setName(v),
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    cursorColor: AppColors.primary,
+                    decoration: InputDecoration(
+                      hintText: 'Setlist Name',
+                      hintStyle:
+                          GoogleFonts.spaceGrotesk(color: AppColors.textMuted),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Observer(
+              builder: (_) => ElevatedButton.icon(
+                onPressed: widget.store.isLoading
+                    ? null
+                    : () async {
+                        await widget.store.saveSetlist();
+                        if (!mounted) return;
+                        if (widget.store.saveSuccess) {
+                          final setlist = widget.store.savedSetlist;
+                          if (setlist != null) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    SetlistMasteringPage(setlist: setlist),
+                              ),
+                            );
+                          }
+                        } else if (widget.store.errorMessage != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                widget.store.errorMessage!,
+                                style: GoogleFonts.jetBrainsMono(),
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                icon: widget.store.isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Icon(Icons.tune, size: 20),
+                label: Text(
+                  widget.store.isLoading ? 'SAVING...' : 'CONFIRM & MASTER',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -163,17 +284,22 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
     );
   }
 
-  Widget _buildLeftPanel() {
+  Widget _buildLeftPanel({bool isNarrow = false}) {
     return Container(
       color: AppColors.primary.withValues(
         alpha: 0.1,
-      ), // Yellowish tint background
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Large Duration
+          // Header with duration (compact on narrow)
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            padding: EdgeInsets.fromLTRB(
+              isNarrow ? 12 : 24,
+              isNarrow ? 8 : 24,
+              isNarrow ? 12 : 24,
+              isNarrow ? 8 : 16,
+            ),
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
@@ -187,23 +313,24 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'SETLIST DURATION',
                         style: GoogleFonts.jetBrainsMono(
                           color: AppColors.primary.withValues(alpha: 0.7),
-                          fontSize: 12,
+                          fontSize: isNarrow ? 10 : 12,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
+                          letterSpacing: isNarrow ? 1.0 : 1.5,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: isNarrow ? 2 : 4),
                       Observer(
                         builder: (_) => Text(
                           _formatDuration(widget.store.totalDuration),
                           style: GoogleFonts.jetBrainsMono(
                             color: AppColors.primary,
-                            fontSize: 48,
+                            fontSize: isNarrow ? 20 : 48,
                             fontWeight: FontWeight.bold,
                             height: 1.0,
                           ),
@@ -217,9 +344,9 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
                     '${widget.store.selectedItems.length} TRACKS',
                     style: GoogleFonts.jetBrainsMono(
                       color: AppColors.primary.withValues(alpha: 0.7),
-                      fontSize: 12,
+                      fontSize: isNarrow ? 10 : 12,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.0,
+                      letterSpacing: isNarrow ? 0.5 : 1.0,
                     ),
                   ),
                 ),
@@ -355,65 +482,79 @@ class _CreateSetlistPageState extends State<CreateSetlistPage> {
     );
   }
 
-  Widget _buildRightPanel() {
+  Widget _buildRightPanel({bool isNarrow = false}) {
     return Container(
-      color: Colors.black, // Pure black background
+      color: Colors.black,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Search Header
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'LIBRARY',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    letterSpacing: 1.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  style: GoogleFonts.jetBrainsMono(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'SEARCH SONGS, ARTISTS...',
-                    hintStyle: GoogleFonts.jetBrainsMono(
-                      color: const Color(0xFF555555),
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFF121212),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(color: Color(0xFF333333)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(color: Color(0xFF333333)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: Color(0xFF555555),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+          // Search Header (hidden on narrow/portrait)
+          if (!isNarrow)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFF2A2A2A))),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LIBRARY',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: AppColors.textMuted,
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    style: GoogleFonts.jetBrainsMono(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'SEARCH SONGS, ARTISTS...',
+                      hintStyle: GoogleFonts.jetBrainsMono(
+                        color: const Color(0xFF555555),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFF121212),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFF333333)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: Color(0xFF333333)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: const BorderSide(color: AppColors.primary),
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF555555),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          if (isNarrow)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'LIBRARY',
+                style: GoogleFonts.jetBrainsMono(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
 
           // List
           Expanded(

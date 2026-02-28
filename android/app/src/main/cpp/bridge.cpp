@@ -7,6 +7,7 @@
 
 #include "bridge.h"
 #include "audio_mixer.h"
+#include "audio_utils.h"
 #include "oboe_player.h"
 #include "audio_decoder.h"
 #include "libs/dr_wav.h"
@@ -254,7 +255,12 @@ extern "C" int32_t engine_get_waveform_peaks(const char* trackId,
 
 // ─── Peak extraction from file (low RAM, chunked read) ────────────────────────
 
-static constexpr size_t kPeakExtractChunkFrames = 4096;
+extern "C" void engine_extract_peaks(const char* filePath,
+                                     int numBins,
+                                     float* outPeaks) {
+    if (!filePath || !outPeaks || numBins <= 0) return;
+    audio_utils::extractPeaksFromFile(filePath, numBins, outPeaks);
+}
 
 extern "C" void engine_extract_peaks_from_file(const char* filePath,
                                                 int32_t numBins,
@@ -264,48 +270,9 @@ extern "C" void engine_extract_peaks_from_file(const char* filePath,
     for (int32_t i = 0; i < numBins; ++i)
         outPeaks[i] = 0.0f;
 
-    drwav wav;
-    if (!drwav_init_file(&wav, filePath, nullptr)) {
-        LOGE("engine_extract_peaks_from_file: failed to open %s", filePath);
+    if (!audio_utils::extractPeaksFromFile(filePath, numBins, outPeaks))
         return;
-    }
 
-    const drwav_uint64 totalFrames = wav.totalPCMFrameCount;
-    const unsigned int numCh = wav.channels;
-    if (totalFrames == 0 || numCh == 0) {
-        drwav_uninit(&wav);
-        return;
-    }
-
-    const size_t chunkFrames = kPeakExtractChunkFrames;
-    const size_t chunkSamples = chunkFrames * numCh;
-    std::vector<float> chunk(chunkSamples, 0.0f);
-
-    drwav_uint64 framesRead = 0;
-    while (framesRead < totalFrames) {
-        drwav_uint64 toRead = (totalFrames - framesRead < chunkFrames)
-            ? (totalFrames - framesRead)
-            : chunkFrames;
-        drwav_uint64 got = drwav_read_pcm_frames_f32(&wav, toRead, chunk.data());
-        if (got == 0) break;
-
-        for (drwav_uint64 f = 0; f < got; ++f) {
-            const drwav_uint64 globalFrame = framesRead + f;
-            const int32_t bin = static_cast<int32_t>(
-                (globalFrame * static_cast<drwav_uint64>(numBins)) / totalFrames);
-            const int32_t b = (bin >= numBins) ? (numBins - 1) : bin;
-
-            for (unsigned int c = 0; c < numCh; ++c) {
-                float s = chunk[static_cast<size_t>(f * numCh + c)];
-                float absVal = std::fabs(s);
-                if (absVal > outPeaks[b])
-                    outPeaks[b] = absVal;
-            }
-        }
-        framesRead += got;
-    }
-
-    drwav_uninit(&wav);
     LOGD("engine_extract_peaks_from_file: %s -> %d bins", filePath, numBins);
 }
 

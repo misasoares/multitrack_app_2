@@ -87,6 +87,9 @@ void engine_extract_peaks_from_file(const char* filePath,
                                     int32_t numBins,
                                     float* outPeaks);
 
+/// Same as engine_extract_peaks_from_file; alias for Timeline waveform API.
+void engine_extract_peaks(const char* filePath, int numBins, float* outPeaks);
+
 // ── EQ ──
 /// Set parametric EQ parameters for a single band on a track.
 void engine_set_track_eq(const char* trackId,

@@ -23,6 +23,7 @@ FetchContent_MakeAvailable(oboe)
 # ── Audio engine shared library ──
 add_library(audio_engine SHARED
     audio_mixer.cpp
+    audio_utils.cpp
     audio_decoder.cpp
     audio_renderer.cpp
     oboe_player.cpp

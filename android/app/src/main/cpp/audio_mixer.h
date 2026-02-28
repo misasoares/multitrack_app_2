@@ -238,6 +238,12 @@ public:
     /// Set the Master Volume (0.0 to 1.0).
     void setMasterVolume(float volume);
 
+    /// Metronome (synthetic click when VS is paused/stopped).
+    void setMetronomeVolume(float volume);
+    void setMetronomePan(float pan);
+    void setMetronomeBpm(float bpm);
+    void setMetronomePlaying(bool playing);
+
     // ── Time/Pitch ──
     void setTrackTempo(const std::string& id, float tempo);
     void setTrackPitch(const std::string& id, int semitones);
@@ -288,9 +294,18 @@ private:
     bool    isPlaying_          = false;
     bool    hasSoloedTracks_    = false; // Cached flag for solo routing
 
-    // ── Master FX ──
-    float masterVolume_         = 1.0f;
+    // ── Master FX (atomic for lock-free read in process()) ──
+    std::atomic<float> masterVolume_{1.0f};
     std::vector<BiquadFilter> masterEqBands_;
+
+    // ── Metronome (lock-free: atomics read in process(), no allocation) ──
+    std::atomic<float> metronomeVolume_{0.8f};
+    std::atomic<float> metronomePan_{-1.0f};   // -1 = left
+    std::atomic<float> metronomeBpm_{120.0f};
+    std::atomic<bool> isMetronomePlaying_{false};
+    float metronomePhaseFrames_      = 0.0f;   // position within beat period (audio thread only)
+    float metronomeClickFramesLeft_  = 0.0f;   // remaining frames of current click (audio thread only)
+    float metronomeSinePhase_        = 0.0f;   // phase in radians for 1 kHz sine (audio thread only)
 
     // ── Metering ──
     std::atomic<float> masterPeak_{0.0f};

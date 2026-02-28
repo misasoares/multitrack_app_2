@@ -344,7 +344,9 @@ bool AudioMixer::loadTrackFromFile(const std::string& id, const std::string& fil
     track->soundTouchProcessor->setSetting(SETTING_USE_AA_FILTER, 1);
 
     track->ioStopRequested.store(false);
-    track->seekFrameRequested.store(-1);
+    // Signal IO thread to seek to frame 0 and reset ring so the "water tank" is filled from
+    // the start on first play (avoids mute on first load when engine was cold).
+    track->seekFrameRequested.store(0);
     track->ioThread = std::thread(runIoThread, track.get(), sampleRate_);
 
     tracks_[id] = std::move(track);
@@ -369,8 +371,13 @@ void AudioMixer::removeTrack(const std::string& id) {
 }
 
 void AudioMixer::removeAllTracks() {
-    std::lock_guard<std::mutex> lock(queueMutex_);
-    commandQueue_.push({EngineCommand::CLEAR_TRACKS, "", 0.0f, 0});
+    // Synchronous clear so callers (e.g. loadSetlist / loadPreview) can load new tracks
+    // immediately without a deferred CLEAR wiping them on the next process() callback.
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (auto& [_, t] : tracks_)
+        stopTrackStreaming(*t);
+    tracks_.clear();
+    hasSoloedTracks_ = false;
 }
 
 // ─── Transport ───────────────────────────────────────────────────────────────
@@ -507,8 +514,23 @@ void AudioMixer::setMasterEq(int bandIndex, int filterType, float frequency, flo
 }
 
 void AudioMixer::setMasterVolume(float volume) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    masterVolume_ = std::clamp(volume, 0.0f, 1.0f);
+    masterVolume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioMixer::setMetronomeVolume(float volume) {
+    metronomeVolume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioMixer::setMetronomePan(float pan) {
+    metronomePan_.store(std::clamp(pan, -1.0f, 1.0f), std::memory_order_relaxed);
+}
+
+void AudioMixer::setMetronomeBpm(float bpm) {
+    metronomeBpm_.store(std::clamp(bpm, 20.0f, 300.0f), std::memory_order_relaxed);
+}
+
+void AudioMixer::setMetronomePlaying(bool playing) {
+    isMetronomePlaying_.store(playing, std::memory_order_relaxed);
 }
 
 // ─── SoundTouch Setters ───
@@ -605,9 +627,63 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     std::memset(outputL, 0, sizeof(float) * numFrames);
     std::memset(outputR, 0, sizeof(float) * numFrames);
 
+    // ── Metronome: synthetic click when VS is not playing (lock-free, no allocation) ──
+    const bool vsPlaying = isPlaying_ && !tracks_.empty();
+    if (!vsPlaying && isMetronomePlaying_.load(std::memory_order_relaxed)) {
+        const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
+        const float periodFrames = (60.0f / (bpm > 0.1f ? bpm : 120.0f)) *
+            static_cast<float>(sampleRate_);
+        const float clickDurationFrames = 0.015f * static_cast<float>(sampleRate_); // 15 ms
+        const float twoPi = 2.0f * static_cast<float>(M_PI);
+        const float phaseIncr = twoPi * 1000.0f / static_cast<float>(sampleRate_);
+        const float vol = metronomeVolume_.load(std::memory_order_relaxed);
+        const float pan = metronomePan_.load(std::memory_order_relaxed);
+        // Constant-power pan: angle in [0, pi/2], L = cos(angle), R = sin(angle)
+        const float angle = (pan + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
+        const float gainL = std::cos(angle);
+        const float gainR = std::sin(angle);
 
+        for (int32_t i = 0; i < numFrames; ++i) {
+            if (metronomeClickFramesLeft_ > 0.5f) {
+                float envelope = metronomeClickFramesLeft_ / clickDurationFrames;
+                if (envelope > 1.0f) envelope = 1.0f;
+                float sample = std::sin(metronomeSinePhase_) * envelope * vol;
+                outputL[i] += sample * gainL;
+                outputR[i] += sample * gainR;
+                metronomeClickFramesLeft_ -= 1.0f;
+                metronomeSinePhase_ += phaseIncr;
+                if (metronomeSinePhase_ >= twoPi) metronomeSinePhase_ -= twoPi;
+            } else {
+                metronomePhaseFrames_ += 1.0f;
+                if (metronomePhaseFrames_ >= periodFrames) {
+                    metronomePhaseFrames_ -= periodFrames;
+                    metronomeClickFramesLeft_ = clickDurationFrames;
+                    metronomeSinePhase_ = 0.0f;
+                }
+            }
+        }
+    } else {
+        // Advance phase when metronome off so first click is on beat when turned on
+        if (!isMetronomePlaying_.load(std::memory_order_relaxed)) {
+            const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
+            const float periodFrames = (60.0f / (bpm > 0.1f ? bpm : 120.0f)) *
+                static_cast<float>(sampleRate_);
+            metronomePhaseFrames_ += numFrames;
+            while (metronomePhaseFrames_ >= periodFrames) metronomePhaseFrames_ -= periodFrames;
+        }
+    }
 
-    if (!isPlaying_ || tracks_.empty()) return numFrames;
+    if (!isPlaying_ || tracks_.empty()) {
+        // Apply master volume to metronome-only or silence
+        const float mv = masterVolume_.load(std::memory_order_relaxed);
+        for (int32_t i = 0; i < numFrames; ++i) {
+            outputL[i] *= mv;
+            outputR[i] *= mv;
+        }
+        return numFrames;
+    }
+
+    const bool hasSolo = hasSoloedTracks_;
 
     for (auto& [id, trackPtr] : tracks_) {
         MixerTrack& track = *trackPtr;
@@ -619,33 +695,21 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             continue;
         }
 
-        if (!isTrackAudible(track)) {
-            // Even if not audible, we MUST advance the playhead to keep sync
-            // unless we are paused (but we checked isPlaying_ above).
-            // However, SoundTouch bypass vs non-bypass complicates silent advance.
-            // For stability, we advance playhead strictly based on numFrames.
-            if (track.tempoFactor == 1.0f && track.pitchSemiTones == 0) {
-                track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames);
-            } else {
-                // If using SoundTouch, we'd need to process and discard to maintain exact time,
-                // but since it's muted, we can approximate by advancing playhead by (numFrames * tempo).
-                track.playheadFrame = std::min(track.numFrames, 
-                    track.playheadFrame + static_cast<int64_t>(numFrames * track.tempoFactor));
-                if (track.soundTouchProcessor) track.soundTouchProcessor->clear();
-            }
-            continue;
-        }
+        // CRITICAL: effectiveGain for mute/solo — we ALWAYS read from ring buffer and advance playhead.
+        // Silenced tracks still consume buffer so they stay in sync when unmuted/unsoloed.
+        float effectiveGain = track.currentGain.load(std::memory_order_relaxed);
+        if (track.isMuted.load(std::memory_order_relaxed)) effectiveGain = 0.0f;
+        if (hasSolo && !track.isSolo.load(std::memory_order_relaxed)) effectiveGain = 0.0f;
 
         // Hard bypass: pre-rendered live tracks (tempo 1, pitch 0). No SoundTouch, no processBuffer.
         const bool bypassST = (track.tempoFactor == 1.0f && track.pitchSemiTones == 0);
 
         if (bypassST) {
-            // Fast path: read from ring buffer (underflow = silence), then volume + pan + optional EQ
+            // ALWAYS read from ring buffer (underflow = silence). Then apply effectiveGain when mixing.
             const size_t toReadSamples = static_cast<size_t>(numFrames * track.numChannels);
             if (!track.ringBuffer) { track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames); continue; }
             track.ringBuffer->read(track.processBuffer.data(), toReadSamples);
             const float* pcm = track.processBuffer.data();
-            const float gain = track.currentGain.load(std::memory_order_relaxed);
             const float panL = track.panGainL.load(std::memory_order_relaxed);
             const float panR = track.panGainR.load(std::memory_order_relaxed);
             float trackPeak = 0.0f;
@@ -666,8 +730,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                         }
                     }
                 }
-                sampleL *= gain;
-                sampleR *= gain;
+                sampleL *= effectiveGain;
+                sampleR *= effectiveGain;
                 outputL[i] += sampleL * panL;
                 outputR[i] += sampleR * panR;
                 trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));
@@ -692,6 +756,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         }
 
         // SoundTouch path: tempo/pitch changed on the fly (not used for pre-rendered live set)
+        // ALWAYS feed from ring and process; apply effectiveGain when summing to output.
         float* const trackOutput = track.processBuffer.data();
         std::fill(trackOutput, trackOutput + numFrames * 2, 0.0f);
         int samplesReceived = 0;
@@ -735,7 +800,6 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                 }
 
         float trackPeak = 0.0f;
-        const float gain = track.currentGain.load(std::memory_order_relaxed);
         const float panL = track.panGainL.load(std::memory_order_relaxed);
         const float panR = track.panGainR.load(std::memory_order_relaxed);
 
@@ -750,8 +814,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     }
                 }
             }
-            sampleL *= gain;
-            sampleR *= gain;
+            sampleL *= effectiveGain;
+            sampleR *= effectiveGain;
             outputL[i] += sampleL * panL;
             outputR[i] += sampleR * panR;
             trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));
@@ -798,8 +862,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             }
         }
         
-        l *= masterVolume_;
-        r *= masterVolume_;
+        const float mv = masterVolume_.load(std::memory_order_relaxed);
+        l *= mv;
+        r *= mv;
         
         outputL[i] = l;
         outputR[i] = r;

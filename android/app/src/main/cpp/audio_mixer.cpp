@@ -170,7 +170,8 @@ static void runIoThread(MixerTrack* track, int32_t sampleRate) {
     const int32_t numCh = track->numChannels;
 
     while (!track->ioStopRequested.load(std::memory_order_relaxed)) {
-        // Handle seek request
+        // Handle seek: only the latest request is applied (exchange clears it).
+        // Rapid scrubbing is safe: no mutex; audio thread skips read while seek is pending.
         int64_t seekFrame = track->seekFrameRequested.exchange(-1);
         if (seekFrame >= 0) {
             if (wav) {
@@ -185,7 +186,10 @@ static void runIoThread(MixerTrack* track, int32_t sampleRate) {
         }
 
         if (track->ringBuffer->availableToWrite() < chunkSamples) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            // When disk streaming (wav), sleep less so we refill faster under
+            // SoundTouch tempo (consumer drains ring faster). Memory path keeps 5ms.
+            const auto delayMs = wav ? 2 : 5;
+            std::this_thread::sleep_for(std::chrono::milliseconds(delayMs));
             continue;
         }
 
@@ -607,6 +611,14 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
     for (auto& [id, trackPtr] : tracks_) {
         MixerTrack& track = *trackPtr;
+
+        // Seek pending: ioThread will reset ring and seek file. Don't read until done (avoids race with reset).
+        if (track.seekFrameRequested.load(std::memory_order_acquire) >= 0) {
+            track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames);
+            if (track.soundTouchProcessor) track.soundTouchProcessor->clear();
+            continue;
+        }
+
         if (!isTrackAudible(track)) {
             // Even if not audible, we MUST advance the playhead to keep sync
             // unless we are paused (but we checked isPlaying_ above).
@@ -721,7 +733,6 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                         }
                     }
                 }
-            samplesReceived = numFrames;
 
         float trackPeak = 0.0f;
         const float gain = track.currentGain.load(std::memory_order_relaxed);

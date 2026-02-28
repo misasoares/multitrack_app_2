@@ -42,7 +42,8 @@ constexpr int kNumEqBands = 5;
 constexpr int32_t kRingBufferSeconds = 4;
 
 /// Chunk size for background IO (samples). When free space >= this, IO thread reads from disk.
-constexpr size_t kIoChunkSamples = 32768;  // 16KB stereo @ 48kHz ≈ 0.17 s
+/// Larger value = fewer wakeups and more headroom when SoundTouch tempo > 1 (consumer drains faster).
+constexpr size_t kIoChunkSamples = 65536;  // ~0.74 s stereo @ 44.1 kHz
 
 /// Maximum frames per audio callback. Pre-allocated buffers are sized for this.
 /// Prevents any allocation in the real-time process() path.

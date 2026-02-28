@@ -139,12 +139,16 @@ abstract class CreateMusicStoreBase with Store {
   List<double> get unifiedWaveform => masterWaveformPeaks;
 
   /// Master waveform peaks (musical tracks only, normalized). For timeline display.
+  /// Excludes muted tracks so the waveform reflects what will be saved and sent to Live.
   @computed
-  List<double> get masterWaveformPeaks => Music.computeMasterWaveformPeaks(
-        tracks,
-        numBins: 400,
-        getPeaks: (t) => t.waveformPeaks ?? waveformData[t.id],
-      );
+  List<double> get masterWaveformPeaks {
+    final activeTracks = tracks.where((t) => !t.isMuted).toList();
+    return Music.computeMasterWaveformPeaks(
+      activeTracks,
+      numBins: 400,
+      getPeaks: (t) => t.waveformPeaks ?? waveformData[t.id],
+    );
+  }
 
   ReactionDisposer? _tickerReaction;
 
@@ -609,6 +613,7 @@ abstract class CreateMusicStoreBase with Store {
 
       _reindexTrackOrder();
 
+      // Save full track list (non-destructive). Muted tracks stay in DB; filtering happens at export and in the audio engine.
       final music = Music(
         id: editingMusicId ?? _uuid.v4(), // Use existing ID if editing
         title: title,

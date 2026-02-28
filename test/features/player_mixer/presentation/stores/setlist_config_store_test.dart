@@ -7,20 +7,23 @@ import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist_item.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imusic_repository.dart';
+import 'package:multitracks_df_pro/features/player_mixer/domain/services/setlist_export_service.dart';
 import 'package:multitracks_df_pro/features/player_mixer/presentation/stores/setlist_config_store.dart';
 
 import 'setlist_config_store_test.mocks.dart';
 
-@GenerateMocks([IAudioEngineService, IMusicRepository])
+@GenerateMocks([IAudioEngineService, IMusicRepository, SetlistExportService])
 void main() {
   late SetlistConfigStore store;
   late MockIAudioEngineService mockAudioEngine;
   late MockIMusicRepository mockMusicRepository;
+  late MockSetlistExportService mockExportService;
 
   setUp(() {
     mockAudioEngine = MockIAudioEngineService();
     mockMusicRepository = MockIMusicRepository();
-    store = SetlistConfigStore(mockAudioEngine, mockMusicRepository);
+    mockExportService = MockSetlistExportService();
+    store = SetlistConfigStore(mockAudioEngine, mockMusicRepository, mockExportService);
   });
 
   group('SetlistConfigStore', () {

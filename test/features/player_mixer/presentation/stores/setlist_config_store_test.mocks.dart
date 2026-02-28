@@ -3,19 +3,23 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i3;
+import 'dart:async' as _i4;
 
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:multitracks_df_pro/core/audio_engine/iaudio_engine_service.dart'
-    as _i2;
+    as _i3;
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/music.dart'
-    as _i6;
-import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist.dart'
     as _i7;
+import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist.dart'
+    as _i2;
+import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist_item.dart'
+    as _i9;
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.dart'
-    as _i4;
-import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imusic_repository.dart'
     as _i5;
+import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imusic_repository.dart'
+    as _i6;
+import 'package:multitracks_df_pro/features/player_mixer/domain/services/setlist_export_service.dart'
+    as _i8;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -30,60 +34,70 @@ import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imu
 // ignore_for_file: camel_case_types
 // ignore_for_file: subtype_of_sealed_class
 
+class _FakeSetlist_0 extends _i1.SmartFake implements _i2.Setlist {
+  _FakeSetlist_0(
+    Object parent,
+    Invocation parentInvocation,
+  ) : super(
+          parent,
+          parentInvocation,
+        );
+}
+
 /// A class which mocks [IAudioEngineService].
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockIAudioEngineService extends _i1.Mock
-    implements _i2.IAudioEngineService {
+    implements _i3.IAudioEngineService {
   MockIAudioEngineService() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.Stream<Duration> get onPreviewPosition => (super.noSuchMethod(
+  _i4.Stream<Duration> get onPreviewPosition => (super.noSuchMethod(
         Invocation.getter(#onPreviewPosition),
-        returnValue: _i3.Stream<Duration>.empty(),
-      ) as _i3.Stream<Duration>);
+        returnValue: _i4.Stream<Duration>.empty(),
+      ) as _i4.Stream<Duration>);
 
   @override
-  _i3.Future<void> play() => (super.noSuchMethod(
+  _i4.Future<void> play() => (super.noSuchMethod(
         Invocation.method(
           #play,
           [],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<void> pause() => (super.noSuchMethod(
+  _i4.Future<void> pause() => (super.noSuchMethod(
         Invocation.method(
           #pause,
           [],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<void> seekTo(Duration? timestamp) => (super.noSuchMethod(
+  _i4.Future<void> seekTo(Duration? timestamp) => (super.noSuchMethod(
         Invocation.method(
           #seekTo,
           [timestamp],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<void> loadPreview(List<_i4.Track>? tracks) => (super.noSuchMethod(
+  _i4.Future<void> loadPreview(List<_i5.Track>? tracks) => (super.noSuchMethod(
         Invocation.method(
           #loadPreview,
           [tracks],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
   void clearAllTracks() => super.noSuchMethod(
@@ -284,7 +298,7 @@ class MockIAudioEngineService extends _i1.Mock
       ) as double);
 
   @override
-  _i3.Future<List<double>> getWaveformData(
+  _i4.Future<List<double>> getWaveformData(
     String? trackId,
     int? numBins,
   ) =>
@@ -296,8 +310,24 @@ class MockIAudioEngineService extends _i1.Mock
             numBins,
           ],
         ),
-        returnValue: _i3.Future<List<double>>.value(<double>[]),
-      ) as _i3.Future<List<double>>);
+        returnValue: _i4.Future<List<double>>.value(<double>[]),
+      ) as _i4.Future<List<double>>);
+
+  @override
+  _i4.Future<List<double>> extractWaveformPeaksFromFile(
+    String? filePath,
+    int? numBins,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #extractWaveformPeaksFromFile,
+          [
+            filePath,
+            numBins,
+          ],
+        ),
+        returnValue: _i4.Future<List<double>>.value(<double>[]),
+      ) as _i4.Future<List<double>>);
 
   @override
   void renderTrackOffline({
@@ -308,7 +338,7 @@ class MockIAudioEngineService extends _i1.Mock
     required double? pitch,
     required double? volume,
     required double? pan,
-    required List<_i2.RenderEqBand>? eqBands,
+    required List<_i3.RenderEqBand>? eqBands,
   }) =>
       super.noSuchMethod(
         Invocation.method(
@@ -359,76 +389,123 @@ class MockIAudioEngineService extends _i1.Mock
 /// A class which mocks [IMusicRepository].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockIMusicRepository extends _i1.Mock implements _i5.IMusicRepository {
+class MockIMusicRepository extends _i1.Mock implements _i6.IMusicRepository {
   MockIMusicRepository() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.Future<void> saveMusic(_i6.Music? music) => (super.noSuchMethod(
+  _i4.Future<void> saveMusic(_i7.Music? music) => (super.noSuchMethod(
         Invocation.method(
           #saveMusic,
           [music],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<List<_i6.Music>> getAllMusic() => (super.noSuchMethod(
+  _i4.Future<List<_i7.Music>> getAllMusic() => (super.noSuchMethod(
         Invocation.method(
           #getAllMusic,
           [],
         ),
-        returnValue: _i3.Future<List<_i6.Music>>.value(<_i6.Music>[]),
-      ) as _i3.Future<List<_i6.Music>>);
+        returnValue: _i4.Future<List<_i7.Music>>.value(<_i7.Music>[]),
+      ) as _i4.Future<List<_i7.Music>>);
 
   @override
-  _i3.Future<void> deleteMusic(String? id) => (super.noSuchMethod(
+  _i4.Future<void> deleteMusic(String? id) => (super.noSuchMethod(
         Invocation.method(
           #deleteMusic,
           [id],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<List<_i6.Music>> getMusicByIds(List<String>? ids) =>
+  _i4.Future<List<_i7.Music>> getMusicByIds(List<String>? ids) =>
       (super.noSuchMethod(
         Invocation.method(
           #getMusicByIds,
           [ids],
         ),
-        returnValue: _i3.Future<List<_i6.Music>>.value(<_i6.Music>[]),
-      ) as _i3.Future<List<_i6.Music>>);
+        returnValue: _i4.Future<List<_i7.Music>>.value(<_i7.Music>[]),
+      ) as _i4.Future<List<_i7.Music>>);
 
   @override
-  _i3.Future<void> saveSetlist(_i7.Setlist? setlist) => (super.noSuchMethod(
+  _i4.Future<void> saveSetlist(_i2.Setlist? setlist) => (super.noSuchMethod(
         Invocation.method(
           #saveSetlist,
           [setlist],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
 
   @override
-  _i3.Future<List<_i7.Setlist>> getAllSetlists() => (super.noSuchMethod(
+  _i4.Future<List<_i2.Setlist>> getAllSetlists() => (super.noSuchMethod(
         Invocation.method(
           #getAllSetlists,
           [],
         ),
-        returnValue: _i3.Future<List<_i7.Setlist>>.value(<_i7.Setlist>[]),
-      ) as _i3.Future<List<_i7.Setlist>>);
+        returnValue: _i4.Future<List<_i2.Setlist>>.value(<_i2.Setlist>[]),
+      ) as _i4.Future<List<_i2.Setlist>>);
 
   @override
-  _i3.Future<void> deleteSetlist(String? id) => (super.noSuchMethod(
+  _i4.Future<void> deleteSetlist(String? id) => (super.noSuchMethod(
         Invocation.method(
           #deleteSetlist,
           [id],
         ),
-        returnValue: _i3.Future<void>.value(),
-        returnValueForMissingStub: _i3.Future<void>.value(),
-      ) as _i3.Future<void>);
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
+}
+
+/// A class which mocks [SetlistExportService].
+///
+/// See the documentation for Mockito's code generation for more information.
+class MockSetlistExportService extends _i1.Mock
+    implements _i8.SetlistExportService {
+  MockSetlistExportService() {
+    _i1.throwOnMissingStub(this);
+  }
+
+  @override
+  _i4.Future<_i2.Setlist> exportSetlist(
+    _i2.Setlist? setlist, {
+    void Function(_i8.ExportProgress)? onProgress,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #exportSetlist,
+          [setlist],
+          {#onProgress: onProgress},
+        ),
+        returnValue: _i4.Future<_i2.Setlist>.value(_FakeSetlist_0(
+          this,
+          Invocation.method(
+            #exportSetlist,
+            [setlist],
+            {#onProgress: onProgress},
+          ),
+        )),
+      ) as _i4.Future<_i2.Setlist>);
+
+  @override
+  bool shouldBypassRender(
+    _i9.SetlistItem? item,
+    _i5.Track? track,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #shouldBypassRender,
+          [
+            item,
+            track,
+          ],
+        ),
+        returnValue: false,
+      ) as bool);
 }

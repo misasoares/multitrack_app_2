@@ -117,6 +117,19 @@ void engine_set_metronome_pan(float pan);
 void engine_set_metronome_bpm(float bpm);
 void engine_set_metronome_playing(int32_t playing);
 
+/// Extracts beat/transient timestamps from a WAV click track.
+/// Returns the number of timestamps written to outTimestamps.
+int32_t engine_extract_beat_map(const char* filePath,
+                                 float threshold,
+                                 int32_t minSpacingMs,
+                                 int32_t* outTimestamps,
+                                 int32_t maxTimestamps);
+
+/// Sends beat-map timestamps (in ms) to a track in the mixer via the command queue.
+void engine_set_track_click_map(const char* trackId,
+                                 const int32_t* mapMs,
+                                 int32_t size);
+
 #ifdef __cplusplus
 }
 #endif

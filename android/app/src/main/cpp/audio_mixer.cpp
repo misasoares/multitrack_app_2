@@ -402,6 +402,7 @@ bool AudioMixer::loadTrackFromFile(const std::string& id, const std::string& fil
 
     tracks_[id] = std::move(track);
     LOGD_MIX("loadTrackFromFile: instant load %s, %lld frames", filePath.c_str(), (long long)totalFrames);
+    LOGD_MIX("DEBUG METRONOMO: Track alocada no tracks_ map com ID: [%s]", id.c_str());
     return true;
 }
 
@@ -610,6 +611,23 @@ void AudioMixer::setTrackPitch(const std::string& id, int semitones) {
     commandQueue_.push({EngineCommand::SET_PITCH, id, 0.0f, semitones});
 }
 
+void AudioMixer::setTrackClickMap(const std::string& id,
+                                   const int32_t* msTimestamps,
+                                   int32_t numTimestamps) {
+    CommandMessage cmd;
+    cmd.type = EngineCommand::SET_CLICK_MAP;
+    cmd.trackId = id;
+    cmd.intParam = numTimestamps;
+    // CRITICAL: Deep-copy the array BEFORE pushing.
+    // Dart may free the pointer immediately after this bridge call returns.
+    if (msTimestamps && numTimestamps > 0) {
+        cmd.intArrayValue.assign(msTimestamps, msTimestamps + numTimestamps);
+    }
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    commandQueue_.push(std::move(cmd));
+    LOGD_MIX("setTrackClickMap: queued %d timestamps for track %s", numTimestamps, id.c_str());
+}
+
 // ─── DSP — Core Mix Loop (Wait-Free, Allocation-Free) ────────────────────────
 
 int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
@@ -668,6 +686,31 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     if (it->second->soundTouchProcessor) {
                         it->second->soundTouchProcessor->setPitchSemiTones(it->second->pitchSemiTones);
                     }
+                }
+                break;
+            }
+
+            case EngineCommand::SET_CLICK_MAP: {
+                LOGD_MIX("DEBUG METRONOMO: Recebido SET_CLICK_MAP para ID: [%s]", cmd.trackId.c_str());
+                auto it = tracks_.find(cmd.trackId);
+                if (it != tracks_.end()) {
+                    LOGD_MIX("DEBUG METRONOMO: SUCESSO! Track ID [%s] encontrada. Setando isClickTrack=true.", cmd.trackId.c_str());
+                    auto& track = *it->second;
+                    track.clickFrames.clear();
+                    track.clickFrames.reserve(cmd.intArrayValue.size());
+                    for (const auto ms : cmd.intArrayValue) {
+                        // Convert ms to frames: frames = ms * sampleRate / 1000
+                        int64_t frame = static_cast<int64_t>(ms) *
+                                        static_cast<int64_t>(sampleRate_) / 1000LL;
+                        track.clickFrames.push_back(frame);
+                    }
+                    track.nextClickIndex = 0;
+                    track.isClickTrack = true;
+                    LOGD_MIX("SET_CLICK_MAP: track %s -> %zu click frames",
+                             cmd.trackId.c_str(), track.clickFrames.size());
+                } else {
+                    LOGE_MIX("DEBUG METRONOMO: FALHA FATAL! ID [%s] nao encontrado no tracks_ map. Total de tracks: %zu",
+                             cmd.trackId.c_str(), tracks_.size());
                 }
                 break;
             }
@@ -773,6 +816,53 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                 } else {
                     sampleL = sampleR = pcm[i];
                 }
+
+                // ── Click Track: Hard-Mute + Synth Click ──
+                if (track.isClickTrack) {
+                    // 1. HARD-MUTE: discard original WAV audio 100%
+                    sampleL = 0.0f;
+                    sampleR = 0.0f;
+
+                    if (vsPlaying) {
+                        // 2. Check if we crossed a beat timestamp
+                        bool triggerBeep = false;
+                        if (track.nextClickIndex < track.clickFrames.size()) {
+                            const int64_t currentAbsoluteFrame = track.playheadFrame + static_cast<int64_t>(i);
+                            if (currentAbsoluteFrame >= track.clickFrames[track.nextClickIndex]) {
+                                triggerBeep = true;
+                                // Sync free-wheel clock so pause hands off seamlessly
+                                metronomePhaseFrames_ = -static_cast<float>(i);
+                                metronomeClickFramesLeft_ = 0.015f * static_cast<float>(sampleRate_); // 15ms beep
+                                metronomeSinePhase_ = 0.0f;
+                                track.nextClickIndex++;
+                            }
+                        }
+
+                        // 3. Synthesize 1kHz sine if envelope is active
+                        if (triggerBeep || metronomeClickFramesLeft_ > 0.5f) {
+                            const float phaseInc = 1000.0f * 2.0f * static_cast<float>(M_PI) / static_cast<float>(sampleRate_);
+                            const float clickSample = std::sin(metronomeSinePhase_);
+                            metronomeSinePhase_ += phaseInc;
+                            if (metronomeSinePhase_ > 2.0f * static_cast<float>(M_PI))
+                                metronomeSinePhase_ -= 2.0f * static_cast<float>(M_PI);
+
+                            // Exponential decay envelope
+                            float env = metronomeClickFramesLeft_ / (0.015f * static_cast<float>(sampleRate_));
+                            if (env > 1.0f) env = 1.0f;
+                            env = env * env;
+
+                            const float vol = metronomeVolume_.load(std::memory_order_relaxed);
+                            sampleL = clickSample * env * vol;
+                            sampleR = clickSample * env * vol;
+                        }
+                    }
+
+                    // Decay: unconditional (no UI guard)
+                    if (metronomeClickFramesLeft_ > 0.0f) {
+                        metronomeClickFramesLeft_ -= 1.0f;
+                    }
+                }
+
                 if (!track.isEqFlat) {
                     for (auto& band : track.eqBands) {
                         if (band.active) {
@@ -857,6 +947,47 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         for (int32_t i = 0; i < numFrames; ++i) {
             float sampleL = trackOutput[i * 2];
             float sampleR = trackOutput[i * 2 + 1];
+
+            // ── Click Track: Hard-Mute + Synth Click (SoundTouch path) ──
+            if (track.isClickTrack) {
+                sampleL = 0.0f;
+                sampleR = 0.0f;
+
+                if (vsPlaying) {
+                    bool triggerBeep = false;
+                    if (track.nextClickIndex < track.clickFrames.size()) {
+                        const int64_t currentAbsoluteFrame = track.playheadFrame + static_cast<int64_t>(i);
+                        if (currentAbsoluteFrame >= track.clickFrames[track.nextClickIndex]) {
+                            triggerBeep = true;
+                            metronomePhaseFrames_ = -static_cast<float>(i);
+                            metronomeClickFramesLeft_ = 0.015f * static_cast<float>(sampleRate_);
+                            metronomeSinePhase_ = 0.0f;
+                            track.nextClickIndex++;
+                        }
+                    }
+
+                    if (triggerBeep || metronomeClickFramesLeft_ > 0.5f) {
+                        const float phaseInc = 1000.0f * 2.0f * static_cast<float>(M_PI) / static_cast<float>(sampleRate_);
+                        const float clickSample = std::sin(metronomeSinePhase_);
+                        metronomeSinePhase_ += phaseInc;
+                        if (metronomeSinePhase_ > 2.0f * static_cast<float>(M_PI))
+                            metronomeSinePhase_ -= 2.0f * static_cast<float>(M_PI);
+
+                        float env = metronomeClickFramesLeft_ / (0.015f * static_cast<float>(sampleRate_));
+                        if (env > 1.0f) env = 1.0f;
+                        env = env * env;
+
+                        const float vol = metronomeVolume_.load(std::memory_order_relaxed);
+                        sampleL = clickSample * env * vol;
+                        sampleR = clickSample * env * vol;
+                    }
+                }
+
+                if (metronomeClickFramesLeft_ > 0.0f) {
+                    metronomeClickFramesLeft_ -= 1.0f;
+                }
+            }
+
             if (!track.isEqFlat) {
                 for (auto& band : track.eqBands) {
                     if (band.active) {
@@ -923,6 +1054,11 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         // Master Metering
         masterPeak = std::max(masterPeak, std::abs(l));
         masterPeak = std::max(masterPeak, std::abs(r));
+
+        // Free-wheel: advance invisible clock while VS plays so pause hands off seamlessly
+        if (vsPlaying) {
+            metronomePhaseFrames_ += 1.0f;
+        }
     }
 
     masterPeak_ = masterPeak;

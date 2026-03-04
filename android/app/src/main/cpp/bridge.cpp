@@ -334,6 +334,27 @@ extern "C" void engine_set_metronome_playing(int32_t playing) {
     gMixer->setMetronomePlaying(playing != 0);
 }
 
+// ─── Beat Map Extraction ─────────────────────────────────────────────────────
+
+extern "C" int32_t engine_extract_beat_map(const char* filePath,
+                                            float threshold,
+                                            int32_t minSpacingMs,
+                                            int32_t* outTimestamps,
+                                            int32_t maxTimestamps) {
+    if (!filePath || !outTimestamps || maxTimestamps <= 0) return 0;
+    return audio_utils::extractBeatMap(filePath, threshold, minSpacingMs,
+                                        outTimestamps, maxTimestamps);
+}
+
+// ─── Click Map Wiring ────────────────────────────────────────────────────────
+
+extern "C" void engine_set_track_click_map(const char* trackId,
+                                            const int32_t* mapMs,
+                                            int32_t size) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackClickMap(std::string(trackId), mapMs, size);
+}
+
 // ─── Offline Rendering ───────────────────────────────────────────────────────
 
 extern "C" void engine_render_track_offline(const char* trackId,

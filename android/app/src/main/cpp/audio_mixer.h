@@ -162,6 +162,11 @@ struct MixerTrack {
 
     // ── Metering ──
     std::atomic<float> currentPeak{0.0f}; // Absolute peak (0.0 to 1.0)
+
+    // ── Click Track (metronome from beat map) ──
+    bool isClickTrack = false;
+    std::vector<int64_t> clickFrames;   // Beat timestamps converted to frames
+    size_t nextClickIndex = 0;
 };
 
 // ─── Command Queue ───────────────────────────────────────────────────────────
@@ -169,7 +174,8 @@ struct MixerTrack {
 enum class EngineCommand {
     CLEAR_TRACKS,
     SET_TEMPO,
-    SET_PITCH
+    SET_PITCH,
+    SET_CLICK_MAP
 };
 
 struct CommandMessage {
@@ -177,6 +183,7 @@ struct CommandMessage {
     std::string trackId;
     float floatParam = 0.0f;
     int intParam = 0;
+    std::vector<int32_t> intArrayValue;  // Deep-copied array (e.g. click map ms timestamps)
 };
 
 // ─── AudioMixer ──────────────────────────────────────────────────────────────
@@ -249,6 +256,12 @@ public:
     // ── Time/Pitch ──
     void setTrackTempo(const std::string& id, float tempo);
     void setTrackPitch(const std::string& id, int semitones);
+
+    /// Sends beat-map timestamps (in ms) to a track via the command queue.
+    /// Deep-copies the array BEFORE pushing to avoid Dart pointer invalidation.
+    void setTrackClickMap(const std::string& id,
+                          const int32_t* msTimestamps,
+                          int32_t numTimestamps);
 
     // ── DSP ──
     /// Fills `outputL` and `outputR` with `numFrames` mixed samples.

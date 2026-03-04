@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:io';
 
@@ -12,6 +13,21 @@ import '../entities/track.dart';
 import 'offline_render_isolate.dart';
 
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
+import 'package:ffi/ffi.dart';
+
+// ── LUFS Analysis FFI typedefs (must be top-level in Dart) ──
+typedef _AnalyzeLufsNative =
+    Double Function(
+      Pointer<Pointer<Utf8>> trackPaths,
+      Int32 numTracks,
+      Float targetLufs,
+    );
+typedef _AnalyzeLufsDart =
+    double Function(
+      Pointer<Pointer<Utf8>> trackPaths,
+      int numTracks,
+      double targetLufs,
+    );
 
 /// Progress reported during setlist export (one track at a time).
 class ExportProgress {
@@ -70,14 +86,16 @@ class SetlistExportService {
       double trackProgress = 0.0,
       bool isBypass = false,
     }) {
-      onProgress?.call(ExportProgress(
-        totalTracks: totalTracks,
-        completedTracks: completedTracks,
-        currentMusicTitle: musicTitle,
-        currentTrackName: trackName,
-        trackProgress: trackProgress,
-        isBypass: isBypass,
-      ));
+      onProgress?.call(
+        ExportProgress(
+          totalTracks: totalTracks,
+          completedTracks: completedTracks,
+          currentMusicTitle: musicTitle,
+          currentTrackName: trackName,
+          trackProgress: trackProgress,
+          isBypass: isBypass,
+        ),
+      );
     }
 
     final updatedItems = <SetlistItem>[];
@@ -92,8 +110,9 @@ class SetlistExportService {
       for (final track in item.originalMusic.tracks) {
         if (track.isMuted) continue;
         final isBypass = shouldBypassRender(item, track);
-        final destFileName =
-            isBypass ? '${track.id}${path.extension(track.filePath)}' : '${track.id}.wav';
+        final destFileName = isBypass
+            ? '${track.id}${path.extension(track.filePath)}'
+            : '${track.id}.wav';
         final destPath = path.join(itemDir, destFileName);
         final sourceFile = File(track.filePath);
 
@@ -143,7 +162,10 @@ class SetlistExportService {
         final destFile = File(destPath);
         if (await destFile.exists()) {
           try {
-            final peaks = await _audioEngine.extractWaveformPeaksFromFile(destPath, _waveformBins);
+            final peaks = await _audioEngine.extractWaveformPeaksFromFile(
+              destPath,
+              _waveformBins,
+            );
             if (peaks.isNotEmpty) {
               waveformPeaks = peaks;
             }
@@ -163,10 +185,26 @@ class SetlistExportService {
         );
       }
 
+      // ── LUFS Analysis: compute normalization gain after all tracks are rendered ──
+      final renderedPaths = updatedTracks
+          .map((t) => path.join(itemDir, '${t.id}.wav'))
+          .where((p) => File(p).existsSync())
+          .toList();
+
+      double normGain = 1.0;
+      if (renderedPaths.isNotEmpty) {
+        try {
+          normGain = await _analyzeLufsInIsolate(renderedPaths, -14.0);
+        } catch (e) {
+          print('LUFS analysis error for ${item.originalMusic.title}: $e');
+        }
+      }
+
       updatedItems.add(
         item.copyWith(
           exportedItemDirectory: itemDir,
           originalMusic: item.originalMusic.copyWith(tracks: updatedTracks),
+          normalizationGain: normGain,
         ),
       );
     }
@@ -221,10 +259,7 @@ class SetlistExportService {
     required List<EqBandData> masterEqBands,
     required void Function(double) onProgress,
   }) async {
-    final eqBands = _toRenderEqBandMaps([
-      ...trackEqBands,
-      ...masterEqBands,
-    ]);
+    final eqBands = _toRenderEqBandMaps([...trackEqBands, ...masterEqBands]);
     final mainRecv = ReceivePort();
     final doneCompleter = Completer<double>();
     final workerPortCompleter = Completer<SendPort>();
@@ -245,10 +280,7 @@ class SetlistExportService {
       }
     });
 
-    await Isolate.spawn(
-      offlineRenderIsolateEntry,
-      mainRecv.sendPort,
-    );
+    await Isolate.spawn(offlineRenderIsolateEntry, mainRecv.sendPort);
 
     final workerPort = await workerPortCompleter.future;
     workerPort.send({
@@ -269,12 +301,49 @@ class SetlistExportService {
 
   List<Map<String, dynamic>> _toRenderEqBandMaps(List<EqBandData> bands) {
     return bands
-        .map((b) => {
-              'type': b.type.index,
-              'frequency': b.frequency,
-              'gainDb': b.gain,
-              'q': b.q,
-            })
+        .map(
+          (b) => {
+            'type': b.type.index,
+            'frequency': b.frequency,
+            'gainDb': b.gain,
+            'q': b.q,
+          },
+        )
         .toList();
+  }
+
+  /// Runs LUFS analysis in a background isolate to avoid blocking the UI.
+  Future<double> _analyzeLufsInIsolate(
+    List<String> renderedPaths,
+    double targetLufs,
+  ) async {
+    return Isolate.run<double>(() {
+      if (!Platform.isAndroid) return 1.0;
+
+      final lib = DynamicLibrary.open('libaudio_engine.so');
+      final analyzeFn = lib
+          .lookup<NativeFunction<_AnalyzeLufsNative>>('engine_analyze_lufs')
+          .asFunction<_AnalyzeLufsDart>();
+
+      final numTracks = renderedPaths.length;
+      final pathPtrs = calloc<Pointer<Utf8>>(numTracks);
+      final allocatedPtrs = <Pointer<Utf8>>[];
+
+      try {
+        for (int i = 0; i < numTracks; i++) {
+          final ptr = renderedPaths[i].toNativeUtf8();
+          allocatedPtrs.add(ptr);
+          pathPtrs[i] = ptr;
+        }
+
+        final result = analyzeFn(pathPtrs, numTracks, targetLufs);
+        return result;
+      } finally {
+        for (final ptr in allocatedPtrs) {
+          calloc.free(ptr);
+        }
+        calloc.free(pathPtrs);
+      }
+    });
   }
 }

@@ -10,6 +10,7 @@ class Track extends Equatable {
   final bool isMuted;
   final bool isSolo;
   final bool isClick;
+  final bool isClickTrack;
   final int order; // Position index in the UI list
   final Duration duration;
   final List<EqBandData> eqBands; // Parametric EQ state (persisted on save)
@@ -22,7 +23,8 @@ class Track extends Equatable {
   /// and should be excluded from the master waveform composition.
   bool get isUtilityTrack {
     if (isClick) return true;
-    const pattern = r'\b(click|metronomo|metronome|guia|guide|voz guia|locucao|vs)\b';
+    const pattern =
+        r'\b(click|metronomo|metronome|guia|guide|voz guia|locucao|vs)\b';
     return RegExp(pattern, caseSensitive: false).hasMatch(name);
   }
 
@@ -35,6 +37,7 @@ class Track extends Equatable {
     this.isMuted = false,
     this.isSolo = false,
     this.isClick = false,
+    this.isClickTrack = false,
     this.order = 0,
     this.duration = Duration.zero,
     this.eqBands = const [],
@@ -52,6 +55,7 @@ class Track extends Equatable {
     bool? isMuted,
     bool? isSolo,
     bool? isClick,
+    bool? isClickTrack,
     int? order,
     Duration? duration,
     List<EqBandData>? eqBands,
@@ -68,6 +72,7 @@ class Track extends Equatable {
       isMuted: isMuted ?? this.isMuted,
       isSolo: isSolo ?? this.isSolo,
       isClick: isClick ?? this.isClick,
+      isClickTrack: isClickTrack ?? this.isClickTrack,
       order: order ?? this.order,
       duration: duration ?? this.duration,
       eqBands: eqBands ?? this.eqBands,
@@ -87,6 +92,7 @@ class Track extends Equatable {
     isMuted,
     isSolo,
     isClick,
+    isClickTrack,
     order,
     duration,
     eqBands,

@@ -27,50 +27,55 @@ const MusicModelSchema = CollectionSchema(
       name: r'bpm',
       type: IsarType.long,
     ),
-    r'createdAt': PropertySchema(
+    r'clickMap': PropertySchema(
       id: 2,
+      name: r'clickMap',
+      type: IsarType.longList,
+    ),
+    r'createdAt': PropertySchema(
+      id: 3,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'domainId': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'domainId',
       type: IsarType.string,
     ),
     r'key': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'key',
       type: IsarType.string,
     ),
     r'markers': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'markers',
       type: IsarType.objectList,
       target: r'MarkerModel',
     ),
     r'timeSignatureDenominator': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'timeSignatureDenominator',
       type: IsarType.long,
     ),
     r'timeSignatureNumerator': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'timeSignatureNumerator',
       type: IsarType.long,
     ),
     r'title': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'title',
       type: IsarType.string,
     ),
     r'tracks': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'tracks',
       type: IsarType.objectList,
       target: r'TrackModel',
     ),
     r'updatedAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -117,6 +122,12 @@ int _musicModelEstimateSize(
     final value = object.artist;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.clickMap;
+    if (value != null) {
+      bytesCount += 3 + value.length * 8;
     }
   }
   {
@@ -176,25 +187,26 @@ void _musicModelSerialize(
 ) {
   writer.writeString(offsets[0], object.artist);
   writer.writeLong(offsets[1], object.bpm);
-  writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeString(offsets[3], object.domainId);
-  writer.writeString(offsets[4], object.key);
+  writer.writeLongList(offsets[2], object.clickMap);
+  writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeString(offsets[4], object.domainId);
+  writer.writeString(offsets[5], object.key);
   writer.writeObjectList<MarkerModel>(
-    offsets[5],
+    offsets[6],
     allOffsets,
     MarkerModelSchema.serialize,
     object.markers,
   );
-  writer.writeLong(offsets[6], object.timeSignatureDenominator);
-  writer.writeLong(offsets[7], object.timeSignatureNumerator);
-  writer.writeString(offsets[8], object.title);
+  writer.writeLong(offsets[7], object.timeSignatureDenominator);
+  writer.writeLong(offsets[8], object.timeSignatureNumerator);
+  writer.writeString(offsets[9], object.title);
   writer.writeObjectList<TrackModel>(
-    offsets[9],
+    offsets[10],
     allOffsets,
     TrackModelSchema.serialize,
     object.tracks,
   );
-  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeDateTime(offsets[11], object.updatedAt);
 }
 
 MusicModel _musicModelDeserialize(
@@ -206,25 +218,26 @@ MusicModel _musicModelDeserialize(
   final object = MusicModel(
     artist: reader.readStringOrNull(offsets[0]),
     bpm: reader.readLongOrNull(offsets[1]),
-    createdAt: reader.readDateTimeOrNull(offsets[2]),
-    domainId: reader.readStringOrNull(offsets[3]),
-    key: reader.readStringOrNull(offsets[4]),
+    clickMap: reader.readLongList(offsets[2]),
+    createdAt: reader.readDateTimeOrNull(offsets[3]),
+    domainId: reader.readStringOrNull(offsets[4]),
+    key: reader.readStringOrNull(offsets[5]),
     markers: reader.readObjectList<MarkerModel>(
-      offsets[5],
+      offsets[6],
       MarkerModelSchema.deserialize,
       allOffsets,
       MarkerModel(),
     ),
-    timeSignatureDenominator: reader.readLongOrNull(offsets[6]),
-    timeSignatureNumerator: reader.readLongOrNull(offsets[7]),
-    title: reader.readStringOrNull(offsets[8]),
+    timeSignatureDenominator: reader.readLongOrNull(offsets[7]),
+    timeSignatureNumerator: reader.readLongOrNull(offsets[8]),
+    title: reader.readStringOrNull(offsets[9]),
     tracks: reader.readObjectList<TrackModel>(
-      offsets[9],
+      offsets[10],
       TrackModelSchema.deserialize,
       allOffsets,
       TrackModel(),
     ),
-    updatedAt: reader.readDateTimeOrNull(offsets[10]),
+    updatedAt: reader.readDateTimeOrNull(offsets[11]),
   );
   object.id = id;
   return object;
@@ -242,32 +255,34 @@ P _musicModelDeserializeProp<P>(
     case 1:
       return (reader.readLongOrNull(offset)) as P;
     case 2:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readLongList(offset)) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
+      return (reader.readStringOrNull(offset)) as P;
+    case 6:
       return (reader.readObjectList<MarkerModel>(
         offset,
         MarkerModelSchema.deserialize,
         allOffsets,
         MarkerModel(),
       )) as P;
-    case 6:
-      return (reader.readLongOrNull(offset)) as P;
     case 7:
       return (reader.readLongOrNull(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 9:
+      return (reader.readStringOrNull(offset)) as P;
+    case 10:
       return (reader.readObjectList<TrackModel>(
         offset,
         TrackModelSchema.deserialize,
         allOffsets,
         TrackModel(),
       )) as P;
-    case 10:
+    case 11:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -699,6 +714,168 @@ extension MusicModelQueryFilter
         upper: upper,
         includeUpper: includeUpper,
       ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition> clickMapIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'clickMap',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'clickMap',
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapElementEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'clickMap',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapElementGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'clickMap',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapElementLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'clickMap',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapElementBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'clickMap',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<MusicModel, MusicModel, QAfterFilterCondition>
+      clickMapLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'clickMap',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
     });
   }
 
@@ -1979,6 +2156,12 @@ extension MusicModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<MusicModel, MusicModel, QDistinct> distinctByClickMap() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'clickMap');
+    });
+  }
+
   QueryBuilder<MusicModel, MusicModel, QDistinct> distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
@@ -2044,6 +2227,12 @@ extension MusicModelQueryProperty
   QueryBuilder<MusicModel, int?, QQueryOperations> bpmProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'bpm');
+    });
+  }
+
+  QueryBuilder<MusicModel, List<int>?, QQueryOperations> clickMapProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'clickMap');
     });
   }
 

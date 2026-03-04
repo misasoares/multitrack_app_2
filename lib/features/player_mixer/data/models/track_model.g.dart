@@ -44,43 +44,48 @@ const TrackModelSchema = Schema(
       name: r'isClick',
       type: IsarType.bool,
     ),
-    r'isMuted': PropertySchema(
+    r'isClickTrack': PropertySchema(
       id: 6,
+      name: r'isClickTrack',
+      type: IsarType.bool,
+    ),
+    r'isMuted': PropertySchema(
+      id: 7,
       name: r'isMuted',
       type: IsarType.bool,
     ),
     r'isSolo': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'isSolo',
       type: IsarType.bool,
     ),
     r'name': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'name',
       type: IsarType.string,
     ),
     r'octaveShift': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'octaveShift',
       type: IsarType.long,
     ),
     r'order': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'order',
       type: IsarType.long,
     ),
     r'pan': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'pan',
       type: IsarType.double,
     ),
     r'volume': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'volume',
       type: IsarType.double,
     ),
     r'waveformPeaks': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'waveformPeaks',
       type: IsarType.doubleList,
     )
@@ -155,14 +160,15 @@ void _trackModelSerialize(
   writer.writeString(offsets[3], object.filePath);
   writer.writeString(offsets[4], object.id);
   writer.writeBool(offsets[5], object.isClick);
-  writer.writeBool(offsets[6], object.isMuted);
-  writer.writeBool(offsets[7], object.isSolo);
-  writer.writeString(offsets[8], object.name);
-  writer.writeLong(offsets[9], object.octaveShift);
-  writer.writeLong(offsets[10], object.order);
-  writer.writeDouble(offsets[11], object.pan);
-  writer.writeDouble(offsets[12], object.volume);
-  writer.writeDoubleList(offsets[13], object.waveformPeaks);
+  writer.writeBool(offsets[6], object.isClickTrack);
+  writer.writeBool(offsets[7], object.isMuted);
+  writer.writeBool(offsets[8], object.isSolo);
+  writer.writeString(offsets[9], object.name);
+  writer.writeLong(offsets[10], object.octaveShift);
+  writer.writeLong(offsets[11], object.order);
+  writer.writeDouble(offsets[12], object.pan);
+  writer.writeDouble(offsets[13], object.volume);
+  writer.writeDoubleList(offsets[14], object.waveformPeaks);
 }
 
 TrackModel _trackModelDeserialize(
@@ -183,14 +189,15 @@ TrackModel _trackModelDeserialize(
     filePath: reader.readStringOrNull(offsets[3]),
     id: reader.readStringOrNull(offsets[4]),
     isClick: reader.readBoolOrNull(offsets[5]),
-    isMuted: reader.readBoolOrNull(offsets[6]),
-    isSolo: reader.readBoolOrNull(offsets[7]),
-    name: reader.readStringOrNull(offsets[8]),
-    octaveShift: reader.readLongOrNull(offsets[9]),
-    order: reader.readLongOrNull(offsets[10]),
-    pan: reader.readDoubleOrNull(offsets[11]),
-    volume: reader.readDoubleOrNull(offsets[12]),
-    waveformPeaks: reader.readDoubleList(offsets[13]),
+    isClickTrack: reader.readBoolOrNull(offsets[6]),
+    isMuted: reader.readBoolOrNull(offsets[7]),
+    isSolo: reader.readBoolOrNull(offsets[8]),
+    name: reader.readStringOrNull(offsets[9]),
+    octaveShift: reader.readLongOrNull(offsets[10]),
+    order: reader.readLongOrNull(offsets[11]),
+    pan: reader.readDoubleOrNull(offsets[12]),
+    volume: reader.readDoubleOrNull(offsets[13]),
+    waveformPeaks: reader.readDoubleList(offsets[14]),
   );
   return object;
 }
@@ -224,16 +231,18 @@ P _trackModelDeserializeProp<P>(
     case 7:
       return (reader.readBoolOrNull(offset)) as P;
     case 8:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 9:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
       return (reader.readLongOrNull(offset)) as P;
     case 11:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
       return (reader.readDoubleOrNull(offset)) as P;
     case 13:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 14:
       return (reader.readDoubleList(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -768,6 +777,34 @@ extension TrackModelQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isClick',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      isClickTrackIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isClickTrack',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      isClickTrackIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isClickTrack',
+      ));
+    });
+  }
+
+  QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
+      isClickTrackEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isClickTrack',
         value: value,
       ));
     });

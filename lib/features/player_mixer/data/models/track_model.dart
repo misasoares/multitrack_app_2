@@ -14,11 +14,13 @@ class TrackModel {
   bool? isMuted;
   bool? isSolo;
   bool? isClick;
+  bool? isClickTrack;
   int? order;
   int? durationInMilliseconds;
   List<EqBandModel>? eqBands;
   bool? applyTranspose;
   int? octaveShift;
+
   /// Pre-computed waveform peak bins (from Render Show); persisted in Isar.
   List<double>? waveformPeaks;
 
@@ -31,6 +33,7 @@ class TrackModel {
     this.isMuted,
     this.isSolo,
     this.isClick,
+    this.isClickTrack,
     this.order,
     this.durationInMilliseconds,
     this.eqBands,
@@ -49,6 +52,7 @@ class TrackModel {
       isMuted: track.isMuted,
       isSolo: track.isSolo,
       isClick: track.isClick,
+      isClickTrack: track.isClickTrack,
       order: track.order,
       durationInMilliseconds: track.duration.inMilliseconds,
       eqBands: track.eqBands.isNotEmpty
@@ -70,6 +74,7 @@ class TrackModel {
       isMuted: isMuted ?? false,
       isSolo: isSolo ?? false,
       isClick: isClick ?? false,
+      isClickTrack: isClickTrack ?? false,
       order: order ?? 0,
       duration: Duration(milliseconds: durationInMilliseconds ?? 0),
       eqBands: eqBands?.map((b) => b.toEntity()).toList() ?? const [],

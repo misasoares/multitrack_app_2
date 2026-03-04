@@ -12,6 +12,7 @@ class Music extends Equatable {
   final String key; // e.g., "C", "Am"
   final List<Track> tracks;
   final List<Marker> markers;
+  final List<int> clickMap;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -25,6 +26,7 @@ class Music extends Equatable {
     this.key = '',
     this.tracks = const [],
     this.markers = const [],
+    this.clickMap = const [],
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : createdAt =
@@ -43,8 +45,8 @@ class Music extends Equatable {
     key,
     tracks,
     markers,
+    clickMap,
     createdAt,
-    updatedAt,
     updatedAt,
   ];
 
@@ -71,7 +73,8 @@ class Music extends Equatable {
   }) {
     if (tracks.isEmpty) return [];
 
-    List<double>? peaksFor(Track t) => getPeaks != null ? getPeaks(t) : t.waveformPeaks;
+    List<double>? peaksFor(Track t) =>
+        getPeaks != null ? getPeaks(t) : t.waveformPeaks;
 
     final withPeaks = tracks.where((t) {
       final p = peaksFor(t);
@@ -106,7 +109,9 @@ class Music extends Equatable {
         }
       } else {
         for (var i = 0; i < numBins; i++) {
-          final srcIdx = numBins <= 1 ? 0.0 : (i * (p.length - 1)) / (numBins - 1);
+          final srcIdx = numBins <= 1
+              ? 0.0
+              : (i * (p.length - 1)) / (numBins - 1);
           final idx = srcIdx.floor().clamp(0, p.length - 1);
           final next = (idx + 1).clamp(0, p.length - 1);
           final frac = srcIdx - idx;
@@ -115,7 +120,9 @@ class Music extends Equatable {
         }
       }
     }
-    final maxVal = result.isEmpty ? 0.0 : result.reduce((a, b) => a > b ? a : b);
+    final maxVal = result.isEmpty
+        ? 0.0
+        : result.reduce((a, b) => a > b ? a : b);
     if (maxVal <= 0) return result;
     return result.map((v) => v / maxVal).toList();
   }
@@ -130,6 +137,7 @@ class Music extends Equatable {
     String? key,
     List<Track>? tracks,
     List<Marker>? markers,
+    List<int>? clickMap,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -145,6 +153,7 @@ class Music extends Equatable {
       key: key ?? this.key,
       tracks: tracks ?? this.tracks,
       markers: markers ?? this.markers,
+      clickMap: clickMap ?? this.clickMap,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -22,6 +22,7 @@ class MusicModel {
 
   List<TrackModel>? tracks;
   List<MarkerModel>? markers;
+  List<int>? clickMap;
 
   DateTime? createdAt;
   DateTime? updatedAt;
@@ -36,6 +37,7 @@ class MusicModel {
     this.key,
     this.tracks,
     this.markers,
+    this.clickMap,
     this.createdAt,
     this.updatedAt,
   });
@@ -51,6 +53,7 @@ class MusicModel {
       key: music.key,
       tracks: music.tracks.map((t) => TrackModel.fromEntity(t)).toList(),
       markers: music.markers.map((m) => MarkerModel.fromEntity(m)).toList(),
+      clickMap: music.clickMap.isNotEmpty ? music.clickMap : null,
       createdAt: music.createdAt,
       updatedAt: music.updatedAt,
     );
@@ -67,6 +70,7 @@ class MusicModel {
       key: key ?? '',
       tracks: tracks?.map((t) => t.toEntity()).toList() ?? [],
       markers: markers?.map((m) => m.toEntity()).toList() ?? [],
+      clickMap: clickMap ?? const [],
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

@@ -121,6 +121,9 @@ typedef _SetMasterEqDart =
 typedef _SetMasterVolumeNative = Void Function(Float volume);
 typedef _SetMasterVolumeDart = void Function(double volume);
 
+typedef _SetMasterNormalizationGainNative = Void Function(Float gain);
+typedef _SetMasterNormalizationGainDart = void Function(double gain);
+
 typedef _SetMetronomeVolumeNative = Void Function(Float volume);
 typedef _SetMetronomeVolumeDart = void Function(double volume);
 
@@ -250,6 +253,7 @@ class NativeAudioEngine implements IAudioEngineService {
   _SetTrackPitchDart? _setTrackPitch;
   _SetMasterEqDart? _setMasterEq;
   _SetMasterVolumeDart? _setMasterVolume;
+  _SetMasterNormalizationGainDart? _setMasterNormalizationGain;
   _SetMetronomeVolumeDart? _setMetronomeVolume;
   _SetMetronomePanDart? _setMetronomePan;
   _SetMetronomeBpmDart? _setMetronomeBpm;
@@ -364,6 +368,12 @@ class NativeAudioEngine implements IAudioEngineService {
             'engine_set_master_volume',
           )
           .asFunction<_SetMasterVolumeDart>();
+
+      _setMasterNormalizationGain = lib
+          .lookup<NativeFunction<_SetMasterNormalizationGainNative>>(
+            'engine_set_master_normalization_gain',
+          )
+          .asFunction<_SetMasterNormalizationGainDart>();
 
       _setMetronomeVolume = lib
           .lookup<NativeFunction<_SetMetronomeVolumeNative>>(
@@ -712,6 +722,11 @@ class NativeAudioEngine implements IAudioEngineService {
   void setMasterVolume(double volume) {
     if (_setMasterVolume == null) return;
     _setMasterVolume!(volume);
+  }
+
+  @override
+  void setMasterNormalizationGain(double gain) {
+    _setMasterNormalizationGain?.call(gain);
   }
 
   @override

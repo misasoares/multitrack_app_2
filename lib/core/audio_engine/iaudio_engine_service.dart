@@ -117,6 +117,11 @@ abstract class IAudioEngineService {
   /// Sets the Master Volume (0.0 to 1.0).
   void setMasterVolume(double volume);
 
+  /// Sets the hidden LUFS normalization gain (linear).
+  /// Applied silently in the Master Bus. Does NOT affect the UI fader.
+  /// Default = 1.0 (no normalization).
+  void setMasterNormalizationGain(double gain);
+
   /// Metronome (synthetic click when VS is paused). Volume 0..1, pan -1..1, BPM, playing.
   void setMetronomeVolume(double volume);
   void setMetronomePan(double pan);

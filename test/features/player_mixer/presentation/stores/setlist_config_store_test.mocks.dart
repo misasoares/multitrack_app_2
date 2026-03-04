@@ -257,6 +257,15 @@ class MockIAudioEngineService extends _i1.Mock
       );
 
   @override
+  void setMasterNormalizationGain(double? gain) => super.noSuchMethod(
+        Invocation.method(
+          #setMasterNormalizationGain,
+          [gain],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void setMetronomeVolume(double? volume) => super.noSuchMethod(
         Invocation.method(
           #setMetronomeVolume,

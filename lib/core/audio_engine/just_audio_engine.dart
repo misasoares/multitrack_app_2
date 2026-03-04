@@ -213,6 +213,11 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  void setMasterNormalizationGain(double gain) {
+    // LUFS normalization is only supported by the native C++ engine.
+  }
+
+  @override
   void setMetronomeVolume(double volume) {}
 
   @override

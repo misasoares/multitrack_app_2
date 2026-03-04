@@ -17,6 +17,7 @@
 #include <cmath>
 #include <algorithm>
 #include "audio_renderer.h"
+#include "lufs_analyzer.h"
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -314,6 +315,11 @@ extern "C" void engine_set_master_volume(float volume) {
     gMixer->setMasterVolume(volume);
 }
 
+extern "C" void engine_set_master_normalization_gain(float gain) {
+    if (!gMixer) return;
+    gMixer->setMasterNormalizationGain(gain);
+}
+
 extern "C" void engine_set_metronome_volume(float volume) {
     if (!gMixer) return;
     gMixer->setMetronomeVolume(volume);
@@ -394,4 +400,32 @@ extern "C" float engine_get_render_progress(const char* trackId) {
 extern "C" void engine_cancel_render(const char* trackId) {
     if (!trackId) return;
     cancelRender(std::string(trackId));
+}
+
+// ─── LUFS Analysis ──────────────────────────────────────────────────────────
+
+extern "C" double engine_analyze_lufs(const char** trackPaths,
+                                       int32_t numTracks,
+                                       float targetLufs) {
+    if (!trackPaths || numTracks <= 0) return 1.0;
+
+    std::vector<std::string> paths;
+    paths.reserve(numTracks);
+    for (int32_t i = 0; i < numTracks; ++i) {
+        if (trackPaths[i]) {
+            paths.emplace_back(trackPaths[i]);
+        }
+    }
+
+    if (paths.empty()) return 1.0;
+
+    LufsResult result = analyzeMixLufs(paths, targetLufs);
+    if (!result.success) {
+        LOGE("engine_analyze_lufs: analysis failed, returning 1.0");
+        return 1.0;
+    }
+
+    LOGD("engine_analyze_lufs: LUFS=%.2f, truePeak=%.4f, normGain=%.4f",
+         result.integratedLufs, result.truePeak, result.normalizationGain);
+    return static_cast<double>(result.normalizationGain);
 }

@@ -111,6 +111,10 @@ void engine_set_master_eq(int32_t bandIndex,
 /// Master volume (0.0 to 1.0).
 void engine_set_master_volume(float volume);
 
+/// Hidden normalization gain applied silently in the Master Bus (LUFS normalization).
+/// Does NOT affect the UI fader. Default = 1.0 (no normalization).
+void engine_set_master_normalization_gain(float gain);
+
 /// Metronome: volume, pan (-1..1), BPM, playing flag.
 void engine_set_metronome_volume(float volume);
 void engine_set_metronome_pan(float pan);
@@ -129,6 +133,15 @@ int32_t engine_extract_beat_map(const char* filePath,
 void engine_set_track_click_map(const char* trackId,
                                  const int32_t* mapMs,
                                  int32_t size);
+
+// ── LUFS Analysis ──
+/// Analyzes the combined loudness of rendered WAV tracks and returns
+/// the linear gain factor needed to reach targetLufs.
+/// trackPaths: null-terminated array of file path strings.
+/// numTracks: number of paths in the array.
+/// targetLufs: target loudness (e.g. -14.0).
+/// Returns the normalization gain (linear). 1.0 on failure.
+double engine_analyze_lufs(const char** trackPaths, int32_t numTracks, float targetLufs);
 
 #ifdef __cplusplus
 }

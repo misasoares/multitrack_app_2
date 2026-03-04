@@ -173,23 +173,42 @@ abstract class LivePerformanceStoreBase with Store {
       }
     }
 
-    print('DEBUG METRONOMO: realClickMap.length = ${realClickMap.length}');
+    // --- Tempo scaling: clickMap was extracted at 1.0x. If the setlist renders
+    // at a different tempo, we must scale the timestamps proportionally. ---
+    final double tempoFactor = item.tempoFactor;
+    List<int> finalClickMap = realClickMap;
+    double finalBpm = item.originalMusic.bpm.toDouble();
+
+    if (tempoFactor != 1.0 && tempoFactor > 0.0) {
+      // Faster tempo (>1) = shorter intervals  →  divide ms by factor
+      finalClickMap = realClickMap
+          .map((ms) => (ms / tempoFactor).round())
+          .toList();
+      finalBpm = finalBpm * tempoFactor;
+      print(
+        'DEBUG METRONOMO: Tempo scaling applied (factor=$tempoFactor). '
+        'Original map[0]=${realClickMap.isNotEmpty ? realClickMap.first : "-"} → '
+        'Scaled map[0]=${finalClickMap.isNotEmpty ? finalClickMap.first : "-"} | '
+        'BPM $finalBpm',
+      );
+    }
+
+    print('DEBUG METRONOMO: finalClickMap.length = ${finalClickMap.length}');
     for (final t in liveTracks) {
       print(
-        'DEBUG METRONOMO: Track "${t.name}" | id: ${t.id} | isClickTrack: ${t.isClickTrack} | clickMapSize: ${realClickMap.length}',
+        'DEBUG METRONOMO: Track "${t.name}" | id: ${t.id} | isClickTrack: ${t.isClickTrack} | clickMapSize: ${finalClickMap.length}',
       );
-      if (t.isClickTrack && realClickMap.isNotEmpty) {
+      if (t.isClickTrack && finalClickMap.isNotEmpty) {
         print(
           'DEBUG METRONOMO: >>> Disparando FFI setTrackClickMap para ID: ${t.id}',
         );
-        _audioEngine.setTrackClickMap(t.id, realClickMap);
+        _audioEngine.setTrackClickMap(t.id, finalClickMap);
       }
     }
 
-    // Sync metronome BPM with the saved song BPM
-    final songBpm = item.originalMusic.bpm;
-    if (songBpm > 0) {
-      metronomeBpm = songBpm.toDouble();
+    // Sync metronome BPM (tempo-scaled) with the engine
+    if (finalBpm > 0) {
+      metronomeBpm = finalBpm;
       _audioEngine.setMetronomeBpm(metronomeBpm);
     }
   }

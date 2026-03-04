@@ -247,6 +247,11 @@ public:
     /// Set the Master Volume (linear gain 0.0 to 5.0, ~+13 dB headroom).
     void setMasterVolume(float volume);
 
+    /// Set the hidden normalization gain (LUFS normalization).
+    /// Applied silently in the Master Bus alongside masterVolume_.
+    /// Does NOT affect the UI fader. Default = 1.0 (no normalization).
+    void setMasterNormalizationGain(float gain);
+
     /// Metronome (synthetic click when VS is paused/stopped).
     void setMetronomeVolume(float volume);
     void setMetronomePan(float pan);
@@ -311,6 +316,7 @@ private:
 
     // ── Master FX (atomic for lock-free read in process()) ──
     std::atomic<float> masterVolume_{1.0f};
+    std::atomic<float> masterNormalizationGain_{1.0f};  // Hidden LUFS normalization gain
     std::vector<BiquadFilter> masterEqBands_;
 
     // ── Metronome (lock-free: atomics read in process(), no allocation) ──

@@ -569,6 +569,11 @@ void AudioMixer::setMasterVolume(float volume) {
     masterVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
 }
 
+void AudioMixer::setMasterNormalizationGain(float gain) {
+    // Clamp to a sane range: 0.0 (silence) to 10.0 (~+20 dB max boost)
+    masterNormalizationGain_.store(std::clamp(gain, 0.0f, 10.0f), std::memory_order_relaxed);
+}
+
 void AudioMixer::setMetronomeVolume(float volume) {
     metronomeVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
 }
@@ -603,12 +608,12 @@ void AudioMixer::setMetronomePlaying(bool playing) {
 
 void AudioMixer::setTrackTempo(const std::string& id, float tempo) {
     std::lock_guard<std::mutex> lock(queueMutex_);
-    commandQueue_.push({EngineCommand::SET_TEMPO, id, tempo, 0});
+    commandQueue_.push({EngineCommand::SET_TEMPO, id, tempo, 0, {}});
 }
 
 void AudioMixer::setTrackPitch(const std::string& id, int semitones) {
     std::lock_guard<std::mutex> lock(queueMutex_);
-    commandQueue_.push({EngineCommand::SET_PITCH, id, 0.0f, semitones});
+    commandQueue_.push({EngineCommand::SET_PITCH, id, 0.0f, semitones, {}});
 }
 
 void AudioMixer::setTrackClickMap(const std::string& id,
@@ -770,9 +775,11 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     if (!isPlaying_ || tracks_.empty()) {
         // Apply master volume to metronome-only or silence
         const float mv = masterVolume_.load(std::memory_order_relaxed);
+        const float ng = masterNormalizationGain_.load(std::memory_order_relaxed);
+        const float totalGain = mv * ng;
         for (int32_t i = 0; i < numFrames; ++i) {
-            outputL[i] *= mv;
-            outputR[i] *= mv;
+            outputL[i] *= totalGain;
+            outputR[i] *= totalGain;
         }
         return numFrames;
     }
@@ -1045,8 +1052,10 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         }
         
         const float mv = masterVolume_.load(std::memory_order_relaxed);
-        l *= mv;
-        r *= mv;
+        const float ng = masterNormalizationGain_.load(std::memory_order_relaxed);
+        const float totalGain = mv * ng;
+        l *= totalGain;
+        r *= totalGain;
         
         outputL[i] = l;
         outputR[i] = r;

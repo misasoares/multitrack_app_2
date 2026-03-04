@@ -5,6 +5,7 @@ import 'package:multitracks_df_pro/core/audio_engine/iaudio_engine_service.dart'
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist_item.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.dart';
+import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imusic_repository.dart';
 
 part 'live_performance_store.g.dart';
 
@@ -12,17 +13,19 @@ part 'live_performance_store.g.dart';
 ///
 /// Uses pre-rendered audio files (track freezing) for zero-latency playback via Oboe.
 /// Stage mixer (volume, mute, solo) is ephemeral — never persisted to Isar.
-class LivePerformanceStore = LivePerformanceStoreBase with _$LivePerformanceStore;
+class LivePerformanceStore = LivePerformanceStoreBase
+    with _$LivePerformanceStore;
 
 abstract class LivePerformanceStoreBase with Store {
   final IAudioEngineService _audioEngine;
+  final IMusicRepository _musicRepository;
 
   StreamSubscription<Duration>? _positionSubscription;
 
   /// Guards async callbacks from running after dispose (e.g. playPreview after user left the page).
   bool _disposed = false;
 
-  LivePerformanceStoreBase(this._audioEngine);
+  LivePerformanceStoreBase(this._audioEngine, this._musicRepository);
 
   @observable
   Setlist? currentSetlist;
@@ -93,11 +96,13 @@ abstract class LivePerformanceStoreBase with Store {
   }
 
   /// Returns the list of tracks for the current song (for UI).
-  List<Track> get currentTracks => currentItem?.originalMusic.tracks ?? const [];
+  List<Track> get currentTracks =>
+      currentItem?.originalMusic.tracks ?? const [];
 
   /// Resolves the file path for a track in live mode: exported WAV if show was rendered, else original.
   static String liveFilePath(SetlistItem item, Track track) {
-    if (item.exportedItemDirectory != null && item.exportedItemDirectory!.isNotEmpty) {
+    if (item.exportedItemDirectory != null &&
+        item.exportedItemDirectory!.isNotEmpty) {
       return '${item.exportedItemDirectory}/${track.id}.wav';
     }
     return track.filePath;
@@ -149,6 +154,43 @@ abstract class LivePerformanceStoreBase with Store {
     for (final t in liveTracks) {
       _audioEngine.setTrackTempo(t.id, 1.0);
       _audioEngine.setTrackPitch(t.id, 0);
+    }
+
+    // Guarantee one C++ command-queue cycle before sending click map
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Wire click map: fetch from 'source of truth' (Isar DB), not the setlist snapshot.
+    List<int> realClickMap = item.originalMusic.clickMap;
+    if (realClickMap.isEmpty) {
+      final freshList = await _musicRepository.getMusicByIds([
+        item.originalMusic.id,
+      ]);
+      if (freshList.isNotEmpty && freshList.first.clickMap.isNotEmpty) {
+        realClickMap = freshList.first.clickMap;
+        print(
+          'DEBUG METRONOMO: clickMap obtido do DB fresco! size=${realClickMap.length}',
+        );
+      }
+    }
+
+    print('DEBUG METRONOMO: realClickMap.length = ${realClickMap.length}');
+    for (final t in liveTracks) {
+      print(
+        'DEBUG METRONOMO: Track "${t.name}" | id: ${t.id} | isClickTrack: ${t.isClickTrack} | clickMapSize: ${realClickMap.length}',
+      );
+      if (t.isClickTrack && realClickMap.isNotEmpty) {
+        print(
+          'DEBUG METRONOMO: >>> Disparando FFI setTrackClickMap para ID: ${t.id}',
+        );
+        _audioEngine.setTrackClickMap(t.id, realClickMap);
+      }
+    }
+
+    // Sync metronome BPM with the saved song BPM
+    final songBpm = item.originalMusic.bpm;
+    if (songBpm > 0) {
+      metronomeBpm = songBpm.toDouble();
+      _audioEngine.setMetronomeBpm(metronomeBpm);
     }
   }
 
@@ -230,13 +272,15 @@ abstract class LivePerformanceStoreBase with Store {
     activeSongIndex = (activeSongIndex + 1) % list.items.length;
     currentPosition = Duration.zero;
     isLoadingSong = true;
-    _loadCurrentSong().then((_) {
-      if (_disposed) return;
-      runInAction(() => isLoadingSong = false);
-      if (wasPlaying) _audioEngine.playPreview();
-    }).catchError((_, __) {
-      if (!_disposed) runInAction(() => isLoadingSong = false);
-    });
+    _loadCurrentSong()
+        .then((_) {
+          if (_disposed) return;
+          runInAction(() => isLoadingSong = false);
+          if (wasPlaying) _audioEngine.playPreview();
+        })
+        .catchError((_, __) {
+          if (!_disposed) runInAction(() => isLoadingSong = false);
+        });
   }
 
   @action
@@ -253,13 +297,15 @@ abstract class LivePerformanceStoreBase with Store {
         : activeSongIndex - 1;
     currentPosition = Duration.zero;
     isLoadingSong = true;
-    _loadCurrentSong().then((_) {
-      if (_disposed) return;
-      runInAction(() => isLoadingSong = false);
-      if (wasPlaying) _audioEngine.playPreview();
-    }).catchError((_, __) {
-      if (!_disposed) runInAction(() => isLoadingSong = false);
-    });
+    _loadCurrentSong()
+        .then((_) {
+          if (_disposed) return;
+          runInAction(() => isLoadingSong = false);
+          if (wasPlaying) _audioEngine.playPreview();
+        })
+        .catchError((_, __) {
+          if (!_disposed) runInAction(() => isLoadingSong = false);
+        });
   }
 
   @action
@@ -276,13 +322,15 @@ abstract class LivePerformanceStoreBase with Store {
     activeSongIndex = idx;
     currentPosition = Duration.zero;
     isLoadingSong = true;
-    _loadCurrentSong().then((_) {
-      if (_disposed) return;
-      runInAction(() => isLoadingSong = false);
-      if (wasPlaying) _audioEngine.playPreview();
-    }).catchError((_, __) {
-      if (!_disposed) runInAction(() => isLoadingSong = false);
-    });
+    _loadCurrentSong()
+        .then((_) {
+          if (_disposed) return;
+          runInAction(() => isLoadingSong = false);
+          if (wasPlaying) _audioEngine.playPreview();
+        })
+        .catchError((_, __) {
+          if (!_disposed) runInAction(() => isLoadingSong = false);
+        });
   }
 
   /// Ephemeral: updates engine and in-memory setlist only. Does NOT persist to Isar.
@@ -338,7 +386,10 @@ abstract class LivePerformanceStoreBase with Store {
 
   @action
   void setMetronomeVolume(double volume) {
-    metronomeVolume = volume.clamp(0.0, 5.0);  // Linear gain, headroom up to +13 dB
+    metronomeVolume = volume.clamp(
+      0.0,
+      5.0,
+    ); // Linear gain, headroom up to +13 dB
     _audioEngine.setMetronomeVolume(metronomeVolume);
   }
 

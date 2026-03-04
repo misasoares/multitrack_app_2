@@ -389,6 +389,31 @@ class MockIAudioEngineService extends _i1.Mock
       ) as _i4.Future<List<double>>);
 
   @override
+  _i4.Future<List<int>> extractBeatMap(String? filePath) => (super.noSuchMethod(
+        Invocation.method(
+          #extractBeatMap,
+          [filePath],
+        ),
+        returnValue: _i4.Future<List<int>>.value(<int>[]),
+      ) as _i4.Future<List<int>>);
+
+  @override
+  void setTrackClickMap(
+    String? trackId,
+    List<int>? clickMapMs,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #setTrackClickMap,
+          [
+            trackId,
+            clickMapMs,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void renderTrackOffline({
     required String? trackId,
     required String? inputPath,

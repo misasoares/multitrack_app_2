@@ -158,11 +158,24 @@ abstract class IAudioEngineService {
   /// Extracts waveform peak bins from a WAV file on disk (low RAM, chunked read).
   /// Use after offline render or file copy to pre-compute peaks for the UI.
   /// Returns a list of [numBins] values in [0.0, 1.0]. Returns empty list on error.
-  Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins);
+  Future<List<double>> extractWaveformPeaksFromFile(
+    String filePath,
+    int numBins,
+  );
 
   /// Extracts waveform peaks from a file path for the Timeline (async, non-blocking).
   /// Default 400 bins for tablet landscape density.
   Future<List<double>> getWaveformPeaks(String filePath, {int numBins = 400});
+
+  /// Extracts beat/transient timestamps (in milliseconds) from a WAV click track.
+  /// Runs in a background isolate to avoid blocking the UI thread.
+  /// Returns a list of timestamps in ms where transients were detected.
+  Future<List<int>> extractBeatMap(String filePath);
+
+  /// Sends a click-map (beat timestamps in ms) to a track in the native mixer.
+  /// The native side converts ms to frames and stores them for click-track logic.
+  /// Synchronous: the C++ side deep-copies the array and queues the command.
+  void setTrackClickMap(String trackId, List<int> clickMapMs);
 
   // ─── Offline Render (Export Show) ────────────────────────────────────
 

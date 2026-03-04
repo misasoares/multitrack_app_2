@@ -61,16 +61,14 @@ typedef _GetWaveformPeaksDart =
     int Function(Pointer<Utf8> trackId, Pointer<Float> outPeaks, int numBins);
 
 /// Extract peaks from file (low RAM, chunked); for use after render/copy.
-typedef _ExtractPeaksFromFileNative = Void Function(
-  Pointer<Utf8> filePath,
-  Int32 numBins,
-  Pointer<Float> outPeaks,
-);
-typedef _ExtractPeaksFromFileDart = void Function(
-  Pointer<Utf8> filePath,
-  int numBins,
-  Pointer<Float> outPeaks,
-);
+typedef _ExtractPeaksFromFileNative =
+    Void Function(
+      Pointer<Utf8> filePath,
+      Int32 numBins,
+      Pointer<Float> outPeaks,
+    );
+typedef _ExtractPeaksFromFileDart =
+    void Function(Pointer<Utf8> filePath, int numBins, Pointer<Float> outPeaks);
 
 // ── Parametric EQ ──
 typedef _SetTrackEqNative =
@@ -154,40 +152,66 @@ typedef _GetMasterDbNative = Float Function();
 typedef _GetMasterDbDart = double Function();
 
 // ── Offline Render ──
-typedef _RenderTrackOfflineNative = Void Function(
-  Pointer<Utf8> trackId,
-  Pointer<Utf8> inputPath,
-  Pointer<Utf8> outputPath,
-  Float tempo,
-  Float pitch,
-  Float volume,
-  Float pan,
-  Int32 numEqBands,
-  Pointer<Int32> eqTypes,
-  Pointer<Float> eqFreqs,
-  Pointer<Float> eqGains,
-  Pointer<Float> eqQs,
-);
-typedef _RenderTrackOfflineDart = void Function(
-  Pointer<Utf8> trackId,
-  Pointer<Utf8> inputPath,
-  Pointer<Utf8> outputPath,
-  double tempo,
-  double pitch,
-  double volume,
-  double pan,
-  int numEqBands,
-  Pointer<Int32> eqTypes,
-  Pointer<Float> eqFreqs,
-  Pointer<Float> eqGains,
-  Pointer<Float> eqQs,
-);
+typedef _RenderTrackOfflineNative =
+    Void Function(
+      Pointer<Utf8> trackId,
+      Pointer<Utf8> inputPath,
+      Pointer<Utf8> outputPath,
+      Float tempo,
+      Float pitch,
+      Float volume,
+      Float pan,
+      Int32 numEqBands,
+      Pointer<Int32> eqTypes,
+      Pointer<Float> eqFreqs,
+      Pointer<Float> eqGains,
+      Pointer<Float> eqQs,
+    );
+typedef _RenderTrackOfflineDart =
+    void Function(
+      Pointer<Utf8> trackId,
+      Pointer<Utf8> inputPath,
+      Pointer<Utf8> outputPath,
+      double tempo,
+      double pitch,
+      double volume,
+      double pan,
+      int numEqBands,
+      Pointer<Int32> eqTypes,
+      Pointer<Float> eqFreqs,
+      Pointer<Float> eqGains,
+      Pointer<Float> eqQs,
+    );
 
 typedef _GetRenderProgressNative = Float Function(Pointer<Utf8> trackId);
 typedef _GetRenderProgressDart = double Function(Pointer<Utf8> trackId);
 
 typedef _CancelRenderNative = Void Function(Pointer<Utf8> trackId);
 typedef _CancelRenderDart = void Function(Pointer<Utf8> trackId);
+
+// ── Beat Map Extraction ──
+typedef _ExtractBeatMapNative =
+    Int32 Function(
+      Pointer<Utf8> filePath,
+      Float threshold,
+      Int32 minSpacingMs,
+      Pointer<Int32> outTimestamps,
+      Int32 maxTimestamps,
+    );
+typedef _ExtractBeatMapDart =
+    int Function(
+      Pointer<Utf8> filePath,
+      double threshold,
+      int minSpacingMs,
+      Pointer<Int32> outTimestamps,
+      int maxTimestamps,
+    );
+
+// ── Click Map Wiring ──
+typedef _SetTrackClickMapNative =
+    Void Function(Pointer<Utf8> trackId, Pointer<Int32> mapMs, Int32 size);
+typedef _SetTrackClickMapDart =
+    void Function(Pointer<Utf8> trackId, Pointer<Int32> mapMs, int size);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
@@ -243,6 +267,8 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _CancelRenderDart _cancelRender;
 
   _ExtractPeaksFromFileDart? _extractPeaksFromFile;
+  _ExtractBeatMapDart? _extractBeatMap;
+  _SetTrackClickMapDart? _setTrackClickMap;
 
   late final DynamicLibrary _lib;
 
@@ -379,7 +405,9 @@ class NativeAudioEngine implements IAudioEngineService {
           )
           .asFunction<_RenderTrackOfflineDart>();
     } catch (e) {
-      print('NativeAudioEngine Warning: engine_render_track_offline not found: $e');
+      print(
+        'NativeAudioEngine Warning: engine_render_track_offline not found: $e',
+      );
     }
 
     try {
@@ -389,7 +417,31 @@ class NativeAudioEngine implements IAudioEngineService {
           )
           .asFunction<_ExtractPeaksFromFileDart>();
     } catch (e) {
-      print('NativeAudioEngine Warning: engine_extract_peaks_from_file not found: $e');
+      print(
+        'NativeAudioEngine Warning: engine_extract_peaks_from_file not found: $e',
+      );
+    }
+
+    try {
+      _extractBeatMap = lib
+          .lookup<NativeFunction<_ExtractBeatMapNative>>(
+            'engine_extract_beat_map',
+          )
+          .asFunction<_ExtractBeatMapDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: engine_extract_beat_map not found: $e');
+    }
+
+    try {
+      _setTrackClickMap = lib
+          .lookup<NativeFunction<_SetTrackClickMapNative>>(
+            'engine_set_track_click_map',
+          )
+          .asFunction<_SetTrackClickMapDart>();
+    } catch (e) {
+      print(
+        'NativeAudioEngine Warning: engine_set_track_click_map not found: $e',
+      );
     }
 
     _getRenderProgress = lib
@@ -735,7 +787,10 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   @override
-  Future<List<double>> extractWaveformPeaksFromFile(String filePath, int numBins) async {
+  Future<List<double>> extractWaveformPeaksFromFile(
+    String filePath,
+    int numBins,
+  ) async {
     if (_extractPeaksFromFile == null || numBins <= 0) return [];
     return Isolate.run<List<double>>(() {
       final lib = NativeAudioEngine._loadLibrary();
@@ -757,12 +812,17 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   @override
-  Future<List<double>> getWaveformPeaks(String filePath, {int numBins = 400}) async {
+  Future<List<double>> getWaveformPeaks(
+    String filePath, {
+    int numBins = 400,
+  }) async {
     if (numBins <= 0) return [];
     return Isolate.run<List<double>>(() {
       final lib = NativeAudioEngine._loadLibrary();
       final fn = lib
-          .lookup<NativeFunction<_ExtractPeaksFromFileNative>>('engine_extract_peaks')
+          .lookup<NativeFunction<_ExtractPeaksFromFileNative>>(
+            'engine_extract_peaks',
+          )
           .asFunction<_ExtractPeaksFromFileDart>();
       final pathPtr = filePath.toNativeUtf8();
       final outPtr = calloc<Float>(numBins);
@@ -774,6 +834,50 @@ class NativeAudioEngine implements IAudioEngineService {
         calloc.free(outPtr);
       }
     });
+  }
+
+  // ─── Beat Map Extraction ──────────────────────────────────────────────────
+
+  @override
+  Future<List<int>> extractBeatMap(String filePath) async {
+    if (_extractBeatMap == null) return [];
+    return Isolate.run<List<int>>(() {
+      final lib = NativeAudioEngine._loadLibrary();
+      final fn = lib
+          .lookup<NativeFunction<_ExtractBeatMapNative>>(
+            'engine_extract_beat_map',
+          )
+          .asFunction<_ExtractBeatMapDart>();
+
+      const int maxTimestamps = 4096;
+      final pathPtr = filePath.toNativeUtf8();
+      final outPtr = calloc<Int32>(maxTimestamps);
+      try {
+        final count = fn(pathPtr, 0.15, 100, outPtr, maxTimestamps);
+        return List<int>.generate(count, (i) => outPtr[i]);
+      } finally {
+        calloc.free(pathPtr);
+        calloc.free(outPtr);
+      }
+    });
+  }
+
+  @override
+  void setTrackClickMap(String trackId, List<int> clickMapMs) {
+    final fn = _setTrackClickMap;
+    if (fn == null || clickMapMs.isEmpty) return;
+
+    final trackIdPtr = trackId.toNativeUtf8();
+    final mapPtr = calloc<Int32>(clickMapMs.length);
+    try {
+      for (int i = 0; i < clickMapMs.length; i++) {
+        mapPtr[i] = clickMapMs[i];
+      }
+      fn(trackIdPtr, mapPtr, clickMapMs.length);
+    } finally {
+      calloc.free(trackIdPtr);
+      calloc.free(mapPtr);
+    }
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -865,10 +969,7 @@ class NativeAudioEngine implements IAudioEngineService {
 }
 
 /// Fetches waveform peaks via `engine_get_waveform_peaks` in a background isolate.
-Future<List<double>> _getWaveformDataInBackground(
-  String trackId,
-  int numBins,
-) {
+Future<List<double>> _getWaveformDataInBackground(String trackId, int numBins) {
   final id = trackId;
   final bins = numBins;
 

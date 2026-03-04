@@ -211,6 +211,11 @@ abstract class LivePerformanceStoreBase with Store {
       metronomeBpm = finalBpm;
       _audioEngine.setMetronomeBpm(metronomeBpm);
     }
+
+    // Apply hidden LUFS normalization gain (calculated during render).
+    // This silently adjusts the Master Bus for uniform loudness between songs.
+    // The UI Master fader is NOT affected — it stays at whatever the user set.
+    _audioEngine.setMasterNormalizationGain(item.normalizationGain);
   }
 
   @action

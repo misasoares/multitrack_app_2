@@ -32,6 +32,9 @@ class SetlistItemModel {
   List<String>? transposableTrackIds;
   String? exportedItemDirectory;
 
+  /// Hidden LUFS normalization gain (linear). 1.0 = no normalization.
+  double? normalizationGain;
+
   SetlistItemModel({
     this.id,
     this.originalMusicId,
@@ -51,6 +54,7 @@ class SetlistItemModel {
     this.masterEqBands,
     this.transposableTrackIds,
     this.exportedItemDirectory,
+    this.normalizationGain,
   });
 
   factory SetlistItemModel.fromEntity(SetlistItem item) {
@@ -81,6 +85,7 @@ class SetlistItemModel {
           .toList(),
       transposableTrackIds: item.transposableTrackIds,
       exportedItemDirectory: item.exportedItemDirectory,
+      normalizationGain: item.normalizationGain,
     );
   }
 
@@ -106,6 +111,7 @@ class SetlistItemModel {
       masterEqBands: masterEqBands?.map((e) => e.toEntity()).toList() ?? [],
       transposableTrackIds: transposableTrackIds ?? [],
       exportedItemDirectory: exportedItemDirectory,
+      normalizationGain: normalizationGain ?? 1.0,
     );
   }
 }

@@ -29,80 +29,85 @@ const SetlistItemModelSchema = Schema(
       type: IsarType.objectList,
       target: r'EqBandModel',
     ),
-    r'originalMusicArtist': PropertySchema(
+    r'normalizationGain': PropertySchema(
       id: 3,
+      name: r'normalizationGain',
+      type: IsarType.double,
+    ),
+    r'originalMusicArtist': PropertySchema(
+      id: 4,
       name: r'originalMusicArtist',
       type: IsarType.string,
     ),
     r'originalMusicBpm': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'originalMusicBpm',
       type: IsarType.long,
     ),
     r'originalMusicCreatedAt': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'originalMusicCreatedAt',
       type: IsarType.dateTime,
     ),
     r'originalMusicId': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'originalMusicId',
       type: IsarType.string,
     ),
     r'originalMusicKey': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'originalMusicKey',
       type: IsarType.string,
     ),
     r'originalMusicMarkers': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'originalMusicMarkers',
       type: IsarType.objectList,
       target: r'MarkerModel',
     ),
     r'originalMusicTimeSignatureDenominator': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'originalMusicTimeSignatureDenominator',
       type: IsarType.long,
     ),
     r'originalMusicTimeSignatureNumerator': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'originalMusicTimeSignatureNumerator',
       type: IsarType.long,
     ),
     r'originalMusicTitle': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'originalMusicTitle',
       type: IsarType.string,
     ),
     r'originalMusicTracks': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'originalMusicTracks',
       type: IsarType.objectList,
       target: r'TrackModel',
     ),
     r'originalMusicUpdatedAt': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'originalMusicUpdatedAt',
       type: IsarType.dateTime,
     ),
     r'tempoFactor': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'tempoFactor',
       type: IsarType.double,
     ),
     r'transposableTrackIds': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'transposableTrackIds',
       type: IsarType.stringList,
     ),
     r'transposeSemitones': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'transposeSemitones',
       type: IsarType.long,
     ),
     r'volume': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'volume',
       type: IsarType.double,
     )
@@ -226,31 +231,32 @@ void _setlistItemModelSerialize(
     EqBandModelSchema.serialize,
     object.masterEqBands,
   );
-  writer.writeString(offsets[3], object.originalMusicArtist);
-  writer.writeLong(offsets[4], object.originalMusicBpm);
-  writer.writeDateTime(offsets[5], object.originalMusicCreatedAt);
-  writer.writeString(offsets[6], object.originalMusicId);
-  writer.writeString(offsets[7], object.originalMusicKey);
+  writer.writeDouble(offsets[3], object.normalizationGain);
+  writer.writeString(offsets[4], object.originalMusicArtist);
+  writer.writeLong(offsets[5], object.originalMusicBpm);
+  writer.writeDateTime(offsets[6], object.originalMusicCreatedAt);
+  writer.writeString(offsets[7], object.originalMusicId);
+  writer.writeString(offsets[8], object.originalMusicKey);
   writer.writeObjectList<MarkerModel>(
-    offsets[8],
+    offsets[9],
     allOffsets,
     MarkerModelSchema.serialize,
     object.originalMusicMarkers,
   );
-  writer.writeLong(offsets[9], object.originalMusicTimeSignatureDenominator);
-  writer.writeLong(offsets[10], object.originalMusicTimeSignatureNumerator);
-  writer.writeString(offsets[11], object.originalMusicTitle);
+  writer.writeLong(offsets[10], object.originalMusicTimeSignatureDenominator);
+  writer.writeLong(offsets[11], object.originalMusicTimeSignatureNumerator);
+  writer.writeString(offsets[12], object.originalMusicTitle);
   writer.writeObjectList<TrackModel>(
-    offsets[12],
+    offsets[13],
     allOffsets,
     TrackModelSchema.serialize,
     object.originalMusicTracks,
   );
-  writer.writeDateTime(offsets[13], object.originalMusicUpdatedAt);
-  writer.writeDouble(offsets[14], object.tempoFactor);
-  writer.writeStringList(offsets[15], object.transposableTrackIds);
-  writer.writeLong(offsets[16], object.transposeSemitones);
-  writer.writeDouble(offsets[17], object.volume);
+  writer.writeDateTime(offsets[14], object.originalMusicUpdatedAt);
+  writer.writeDouble(offsets[15], object.tempoFactor);
+  writer.writeStringList(offsets[16], object.transposableTrackIds);
+  writer.writeLong(offsets[17], object.transposeSemitones);
+  writer.writeDouble(offsets[18], object.volume);
 }
 
 SetlistItemModel _setlistItemModelDeserialize(
@@ -268,31 +274,32 @@ SetlistItemModel _setlistItemModelDeserialize(
       allOffsets,
       EqBandModel(),
     ),
-    originalMusicArtist: reader.readStringOrNull(offsets[3]),
-    originalMusicBpm: reader.readLongOrNull(offsets[4]),
-    originalMusicCreatedAt: reader.readDateTimeOrNull(offsets[5]),
-    originalMusicId: reader.readStringOrNull(offsets[6]),
-    originalMusicKey: reader.readStringOrNull(offsets[7]),
+    normalizationGain: reader.readDoubleOrNull(offsets[3]),
+    originalMusicArtist: reader.readStringOrNull(offsets[4]),
+    originalMusicBpm: reader.readLongOrNull(offsets[5]),
+    originalMusicCreatedAt: reader.readDateTimeOrNull(offsets[6]),
+    originalMusicId: reader.readStringOrNull(offsets[7]),
+    originalMusicKey: reader.readStringOrNull(offsets[8]),
     originalMusicMarkers: reader.readObjectList<MarkerModel>(
-      offsets[8],
+      offsets[9],
       MarkerModelSchema.deserialize,
       allOffsets,
       MarkerModel(),
     ),
-    originalMusicTimeSignatureDenominator: reader.readLongOrNull(offsets[9]),
-    originalMusicTimeSignatureNumerator: reader.readLongOrNull(offsets[10]),
-    originalMusicTitle: reader.readStringOrNull(offsets[11]),
+    originalMusicTimeSignatureDenominator: reader.readLongOrNull(offsets[10]),
+    originalMusicTimeSignatureNumerator: reader.readLongOrNull(offsets[11]),
+    originalMusicTitle: reader.readStringOrNull(offsets[12]),
     originalMusicTracks: reader.readObjectList<TrackModel>(
-      offsets[12],
+      offsets[13],
       TrackModelSchema.deserialize,
       allOffsets,
       TrackModel(),
     ),
-    originalMusicUpdatedAt: reader.readDateTimeOrNull(offsets[13]),
-    tempoFactor: reader.readDoubleOrNull(offsets[14]),
-    transposableTrackIds: reader.readStringList(offsets[15]),
-    transposeSemitones: reader.readLongOrNull(offsets[16]),
-    volume: reader.readDoubleOrNull(offsets[17]),
+    originalMusicUpdatedAt: reader.readDateTimeOrNull(offsets[14]),
+    tempoFactor: reader.readDoubleOrNull(offsets[15]),
+    transposableTrackIds: reader.readStringList(offsets[16]),
+    transposeSemitones: reader.readLongOrNull(offsets[17]),
+    volume: reader.readDoubleOrNull(offsets[18]),
   );
   return object;
 }
@@ -316,44 +323,46 @@ P _setlistItemModelDeserializeProp<P>(
         EqBandModel(),
       )) as P;
     case 3:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 4:
-      return (reader.readLongOrNull(offset)) as P;
-    case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 6:
       return (reader.readStringOrNull(offset)) as P;
+    case 5:
+      return (reader.readLongOrNull(offset)) as P;
+    case 6:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
       return (reader.readStringOrNull(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
       return (reader.readObjectList<MarkerModel>(
         offset,
         MarkerModelSchema.deserialize,
         allOffsets,
         MarkerModel(),
       )) as P;
-    case 9:
-      return (reader.readLongOrNull(offset)) as P;
     case 10:
       return (reader.readLongOrNull(offset)) as P;
     case 11:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 12:
+      return (reader.readStringOrNull(offset)) as P;
+    case 13:
       return (reader.readObjectList<TrackModel>(
         offset,
         TrackModelSchema.deserialize,
         allOffsets,
         TrackModel(),
       )) as P;
-    case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
-      return (reader.readStringList(offset)) as P;
+      return (reader.readDoubleOrNull(offset)) as P;
     case 16:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 17:
+      return (reader.readLongOrNull(offset)) as P;
+    case 18:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -775,6 +784,90 @@ extension SetlistItemModelQueryFilter
         upper,
         includeUpper,
       );
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'normalizationGain',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'normalizationGain',
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainEqualTo(
+    double? value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'normalizationGain',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainGreaterThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'normalizationGain',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainLessThan(
+    double? value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'normalizationGain',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<SetlistItemModel, SetlistItemModel, QAfterFilterCondition>
+      normalizationGainBetween(
+    double? lower,
+    double? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'normalizationGain',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
     });
   }
 

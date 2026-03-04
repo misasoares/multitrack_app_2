@@ -12,8 +12,13 @@ class SetlistItem extends Equatable {
   final int transposeSemitones;
   final List<EqBandData> masterEqBands;
   final List<String> transposableTrackIds;
+
   /// Path to this item's exported folder (e.g. shows/{setlistId}/{itemId}).
   final String? exportedItemDirectory;
+
+  /// Hidden LUFS normalization gain (linear). 1.0 = no normalization.
+  /// Calculated offline during render and applied silently in the Master Bus.
+  final double normalizationGain;
 
   const SetlistItem({
     required this.id,
@@ -24,6 +29,7 @@ class SetlistItem extends Equatable {
     this.masterEqBands = const [],
     this.transposableTrackIds = const [],
     this.exportedItemDirectory,
+    this.normalizationGain = 1.0,
   });
 
   factory SetlistItem.fromMusic(Music music) {
@@ -42,6 +48,7 @@ class SetlistItem extends Equatable {
     List<EqBandData>? masterEqBands,
     List<String>? transposableTrackIds,
     String? exportedItemDirectory,
+    double? normalizationGain,
   }) {
     return SetlistItem(
       id: id ?? this.id,
@@ -51,7 +58,9 @@ class SetlistItem extends Equatable {
       transposeSemitones: transposeSemitones ?? this.transposeSemitones,
       masterEqBands: masterEqBands ?? this.masterEqBands,
       transposableTrackIds: transposableTrackIds ?? this.transposableTrackIds,
-      exportedItemDirectory: exportedItemDirectory ?? this.exportedItemDirectory,
+      exportedItemDirectory:
+          exportedItemDirectory ?? this.exportedItemDirectory,
+      normalizationGain: normalizationGain ?? this.normalizationGain,
     );
   }
 
@@ -65,5 +74,6 @@ class SetlistItem extends Equatable {
     masterEqBands,
     transposableTrackIds,
     exportedItemDirectory,
+    normalizationGain,
   ];
 }

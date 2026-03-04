@@ -634,8 +634,7 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
       itemCount: widget.store.tracks.length,
       itemBuilder: (context, index) {
         final track = widget.store.tracks[index];
-        final showWaveform =
-            MediaQuery.of(context).size.shortestSide >= 600;
+        final showWaveform = MediaQuery.of(context).size.shortestSide >= 600;
         return _buildTrackItem(track, index, showWaveform: showWaveform);
       },
     );
@@ -702,7 +701,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
               width: 300,
               child: Observer(
                 builder: (_) {
-                  final peaks = track.waveformPeaks ?? widget.store.waveformData[track.id];
+                  final peaks =
+                      track.waveformPeaks ??
+                      widget.store.waveformData[track.id];
                   final isLoading = (peaks == null || peaks.isEmpty);
                   return Container(
                     height: 44,
@@ -716,7 +717,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                       child: isLoading
                           ? Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -725,7 +728,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                                       height: 16,
                                       child: LinearProgressIndicator(
                                         backgroundColor: Colors.white12,
-                                        color: AppColors.primary.withValues(alpha: 0.8),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.8,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -871,7 +876,9 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                                   overlayShape: const RoundSliderOverlayShape(
                                     overlayRadius: 12,
                                   ),
-                                  overlayColor: AppColors.primary.withValues(alpha: 0.15),
+                                  overlayColor: AppColors.primary.withValues(
+                                    alpha: 0.15,
+                                  ),
                                 ),
                                 child: Slider(
                                   value: track.volume,
@@ -909,7 +916,39 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
 
           const SizedBox(width: 8),
 
-          // ── Track Options (Pencil) ──
+          // ── Click Track Toggle ──
+          Observer(
+            builder: (_) {
+              final isActive = track.isClickTrack;
+              return InkWell(
+                onTap: () => widget.store.setClickTrack(track.id),
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? Colors.amber.withValues(alpha: 0.25)
+                        : AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: isActive
+                          ? Colors.amber.withValues(alpha: 0.6)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.speed,
+                    size: 18,
+                    color: isActive ? Colors.amber : AppColors.textMuted,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 8),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'equalizer') {
@@ -1226,34 +1265,49 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                                       ),
                                       // Waveform (master: musical tracks only; loading when empty)
                                       Positioned.fill(
-                                        child: widget.store.masterWaveformPeaks.isEmpty
+                                        child:
+                                            widget
+                                                .store
+                                                .masterWaveformPeaks
+                                                .isEmpty
                                             ? Center(
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
                                                     SizedBox(
                                                       width: 16,
                                                       height: 16,
-                                                      child: LinearProgressIndicator(
-                                                        backgroundColor: Colors.white12,
-                                                        color: AppColors.primary.withValues(alpha: 0.8),
-                                                      ),
+                                                      child:
+                                                          LinearProgressIndicator(
+                                                            backgroundColor:
+                                                                Colors.white12,
+                                                            color: AppColors
+                                                                .primary
+                                                                .withValues(
+                                                                  alpha: 0.8,
+                                                                ),
+                                                          ),
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Text(
                                                       'Desenhando onda...',
                                                       style: TextStyle(
                                                         fontSize: 11,
-                                                        color: AppColors.textMuted,
+                                                        color:
+                                                            AppColors.textMuted,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                               )
                                             : CustomPaint(
-                                                painter: _UnifiedWaveformPainter(
-                                                  waveform: widget.store.masterWaveformPeaks,
-                                                ),
+                                                painter:
+                                                    _UnifiedWaveformPainter(
+                                                      waveform: widget
+                                                          .store
+                                                          .masterWaveformPeaks,
+                                                    ),
                                               ),
                                       ),
                                       // Playhead

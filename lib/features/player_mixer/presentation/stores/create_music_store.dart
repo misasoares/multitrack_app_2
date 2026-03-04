@@ -415,7 +415,10 @@ abstract class CreateMusicStoreBase with Store {
           waveformData[t.id] = t.waveformPeaks!;
           continue;
         }
-        final peaks = await _audioEngine.getWaveformPeaks(t.filePath, numBins: 400);
+        final peaks = await _audioEngine.getWaveformPeaks(
+          t.filePath,
+          numBins: 400,
+        );
         if (peaks.isNotEmpty) {
           waveformData[t.id] = peaks;
           tracks[i] = t.copyWith(waveformPeaks: peaks);
@@ -434,7 +437,9 @@ abstract class CreateMusicStoreBase with Store {
 
     // If we haven't loaded waveforms yet, force reload (peaks from file).
     if (tracks.isNotEmpty &&
-        tracks.every((t) => t.waveformPeaks == null || t.waveformPeaks!.isEmpty) &&
+        tracks.every(
+          (t) => t.waveformPeaks == null || t.waveformPeaks!.isEmpty,
+        ) &&
         waveformData.isEmpty) {
       isProcessingAudio = true;
       await _yieldFrame(); // Let Flutter render the spinner first
@@ -572,6 +577,24 @@ abstract class CreateMusicStoreBase with Store {
     }
   }
 
+  // ─── Click Track ────────────────────────────────────────────────────
+
+  /// Toggles exclusive click track designation.
+  /// Only one track can be `isClickTrack == true` at a time.
+  @action
+  void setClickTrack(String trackId) {
+    for (int i = 0; i < tracks.length; i++) {
+      final t = tracks[i];
+      if (t.id == trackId) {
+        // Toggle: if already click track, deselect; otherwise select
+        tracks[i] = t.copyWith(isClickTrack: !t.isClickTrack);
+      } else if (t.isClickTrack) {
+        // Deselect any other click track
+        tracks[i] = t.copyWith(isClickTrack: false);
+      }
+    }
+  }
+
   // ─── Save Action ──────────────────────────────────────────────────
   // ... (Save logic unchanged)
 
@@ -613,6 +636,32 @@ abstract class CreateMusicStoreBase with Store {
 
       _reindexTrackOrder();
 
+      // ── Click Track: extract beat map and auto-calculate BPM ──
+      List<int> clickMap = const [];
+      final clickTrack = tracks.cast<Track?>().firstWhere(
+        (t) => t!.isClickTrack,
+        orElse: () => null,
+      );
+      if (clickTrack != null && clickTrack.filePath.isNotEmpty) {
+        try {
+          clickMap = await _audioEngine.extractBeatMap(clickTrack.filePath);
+          // Auto-calculate BPM from first 10 deltas
+          if (clickMap.length >= 2) {
+            final deltas = <int>[];
+            final limit = clickMap.length < 11 ? clickMap.length : 11;
+            for (int i = 1; i < limit; i++) {
+              deltas.add(clickMap[i] - clickMap[i - 1]);
+            }
+            final avgDelta = deltas.reduce((a, b) => a + b) / deltas.length;
+            if (avgDelta > 0) {
+              bpmInt = (60000 / avgDelta).round();
+            }
+          }
+        } catch (e) {
+          debugPrint('Error extracting beat map: $e');
+        }
+      }
+
       // Save full track list (non-destructive). Muted tracks stay in DB; filtering happens at export and in the audio engine.
       final music = Music(
         id: editingMusicId ?? _uuid.v4(), // Use existing ID if editing
@@ -623,6 +672,7 @@ abstract class CreateMusicStoreBase with Store {
         timeSignatureDenominator: tsDen,
         key: key,
         tracks: List<Track>.from(tracks),
+        clickMap: clickMap,
         createdAt: editingMusicId != null ? originalCreatedAt : DateTime.now(),
         updatedAt: DateTime.now(),
       );

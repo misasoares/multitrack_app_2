@@ -531,6 +531,17 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
   }
 
   @override
+  void setClickTrack(String trackId) {
+    final _$actionInfo = _$CreateMusicStoreBaseActionController.startAction(
+        name: 'CreateMusicStoreBase.setClickTrack');
+    try {
+      return super.setClickTrack(trackId);
+    } finally {
+      _$CreateMusicStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 title: ${title},

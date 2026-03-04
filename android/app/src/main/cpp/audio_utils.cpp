@@ -86,4 +86,85 @@ bool extractPeaksFromFile(const char* filePath,
     return true;
 }
 
+// ─── Beat Map Extraction (transient detection) ────────────────────────────────
+
+int extractBeatMap(const char* filePath,
+                   float threshold,
+                   int minSpacingMs,
+                   int* outTimestamps,
+                   int maxTimestamps) {
+    if (!filePath || !outTimestamps || maxTimestamps <= 0)
+        return 0;
+
+    drwav wav;
+    if (!drwav_init_file(&wav, filePath, nullptr)) {
+        LOGE_AU("extractBeatMap: failed to open %s", filePath);
+        return 0;
+    }
+
+    const drwav_uint64 totalFrames = wav.totalPCMFrameCount;
+    const unsigned int numCh = wav.channels;
+    const unsigned int sampleRate = wav.sampleRate;
+    if (totalFrames == 0 || numCh == 0 || sampleRate == 0) {
+        drwav_uninit(&wav);
+        return 0;
+    }
+
+    const size_t chunkFrames = kPeakExtractChunkFrames;
+    const size_t chunkSamples = chunkFrames * numCh;
+    std::vector<float> chunk(chunkSamples, 0.0f);
+
+    // Minimum spacing in frames
+    const drwav_uint64 minSpacingFrames =
+        static_cast<drwav_uint64>(sampleRate) *
+        static_cast<drwav_uint64>(minSpacingMs) / 1000ULL;
+
+    int count = 0;
+    drwav_uint64 framesRead = 0;
+    drwav_uint64 lastBeatFrame = 0; // Frame of last detected beat
+    bool firstBeat = true;
+
+    while (framesRead < totalFrames && count < maxTimestamps) {
+        drwav_uint64 toRead = (totalFrames - framesRead < chunkFrames)
+            ? (totalFrames - framesRead)
+            : chunkFrames;
+        drwav_uint64 got = drwav_read_pcm_frames_f32(&wav, toRead, chunk.data());
+        if (got == 0) break;
+
+        for (drwav_uint64 f = 0; f < got && count < maxTimestamps; ++f) {
+            const drwav_uint64 globalFrame = framesRead + f;
+
+            // Check spacing since last beat
+            if (!firstBeat && (globalFrame - lastBeatFrame) < minSpacingFrames)
+                continue;
+
+            // Check if any channel exceeds threshold
+            bool hit = false;
+            for (unsigned int c = 0; c < numCh; ++c) {
+                float s = chunk[static_cast<size_t>(f * numCh + c)];
+                if (std::fabs(s) > threshold) {
+                    hit = true;
+                    break;
+                }
+            }
+
+            if (hit) {
+                // Convert frame to milliseconds
+                int ms = static_cast<int>(
+                    (globalFrame * 1000ULL) / static_cast<drwav_uint64>(sampleRate));
+                outTimestamps[count] = ms;
+                count++;
+                lastBeatFrame = globalFrame;
+                firstBeat = false;
+            }
+        }
+        framesRead += got;
+    }
+
+    drwav_uninit(&wav);
+    LOGD_AU("extractBeatMap: %s -> %d beats (threshold=%.3f, spacing=%dms)",
+            filePath, count, threshold, minSpacingMs);
+    return count;
+}
+
 }  // namespace audio_utils

@@ -37,6 +37,10 @@ typedef _PauseDart = void Function();
 typedef _SeekToNative = Void Function(Int64 framePosition);
 typedef _SeekToDart = void Function(int framePosition);
 
+typedef _ScheduleJumpNative =
+    Void Function(Int64 triggerFrame, Int64 targetFrame);
+typedef _ScheduleJumpDart = void Function(int triggerFrame, int targetFrame);
+
 // ── Per-track parameters ──
 typedef _SetVolumeNative = Void Function(Pointer<Utf8> trackId, Float volume);
 typedef _SetVolumeDart = void Function(Pointer<Utf8> trackId, double volume);
@@ -236,6 +240,7 @@ class NativeAudioEngine implements IAudioEngineService {
   late final _PlayDart _play;
   late final _PauseDart _pause;
   late final _SeekToDart _seekTo;
+  late final _ScheduleJumpDart _scheduleJump;
   late final _SetVolumeDart _setVolume;
   late final _SetPanDart _setPan;
   late final _SetMuteDart _setMute;
@@ -320,6 +325,10 @@ class NativeAudioEngine implements IAudioEngineService {
     _seekTo = lib
         .lookup<NativeFunction<_SeekToNative>>('engine_seek_to')
         .asFunction<_SeekToDart>();
+
+    _scheduleJump = lib
+        .lookup<NativeFunction<_ScheduleJumpNative>>('engine_schedule_jump')
+        .asFunction<_ScheduleJumpDart>();
 
     _setVolume = lib
         .lookup<NativeFunction<_SetVolumeNative>>('engine_set_volume')
@@ -518,9 +527,25 @@ class NativeAudioEngine implements IAudioEngineService {
 
   @override
   Future<void> seekTo(Duration timestamp) async {
-    // Convert Duration to frame position at 44100 Hz.
-    final frames = (timestamp.inMicroseconds * 44100 / 1000000).round();
+    // Convert Duration to frame position using the engine's current sample rate.
+    final frames = (timestamp.inMicroseconds * _getSampleRate() / 1000000)
+        .round();
     _seekTo(frames);
+  }
+
+  @override
+  Future<void> scheduleJump(Duration? triggerTime, Duration targetTime) async {
+    if (triggerTime == null || triggerTime.isNegative) {
+      _scheduleJump(
+        -1,
+        (targetTime.inMicroseconds * _getSampleRate() ~/ 1000000),
+      );
+    } else {
+      _scheduleJump(
+        (triggerTime.inMicroseconds * _getSampleRate() ~/ 1000000),
+        (targetTime.inMicroseconds * _getSampleRate() ~/ 1000000),
+      );
+    }
   }
 
   // ─── Preview ───────────────────────────────────────────────────────────────

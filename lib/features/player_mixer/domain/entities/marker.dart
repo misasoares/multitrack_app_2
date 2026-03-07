@@ -13,6 +13,20 @@ class Marker extends Equatable {
     required this.colorHex,
   });
 
+  Marker copyWith({
+    String? id,
+    String? label,
+    Duration? timestamp,
+    String? colorHex,
+  }) {
+    return Marker(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      timestamp: timestamp ?? this.timestamp,
+      colorHex: colorHex ?? this.colorHex,
+    );
+  }
+
   @override
   List<Object?> get props => [id, label, timestamp, colorHex];
 }

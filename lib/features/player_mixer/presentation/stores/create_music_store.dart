@@ -5,6 +5,7 @@ import 'package:mobx/mobx.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
 import '../../domain/entities/eq_band_data.dart';
+import '../../domain/entities/marker.dart';
 import '../../domain/entities/music.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/repositories/imusic_repository.dart';
@@ -54,6 +55,11 @@ abstract class CreateMusicStoreBase with Store {
 
   @observable
   ObservableList<Track> tracks = ObservableList<Track>();
+
+  // ─── Markers ───────────────────────────────────────────────────────
+
+  @observable
+  ObservableList<Marker> markers = ObservableList<Marker>();
 
   // ─── UI State ──────────────────────────────────────────────────────
 
@@ -145,7 +151,7 @@ abstract class CreateMusicStoreBase with Store {
     final activeTracks = tracks.where((t) => !t.isMuted).toList();
     return Music.computeMasterWaveformPeaks(
       activeTracks,
-      numBins: 400,
+      numBins: 2000,
       getPeaks: (t) => t.waveformPeaks ?? waveformData[t.id],
     );
   }
@@ -231,7 +237,10 @@ abstract class CreateMusicStoreBase with Store {
       await _yieldFrame();
 
       // Extract waveform peaks in background (isolate); update track and persist
-      final peaks = await _audioEngine.getWaveformPeaks(filePath, numBins: 400);
+      final peaks = await _audioEngine.getWaveformPeaks(
+        filePath,
+        numBins: 2000,
+      );
       final trackId = newTrack.id;
       final index = tracks.indexWhere((t) => t.id == trackId);
       if (index != -1 && peaks.isNotEmpty) {
@@ -528,6 +537,8 @@ abstract class CreateMusicStoreBase with Store {
     timeSignatureDenominator = music.timeSignatureDenominator;
     originalCreatedAt = music.createdAt;
 
+    markers = ObservableList.of(music.markers);
+
     // Recalculate durations since not persisted
     isProcessingAudio = true;
     await _yieldFrame(); // Let Flutter render the spinner first
@@ -597,6 +608,21 @@ abstract class CreateMusicStoreBase with Store {
 
   // ─── Save Action ──────────────────────────────────────────────────
   // ... (Save logic unchanged)
+
+  Future<List<int>> getOrExtractClickMap() async {
+    final clickTrack = tracks.cast<Track?>().firstWhere(
+      (t) => t!.isClickTrack,
+      orElse: () => null,
+    );
+    if (clickTrack == null || clickTrack.filePath.isEmpty) return [];
+
+    try {
+      return await _audioEngine.extractBeatMap(clickTrack.filePath);
+    } catch (e) {
+      debugPrint('Error extracting beat map: $e');
+      return [];
+    }
+  }
 
   @action
   Future<void> saveMusicConfig() async {
@@ -672,6 +698,7 @@ abstract class CreateMusicStoreBase with Store {
         timeSignatureDenominator: tsDen,
         key: key,
         tracks: List<Track>.from(tracks),
+        markers: List<Marker>.from(markers),
         clickMap: clickMap,
         createdAt: editingMusicId != null ? originalCreatedAt : DateTime.now(),
         updatedAt: DateTime.now(),
@@ -701,6 +728,7 @@ abstract class CreateMusicStoreBase with Store {
     timeSignatureNumerator = 4;
     timeSignatureDenominator = 4;
     tracks.clear();
+    markers.clear();
     currentPosition = Duration.zero;
     _stopTicker();
     waveformData.clear();

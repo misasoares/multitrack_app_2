@@ -4,15 +4,18 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/audio_engine/audio_dsp_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../injection_container.dart';
 import '../../domain/entities/marker.dart';
+import '../../domain/entities/music.dart';
 import '../../domain/entities/track.dart';
 import '../stores/create_music_store.dart';
 import '../widgets/eq/eq_interactive_dialog.dart';
 import 'markers_editor_page.dart';
+import '../../../performance/presentation/pages/live_preview_page.dart';
 
 class CreateMusicPage extends StatefulWidget {
   final CreateMusicStore store;
@@ -279,6 +282,48 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
                           peaks: widget.store.masterWaveformPeaks,
                           clickMap: tempClickMap,
                           initialMarkers: widget.store.markers,
+                          onPreview: (updatedMarkers, peaks) async {
+                            widget.store.markers = ObservableList.of(
+                              updatedMarkers,
+                            );
+                            await widget.store.saveMusicConfig(isExit: false);
+
+                            if (!mounted) return;
+
+                            // Build temporary Music object with saved data
+                            // The store already creates one when saving, we construct it similarly here
+                            final music = Music(
+                              id:
+                                  widget.store.editingMusicId ??
+                                  const Uuid().v4(),
+                              title: widget.store.title,
+                              artist: widget.store.artist,
+                              bpm: int.tryParse(widget.store.bpm) ?? 120,
+                              timeSignatureNumerator:
+                                  widget.store.timeSignatureNumerator,
+                              timeSignatureDenominator:
+                                  widget.store.timeSignatureDenominator,
+                              key: widget.store.key,
+                              tracks: widget.store.tracks.toList(),
+                              markers: updatedMarkers,
+                              clickMap: tempClickMap,
+                              createdAt:
+                                  widget.store.originalCreatedAt ??
+                                  DateTime.now(),
+                              updatedAt: DateTime.now(),
+                            );
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => LivePreviewPage(
+                                  music: music,
+                                  precalculatedPeaks: peaks,
+                                  store: widget.store,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     );

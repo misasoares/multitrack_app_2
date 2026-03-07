@@ -177,6 +177,22 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
     });
   }
 
+  late final _$markersAtom =
+      Atom(name: 'CreateMusicStoreBase.markers', context: context);
+
+  @override
+  ObservableList<Marker> get markers {
+    _$markersAtom.reportRead();
+    return super.markers;
+  }
+
+  @override
+  set markers(ObservableList<Marker> value) {
+    _$markersAtom.reportWrite(value, super.markers, () {
+      super.markers = value;
+    });
+  }
+
   late final _$isLoadingAtom =
       Atom(name: 'CreateMusicStoreBase.isLoading', context: context);
 
@@ -358,8 +374,9 @@ mixin _$CreateMusicStore on CreateMusicStoreBase, Store {
       AsyncAction('CreateMusicStoreBase.saveMusicConfig', context: context);
 
   @override
-  Future<void> saveMusicConfig() {
-    return _$saveMusicConfigAsyncAction.run(() => super.saveMusicConfig());
+  Future<void> saveMusicConfig({bool isExit = true}) {
+    return _$saveMusicConfigAsyncAction
+        .run(() => super.saveMusicConfig(isExit: isExit));
   }
 
   late final _$CreateMusicStoreBaseActionController =
@@ -553,6 +570,7 @@ timeSignatureNumerator: ${timeSignatureNumerator},
 timeSignatureDenominator: ${timeSignatureDenominator},
 originalCreatedAt: ${originalCreatedAt},
 tracks: ${tracks},
+markers: ${markers},
 isLoading: ${isLoading},
 isPlaying: ${isPlaying},
 errorMessage: ${errorMessage},

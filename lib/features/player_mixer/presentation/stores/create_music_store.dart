@@ -625,7 +625,7 @@ abstract class CreateMusicStoreBase with Store {
   }
 
   @action
-  Future<void> saveMusicConfig() async {
+  Future<void> saveMusicConfig({bool isExit = true}) async {
     // ... validation ...
     if (title.isEmpty) {
       errorMessage = 'Song title is required';
@@ -706,10 +706,12 @@ abstract class CreateMusicStoreBase with Store {
 
       await _repository.saveMusic(music);
 
-      saveSuccess = true;
-      await _yieldFrame(); // Let MobX reaction fire (Navigator.pop) before reset
+      if (isExit) {
+        saveSuccess = true;
+        await _yieldFrame(); // Let MobX reaction fire (Navigator.pop) before reset
 
-      _resetForm();
+        _resetForm();
+      }
     } catch (e) {
       errorMessage = e.toString();
     } finally {

@@ -90,6 +90,23 @@ class MockIAudioEngineService extends _i1.Mock
       ) as _i4.Future<void>);
 
   @override
+  _i4.Future<void> scheduleJump(
+    Duration? triggerTime,
+    Duration? targetTime,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #scheduleJump,
+          [
+            triggerTime,
+            targetTime,
+          ],
+        ),
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
+
+  @override
   _i4.Future<void> loadPreview(List<_i5.Track>? tracks) => (super.noSuchMethod(
         Invocation.method(
           #loadPreview,
@@ -386,7 +403,7 @@ class MockIAudioEngineService extends _i1.Mock
   @override
   _i4.Future<List<double>> getWaveformPeaks(
     String? filePath, {
-    int? numBins = 400,
+    int? numBins = 2000,
   }) =>
       (super.noSuchMethod(
         Invocation.method(

@@ -210,7 +210,15 @@ static void runIoThread(MixerTrack* track, int32_t sampleRate) {
             }
         }
 
-        if (track->ringBuffer->availableToWrite() < chunkSamples) {
+        size_t requiredSpace = chunkSamples;
+        if (wav && needsResample) {
+            const size_t chunkFramesFile = chunkSamples / static_cast<size_t>(numCh);
+            const size_t outFrames = static_cast<size_t>(
+                std::ceil(static_cast<double>(chunkFramesFile) * static_cast<double>(sampleRate) / static_cast<double>(fileRate)));
+            requiredSpace = outFrames * static_cast<size_t>(numCh);
+        }
+
+        if (track->ringBuffer->availableToWrite() < requiredSpace) {
             // When disk streaming (wav), sleep less so we refill faster under
             // SoundTouch tempo (consumer drains ring faster). Memory path keeps 5ms.
             const auto delayMs = wav ? 2 : 5;
@@ -937,7 +945,6 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                                     }
                                     st->putSamples(stInput, static_cast<unsigned int>(gotFrames));
                                 }
-                                track.playheadFrame = std::min(track.numFrames, track.playheadFrame + gotFrames);
                             } else {
                                 break;
                             }
@@ -1024,6 +1031,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             track.currentGain.store(curGain, std::memory_order_relaxed);
             track.gainRampSamplesRemaining.store(rampRem, std::memory_order_relaxed);
         }
+
+        // Frente A: Advance playheadFrame exactly with output numFrames for real-time acoustic sync
+        track.playheadFrame += numFrames;
     }
 
     // ── Master Bus Processing (with Bypass) ──

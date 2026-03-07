@@ -440,6 +440,50 @@ class MockIAudioEngineService extends _i1.Mock
       );
 
   @override
+  _i4.Future<bool> loadDrumSample(
+    String? id,
+    String? filePath,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #loadDrumSample,
+          [
+            id,
+            filePath,
+          ],
+        ),
+        returnValue: _i4.Future<bool>.value(false),
+      ) as _i4.Future<bool>);
+
+  @override
+  void triggerDrumPad(String? id) => super.noSuchMethod(
+        Invocation.method(
+          #triggerDrumPad,
+          [id],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void clearDrumSamples() => super.noSuchMethod(
+        Invocation.method(
+          #clearDrumSamples,
+          [],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  _i4.Future<void> initializeDrumKit() => (super.noSuchMethod(
+        Invocation.method(
+          #initializeDrumKit,
+          [],
+        ),
+        returnValue: _i4.Future<void>.value(),
+        returnValueForMissingStub: _i4.Future<void>.value(),
+      ) as _i4.Future<void>);
+
+  @override
   void renderTrackOffline({
     required String? trackId,
     required String? inputPath,

@@ -6,6 +6,7 @@ import 'core/audio_engine/iaudio_engine_service.dart';
 import 'core/audio_engine/native_audio_engine.dart';
 import 'features/player_mixer/data/models/music_model.dart';
 import 'features/player_mixer/data/models/setlist_model.dart';
+import 'features/player_mixer/data/models/midi_config_model.dart';
 import 'features/player_mixer/data/repositories/isar_music_repository.dart';
 import 'features/player_mixer/domain/repositories/imusic_repository.dart';
 import 'features/player_mixer/presentation/stores/create_music_store.dart';
@@ -16,6 +17,7 @@ import 'features/player_mixer/presentation/stores/setlist_config_store.dart';
 import 'features/player_mixer/domain/services/setlist_export_service.dart';
 import 'features/performance/presentation/stores/performance_list_store.dart';
 import 'features/performance/presentation/stores/live_performance_store.dart';
+import 'features/player_mixer/presentation/stores/system_store.dart';
 
 final sl = GetIt.instance; // Service Locator
 
@@ -31,7 +33,8 @@ Future<void> init() async {
     () => SetlistExportService(sl()),
   );
   sl.registerFactory(() => PerformanceListStore(sl()));
-  sl.registerFactory(() => LivePerformanceStore(sl(), sl()));
+  sl.registerFactory(() => LivePerformanceStore(sl(), sl(), sl()));
+  sl.registerLazySingleton(() => SystemStore(sl()));
 
   // Repository
   sl.registerLazySingleton<IMusicRepository>(() => IsarMusicRepository(sl()));
@@ -50,6 +53,7 @@ Future<void> init() async {
   final isar = await Isar.open([
     MusicModelSchema,
     SetlistModelSchema,
+    MidiConfigModelSchema,
   ], directory: dir.path);
   sl.registerSingleton<Isar>(isar);
 }

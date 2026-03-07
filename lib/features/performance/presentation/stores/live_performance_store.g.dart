@@ -9,6 +9,22 @@ part of 'live_performance_store.dart';
 // ignore_for_file: non_constant_identifier_names, unnecessary_brace_in_string_interps, unnecessary_lambdas, prefer_expression_function_bodies, lines_longer_than_80_chars, avoid_as, avoid_annotating_with_dynamic, no_leading_underscores_for_local_identifiers
 
 mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
+  late final _$midiDrumMapAtom =
+      Atom(name: 'LivePerformanceStoreBase.midiDrumMap', context: context);
+
+  @override
+  ObservableMap<int, String> get midiDrumMap {
+    _$midiDrumMapAtom.reportRead();
+    return super.midiDrumMap;
+  }
+
+  @override
+  set midiDrumMap(ObservableMap<int, String> value) {
+    _$midiDrumMapAtom.reportWrite(value, super.midiDrumMap, () {
+      super.midiDrumMap = value;
+    });
+  }
+
   late final _$currentSetlistAtom =
       Atom(name: 'LivePerformanceStoreBase.currentSetlist', context: context);
 
@@ -153,6 +169,22 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
     });
   }
 
+  late final _$isDrumRackVisibleAtom = Atom(
+      name: 'LivePerformanceStoreBase.isDrumRackVisible', context: context);
+
+  @override
+  bool get isDrumRackVisible {
+    _$isDrumRackVisibleAtom.reportRead();
+    return super.isDrumRackVisible;
+  }
+
+  @override
+  set isDrumRackVisible(bool value) {
+    _$isDrumRackVisibleAtom.reportWrite(value, super.isDrumRackVisible, () {
+      super.isDrumRackVisible = value;
+    });
+  }
+
   late final _$masterVolumeAtom =
       Atom(name: 'LivePerformanceStoreBase.masterVolume', context: context);
 
@@ -239,6 +271,22 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
   @override
   Future<void> loadSetlist(Setlist setlist) {
     return _$loadSetlistAsyncAction.run(() => super.loadSetlist(setlist));
+  }
+
+  late final _$_initMidiAsyncAction =
+      AsyncAction('LivePerformanceStoreBase._initMidi', context: context);
+
+  @override
+  Future<void> _initMidi() {
+    return _$_initMidiAsyncAction.run(() => super._initMidi());
+  }
+
+  late final _$loadMidiConfigAsyncAction =
+      AsyncAction('LivePerformanceStoreBase.loadMidiConfig', context: context);
+
+  @override
+  Future<void> loadMidiConfig() {
+    return _$loadMidiConfigAsyncAction.run(() => super.loadMidiConfig());
   }
 
   late final _$LivePerformanceStoreBaseActionController =
@@ -388,6 +436,17 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
   }
 
   @override
+  void toggleDrumRackVisible() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.toggleDrumRackVisible');
+    try {
+      return super.toggleDrumRackVisible();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void setMasterVolume(double volume) {
     final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
         name: 'LivePerformanceStoreBase.setMasterVolume');
@@ -454,8 +513,20 @@ mixin _$LivePerformanceStore on LivePerformanceStoreBase, Store {
   }
 
   @override
+  void dispose() {
+    final _$actionInfo = _$LivePerformanceStoreBaseActionController.startAction(
+        name: 'LivePerformanceStoreBase.dispose');
+    try {
+      return super.dispose();
+    } finally {
+      _$LivePerformanceStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
+midiDrumMap: ${midiDrumMap},
 currentSetlist: ${currentSetlist},
 activeSongIndex: ${activeSongIndex},
 isPlaying: ${isPlaying},
@@ -465,6 +536,7 @@ isScrubbing: ${isScrubbing},
 trackPeaks: ${trackPeaks},
 isMixerVisible: ${isMixerVisible},
 isMetronomeVisible: ${isMetronomeVisible},
+isDrumRackVisible: ${isDrumRackVisible},
 masterVolume: ${masterVolume},
 metronomeBpm: ${metronomeBpm},
 metronomeVolume: ${metronomeVolume},

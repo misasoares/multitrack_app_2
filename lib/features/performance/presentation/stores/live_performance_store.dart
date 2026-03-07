@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:mobx/mobx.dart';
+import 'package:isar/isar.dart';
+import 'package:flutter_midi_command/flutter_midi_command.dart';
 import 'package:multitracks_df_pro/core/audio_engine/iaudio_engine_service.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist_item.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/repositories/imusic_repository.dart';
+import 'package:multitracks_df_pro/features/player_mixer/data/models/midi_config_model.dart';
 
 part 'live_performance_store.g.dart';
 
@@ -19,13 +22,25 @@ class LivePerformanceStore = LivePerformanceStoreBase
 abstract class LivePerformanceStoreBase with Store {
   final IAudioEngineService _audioEngine;
   final IMusicRepository _musicRepository;
+  final Isar _isar;
 
   StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<MidiPacket>? _midiSubscription;
 
   /// Guards async callbacks from running after dispose (e.g. playPreview after user left the page).
   bool _disposed = false;
 
-  LivePerformanceStoreBase(this._audioEngine, this._musicRepository);
+  LivePerformanceStoreBase(
+    this._audioEngine,
+    this._musicRepository,
+    this._isar,
+  ) {
+    _initMidi();
+  }
+
+  /// Map of MIDI Note -> Pad ID (e.g. 36 -> 'pad_1').
+  @observable
+  ObservableMap<int, String> midiDrumMap = ObservableMap<int, String>();
 
   @observable
   Setlist? currentSetlist;
@@ -487,20 +502,68 @@ abstract class LivePerformanceStoreBase with Store {
     final newItems = List<SetlistItem>.from(setlist.items);
     final itemIdx = activeSongIndex.clamp(0, newItems.length - 1);
     newItems[itemIdx] = newItem;
-
     currentSetlist = setlist.copyWith(items: newItems);
   }
 
   /// Call when leaving the live performance screen (e.g. dispose).
   /// Stops playback, clears engine tracks, and cancels the position stream so no leaks occur.
+  @action
   void dispose() {
     _disposed = true;
+    _positionSubscription?.cancel();
+    _midiSubscription?.cancel();
     _peakTimer?.cancel();
     _peakTimer = null;
-    _positionSubscription?.cancel();
-    _positionSubscription = null;
     _audioEngine.pausePreview();
     _audioEngine.clearAllTracks();
     _audioEngine.clearDrumSamples();
+  }
+
+  // ---------------------------------------------------------------------------
+  // MIDI PERFORMANCE LOGIC
+  // ---------------------------------------------------------------------------
+
+  @action
+  Future<void> _initMidi() async {
+    await loadMidiConfig();
+    _midiSubscription = MidiCommand().onMidiDataReceived?.listen(
+      _handlePerformanceMidi,
+    );
+  }
+
+  @action
+  Future<void> loadMidiConfig() async {
+    try {
+      final config = await _isar.midiConfigModels
+          .filter()
+          .deviceIdEqualTo('default_config')
+          .findFirst();
+
+      if (config != null) {
+        midiDrumMap.clear();
+        midiDrumMap.addAll(config.getMap());
+      }
+    } catch (e) {
+      print('Error loading MIDI config in LivePerformanceStore: $e');
+    }
+  }
+
+  void _handlePerformanceMidi(MidiPacket packet) {
+    if (_disposed) return;
+
+    final data = packet.data;
+    // MIDI Note On is usually 0x90 to 0x9F (144-159)
+    // For many simple controllers on channel 1, it's 144.
+    if (data.length >= 3 && (data[0] & 0xF0) == 0x90) {
+      final note = data[1];
+      final velocity = data[2];
+
+      if (velocity > 0) {
+        final padId = midiDrumMap[note];
+        if (padId != null) {
+          _audioEngine.triggerDrumPad(padId);
+        }
+      }
+    }
   }
 }

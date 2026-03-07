@@ -1006,20 +1006,25 @@ class NativeAudioEngine implements IAudioEngineService {
           data.offsetInBytes,
           data.lengthInBytes,
         );
+        // 1. Escreve os bytes e garante o flush no disco
         await file.writeAsBytes(bytes, flush: true);
 
-        if (file.existsSync()) {
+        // 2. Valida se o arquivo realmente existe e tem conteúdo antes de prosseguir
+        // Usamos await nos métodos para garantir que a verificação ocorra após o flush
+        if (await file.exists() && await file.length() > 0) {
           // ignore: avoid_print
           print(
-            'DrumKit: Arquivo temporário criado (${file.lengthSync()} bytes)',
+            'DrumKit: Arquivo temporário verificado (${await file.length()} bytes)',
           );
+
+          // 3. Só chama o carregamento nativo após a garantia de escrita
           final success = await loadDrumSample('pad_$i', file.path);
           // ignore: avoid_print
           print('DrumKit: engine_load_drum_sample pad_$i status: $success');
         } else {
           // ignore: avoid_print
           print(
-            'DrumKit: ERRO - Arquivo temporário não encontrado após escrita',
+            'DrumKit: ERRO CRÍTICO - Arquivo temporário inválido ou vazio após escrita',
           );
         }
       } catch (e) {

@@ -665,18 +665,19 @@ void AudioMixer::setTrackClickMap(const std::string& id,
 }
 
 bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePath) {
-    drwav wav;
-    if (!drwav_init_file(&wav, filePath.c_str(), nullptr)) {
-        LOGE_MIX("DrumKit: FALHA ao abrir WAV %s", filePath.c_str());
+    drwav* wav = drwav_open_file(filePath.c_str(), nullptr);
+    if (wav == nullptr) {
+        LOGE_MIX("DrumKit: FALHA CRITICA ao abrir WAV %s (Arquivo inexistente ou bloqueado)", filePath.c_str());
         return false;
     }
 
-    const int32_t numCh = static_cast<int32_t>(wav.channels);
-    const uint32_t fileRate = wav.sampleRate;
-    const uint64_t totalFrames = wav.totalPCMFrameCount;
+    const int32_t numCh = static_cast<int32_t>(wav->channels);
+    const uint32_t fileRate = wav->sampleRate;
+    const uint64_t totalFrames = wav->totalPCMFrameCount;
 
     if (numCh < 1 || numCh > 2 || totalFrames == 0) {
-        drwav_uninit(&wav);
+        LOGE_MIX("DrumKit: WAV invalido %s (Canais: %d, Frames: %llu)", filePath.c_str(), numCh, (unsigned long long)totalFrames);
+        drwav_free(wav, nullptr);
         return false;
     }
 
@@ -691,17 +692,17 @@ bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePa
         sample->pcmData.resize(outFrames * numCh);
         
         std::vector<float> sourcePcm(totalFrames * numCh);
-        drwav_read_pcm_frames_f32(&wav, totalFrames, sourcePcm.data());
+        drwav_read_pcm_frames_f32(wav, totalFrames, sourcePcm.data());
         
         resampleFrames(sourcePcm.data(), static_cast<size_t>(totalFrames), numCh,
                       static_cast<int32_t>(fileRate), sampleRate_,
                       sample->pcmData.data(), outFrames);
     } else {
         sample->pcmData.resize(totalFrames * numCh);
-        drwav_read_pcm_frames_f32(&wav, totalFrames, sample->pcmData.data());
+        drwav_read_pcm_frames_f32(wav, totalFrames, sample->pcmData.data());
     }
 
-    drwav_uninit(&wav);
+    drwav_free(wav, nullptr);
 
     {
         std::lock_guard<std::mutex> lock(drumMutex_);

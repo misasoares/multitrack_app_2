@@ -198,6 +198,9 @@ abstract class IAudioEngineService {
   /// Clears all loaded drum samples and releases their RAM.
   void clearDrumSamples();
 
+  /// Loads the fixed drum kit from assets (8 pads).
+  Future<void> initializeDrumKit();
+
   // ─── Offline Render (Export Show) ────────────────────────────────────
 
   /// Single EQ band for offline render (DSP-only; matches C++ EqBand).

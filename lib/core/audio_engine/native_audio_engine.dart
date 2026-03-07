@@ -1,7 +1,8 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:isolate';
-
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:ffi/ffi.dart';
 
 import '../../features/player_mixer/domain/entities/track.dart';
@@ -986,6 +987,31 @@ class NativeAudioEngine implements IAudioEngineService {
   @override
   void clearDrumSamples() {
     _clearDrumSamples?.call();
+  }
+
+  @override
+  Future<void> initializeDrumKit() async {
+    final directory = await getApplicationDocumentsDirectory();
+
+    for (int i = 1; i <= 8; i++) {
+      final assetPath = 'assets/drum_kit/pad_$i.wav';
+      final fileName = 'pad_$i.wav';
+      final file = File('${directory.path}/$fileName');
+
+      try {
+        final data = await rootBundle.load(assetPath);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        await file.writeAsBytes(bytes, flush: true);
+
+        await loadDrumSample('pad_$i', file.path);
+      } catch (e) {
+        // ignore: avoid_print
+        print('Error loading drum sample $i ($assetPath): $e');
+      }
+    }
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────

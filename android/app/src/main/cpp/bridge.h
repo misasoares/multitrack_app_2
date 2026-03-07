@@ -143,6 +143,11 @@ void engine_set_track_click_map(const char* trackId,
 /// Returns the normalization gain (linear). 1.0 on failure.
 double engine_analyze_lufs(const char** trackPaths, int32_t numTracks, float targetLufs);
 
+// ── Drum Rack ──
+bool engine_load_drum_sample(const char* id, const char* path);
+void engine_trigger_pad(const char* id);
+void engine_clear_drum_samples();
+
 #ifdef __cplusplus
 }
 #endif

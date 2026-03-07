@@ -295,6 +295,11 @@ class JustAudioEngine implements IAudioEngineService {
   void clearDrumSamples() {}
 
   @override
+  Future<void> initializeDrumKit() async {
+    // Drum kit is only supported by NativeAudioEngine.
+  }
+
+  @override
   void renderTrackOffline({
     required String trackId,
     required String inputPath,

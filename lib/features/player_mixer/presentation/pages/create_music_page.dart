@@ -8,9 +8,11 @@ import '../../../../core/audio_engine/audio_dsp_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../injection_container.dart';
+import '../../domain/entities/marker.dart';
 import '../../domain/entities/track.dart';
 import '../stores/create_music_store.dart';
 import '../widgets/eq/eq_interactive_dialog.dart';
+import 'markers_editor_page.dart';
 
 class CreateMusicPage extends StatefulWidget {
   final CreateMusicStore store;
@@ -210,6 +212,93 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildEditMarkersButton() {
+    return Observer(
+      builder: (_) {
+        return SizedBox(
+          height: 32,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A1A),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            onPressed: widget.store.tracks.isEmpty
+                ? null
+                : () async {
+                    final hasClickTrack = widget.store.tracks.any(
+                      (t) => t.isClickTrack,
+                    );
+                    if (!hasClickTrack) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Atenção: Defina a faixa de Metrônomo (Click) antes de editar os marcadores. O app precisa do metrônomo para criar o grid de sincronia.',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                          backgroundColor: Colors.orange,
+                          duration: Duration(seconds: 4),
+                        ),
+                      );
+                      return;
+                    }
+
+                    widget.store.setProcessingState(true);
+                    await Future.delayed(const Duration(milliseconds: 50));
+
+                    final tempClickMap = await widget.store
+                        .getOrExtractClickMap();
+
+                    widget.store.setProcessingState(false);
+
+                    if (!mounted) return;
+
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MarkersEditorPage(
+                          tracks: widget.store.tracks.toList(),
+                          peaks: widget.store.masterWaveformPeaks,
+                          clickMap: tempClickMap,
+                          initialMarkers: widget.store.markers,
+                        ),
+                      ),
+                    );
+
+                    if (result != null && result is List<Marker>) {
+                      widget.store.markers = ObservableList.of(result);
+                    }
+                  },
+            icon: const Icon(Icons.flag, size: 16),
+            label: const Text(
+              'MARCADORES',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.0,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -543,6 +632,8 @@ class _CreateMusicPageState extends State<CreateMusicPage> {
           Observer(
             builder: (_) => Row(
               children: [
+                _buildEditMarkersButton(),
+                const SizedBox(width: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

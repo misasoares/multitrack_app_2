@@ -269,7 +269,7 @@ class JustAudioEngine implements IAudioEngineService {
   @override
   Future<List<double>> getWaveformPeaks(
     String filePath, {
-    int numBins = 400,
+    int numBins = 2000,
   }) async => []; // Timeline waveform peaks only supported by NativeAudioEngine.
 
   @override

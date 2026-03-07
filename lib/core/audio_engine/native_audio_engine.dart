@@ -829,7 +829,7 @@ class NativeAudioEngine implements IAudioEngineService {
   @override
   Future<List<double>> getWaveformPeaks(
     String filePath, {
-    int numBins = 400,
+    int numBins = 2000,
   }) async {
     if (numBins <= 0) return [];
     return Isolate.run<List<double>>(() {

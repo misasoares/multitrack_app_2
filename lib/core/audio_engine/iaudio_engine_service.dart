@@ -170,7 +170,7 @@ abstract class IAudioEngineService {
 
   /// Extracts waveform peaks from a file path for the Timeline (async, non-blocking).
   /// Default 400 bins for tablet landscape density.
-  Future<List<double>> getWaveformPeaks(String filePath, {int numBins = 400});
+  Future<List<double>> getWaveformPeaks(String filePath, {int numBins = 2000});
 
   /// Extracts beat/transient timestamps (in milliseconds) from a WAV click track.
   /// Runs in a background isolate to avoid blocking the UI thread.

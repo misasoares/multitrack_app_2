@@ -50,6 +50,7 @@ dependencies:
   ffi: ^2.2.0
   dotted_border: ^3.1.0
   path: ^1.9.1
+  flutter_midi_command: ^0.5.3
 
 dev_dependencies:
   flutter_test:

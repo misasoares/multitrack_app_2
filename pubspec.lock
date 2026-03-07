@@ -49,6 +49,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "9.2.0"
+  bluez:
+    dependency: transitive
+    description:
+      name: bluez
+      sha256: "61a7204381925896a374301498f2f5399e59827c6498ae1e924aaa598751b545"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.3"
   boolean_selector:
     dependency: transitive
     description:
@@ -310,6 +318,38 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_midi_command:
+    dependency: "direct main"
+    description:
+      name: flutter_midi_command
+      sha256: bce9e83d3fb05aef275af83d65c53a40623735516ef1bdcefc0ba1ca5db1d89f
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.3"
+  flutter_midi_command_linux:
+    dependency: transitive
+    description:
+      name: flutter_midi_command_linux
+      sha256: c4d6dcf136fd4718aa827c201446f935f2752e37b702ed712373c675cbdbb0d0
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.3.0"
+  flutter_midi_command_platform_interface:
+    dependency: transitive
+    description:
+      name: flutter_midi_command_platform_interface
+      sha256: "905ebe90f56af5e9e376688d6baedd94d5378c788d302a141da283dd329dc2ce"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.3"
+  flutter_midi_command_windows:
+    dependency: transitive
+    description:
+      name: flutter_midi_command_windows
+      sha256: fd85c892d890f462487601e69228de261954e2cd8740f5396f5e3060d23ff097
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.1"
   flutter_mobx:
     dependency: "direct main"
     description:
@@ -331,6 +371,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_web_bluetooth:
+    dependency: transitive
+    description:
+      name: flutter_web_bluetooth
+      sha256: fcd03e2e5f82edcedcbc940f1b6a0635a50757374183254f447640886c53208e
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.4"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -544,6 +592,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.17.0"
+  midi:
+    dependency: transitive
+    description:
+      name: midi
+      sha256: "737c86a4ffbbe06352a8ec90bf5153774202f4b38dfb8e45af255cee18e2b9de"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   mime:
     dependency: transitive
     description:
@@ -837,6 +893,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.2"
+  tuple:
+    dependency: transitive
+    description:
+      name: tuple
+      sha256: a97ce2013f240b2f3807bcbaf218765b6f301c3eff91092bcfa23a039e7dd151
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.2"
   typed_data:
     dependency: transitive
     description:
@@ -845,6 +909,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  universal_ble:
+    dependency: transitive
+    description:
+      name: universal_ble
+      sha256: "50011255aa793589ccefb086ceead0f2eaddd30609a6f8b10ee4a0a548c3250e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.9.11"
   uuid:
     dependency: "direct main"
     description:

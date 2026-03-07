@@ -665,51 +665,49 @@ void AudioMixer::setTrackClickMap(const std::string& id,
 }
 
 bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePath) {
-    drwav* wav = drwav_open_file(filePath.c_str(), nullptr);
-    if (wav == nullptr) {
-        LOGE_MIX("DrumKit: FALHA CRITICA ao abrir WAV %s (Arquivo inexistente ou bloqueado)", filePath.c_str());
-        return false;
+    std::lock_guard<std::mutex> lock(drumMutex_);
+    // 1. Alocação segura e inicialização
+    drwav* wav = new drwav{};
+    if (!drwav_init_file(wav, filePath.c_str(), nullptr)) {
+        LOGE_MIX("DrumKit: Falha ao abrir WAV. Arquivo invalido ou corrompido: %s", filePath.c_str());
+        delete wav;
+        return false; // Aborta com segurança antes de qualquer leitura
     }
-
+    // 2. Leitura segura dos metadados
     const int32_t numCh = static_cast<int32_t>(wav->channels);
+    const int64_t totalFrames = static_cast<int64_t>(wav->totalPCMFrameCount);
     const uint32_t fileRate = wav->sampleRate;
-    const uint64_t totalFrames = wav->totalPCMFrameCount;
-
-    if (numCh < 1 || numCh > 2 || totalFrames == 0) {
-        LOGE_MIX("DrumKit: WAV invalido %s (Canais: %d, Frames: %llu)", filePath.c_str(), numCh, (unsigned long long)totalFrames);
-        drwav_free(wav, nullptr);
+    if (numCh < 1 || numCh > 2 || totalFrames <= 0) {
+        LOGE_MIX("DrumKit: Formato WAV invalido para %s", id.c_str());
+        drwav_uninit(wav);
+        delete wav;
         return false;
     }
+    // 3. Leitura dos dados PCM
+    std::vector<float> tempPcm(static_cast<size_t>(totalFrames * numCh), 0.0f);
+    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(wav, totalFrames, tempPcm.data());
+    drwav_uninit(wav);
+    delete wav;
 
-    auto sample = std::make_unique<DrumSample>();
-    sample->id = id;
-    sample->numChannels = numCh;
-
-    bool needsResample = (fileRate != static_cast<uint32_t>(sampleRate_));
-    if (needsResample) {
+    if (framesRead == 0) {
+        return false;
+    }
+    auto drumSample = std::make_unique<DrumSample>();
+    drumSample->id = id;
+    drumSample->numChannels = numCh;
+    // 4. Resample se necessário (reutilizando a lógica do motor)
+    if (fileRate != static_cast<uint32_t>(sampleRate_)) {
         const size_t outFrames = static_cast<size_t>(
-            static_cast<double>(totalFrames) * static_cast<double>(sampleRate_) / static_cast<double>(fileRate));
-        sample->pcmData.resize(outFrames * numCh);
-        
-        std::vector<float> sourcePcm(totalFrames * numCh);
-        drwav_read_pcm_frames_f32(wav, totalFrames, sourcePcm.data());
-        
-        resampleFrames(sourcePcm.data(), static_cast<size_t>(totalFrames), numCh,
-                      static_cast<int32_t>(fileRate), sampleRate_,
-                      sample->pcmData.data(), outFrames);
+            static_cast<double>(framesRead) * static_cast<double>(sampleRate_) / static_cast<double>(fileRate));
+        drumSample->pcmData.resize(outFrames * numCh, 0.0f);
+        resampleFrames(tempPcm.data(), static_cast<size_t>(framesRead), numCh,
+                       static_cast<int32_t>(fileRate), sampleRate_,
+                       drumSample->pcmData.data(), outFrames);
     } else {
-        sample->pcmData.resize(totalFrames * numCh);
-        drwav_read_pcm_frames_f32(wav, totalFrames, sample->pcmData.data());
+        drumSample->pcmData = std::move(tempPcm);
     }
-
-    drwav_free(wav, nullptr);
-
-    {
-        std::lock_guard<std::mutex> lock(drumMutex_);
-        drumSamples_[id] = std::move(sample);
-    }
-
-    LOGD_MIX("DrumKit: Carregando sample %s - Status: OK (%zu samples)", id.c_str(), sample->pcmData.size());
+    drumSamples_[id] = std::move(drumSample);
+    LOGD_MIX("DrumKit: Sample %s carregado com sucesso na RAM.", id.c_str());
     return true;
 }
 

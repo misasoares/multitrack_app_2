@@ -63,6 +63,10 @@ abstract class LivePerformanceStoreBase with Store {
   @observable
   bool isMetronomeVisible = false;
 
+  /// When true, the bottom Drum Rack panel is visible.
+  @observable
+  bool isDrumRackVisible = false;
+
   /// Master output volume (0.0 to 1.0). Synced to native.
   @observable
   double masterVolume = 1.0;
@@ -382,7 +386,10 @@ abstract class LivePerformanceStoreBase with Store {
   /// Opening the mixer closes the metronome panel (only one can be open at a time).
   @action
   void toggleMixerVisible() {
-    if (!isMixerVisible) isMetronomeVisible = false;
+    if (!isMixerVisible) {
+      isMetronomeVisible = false;
+      isDrumRackVisible = false;
+    }
     isMixerVisible = !isMixerVisible;
   }
 
@@ -390,8 +397,21 @@ abstract class LivePerformanceStoreBase with Store {
   /// Opening the metronome closes the mixer panel (only one can be open at a time).
   @action
   void toggleMetronomeVisible() {
-    if (!isMetronomeVisible) isMixerVisible = false;
+    if (!isMetronomeVisible) {
+      isMixerVisible = false;
+      isDrumRackVisible = false;
+    }
     isMetronomeVisible = !isMetronomeVisible;
+  }
+
+  /// Toggle Drum Rack overlay visibility.
+  @action
+  void toggleDrumRackVisible() {
+    if (!isDrumRackVisible) {
+      isMixerVisible = false;
+      isMetronomeVisible = false;
+    }
+    isDrumRackVisible = !isDrumRackVisible;
   }
 
   /// Master volume (linear gain 0.0 to 5.0, ~+13 dB headroom). Synced to native.
@@ -481,5 +501,6 @@ abstract class LivePerformanceStoreBase with Store {
     _positionSubscription = null;
     _audioEngine.pausePreview();
     _audioEngine.clearAllTracks();
+    _audioEngine.clearDrumSamples();
   }
 }

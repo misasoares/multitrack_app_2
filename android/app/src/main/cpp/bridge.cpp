@@ -437,17 +437,17 @@ extern "C" double engine_analyze_lufs(const char** trackPaths,
 
 // ─── Drum Rack FFI ──────────────────────────────────────────────────────────
 
-extern "C" FFI_EXPORT bool engine_load_drum_sample(const char* id, const char* path) {
-    if (!g_mixer) return false;
-    return g_mixer->loadDrumSample(id, path);
+extern "C" bool engine_load_drum_sample(const char* id, const char* path) {
+    if (!gMixer) return false;
+    return gMixer->loadDrumSample(id, path);
 }
 
-extern "C" FFI_EXPORT void engine_trigger_pad(const char* id) {
-    if (!g_mixer) return;
-    g_mixer->triggerDrumPad(id);
+extern "C" void engine_trigger_pad(const char* id) {
+    if (!gMixer) return;
+    gMixer->triggerDrumPad(id);
 }
 
-extern "C" FFI_EXPORT void engine_clear_drum_samples() {
-    if (!g_mixer) return;
-    g_mixer->clearDrumSamples();
+extern "C" void engine_clear_drum_samples() {
+    if (!gMixer) return;
+    gMixer->clearDrumSamples();
 }

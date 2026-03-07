@@ -373,7 +373,7 @@ private:
 
     // ── Drum Rack State ──
     std::unordered_map<std::string, std::unique_ptr<DrumSample>> drumSamples_;
-    std::vector<DrumVoice> drumVoices_; // Pool of 32-64 voices
+    std::vector<std::unique_ptr<DrumVoice>> drumVoices_; // Pool of 32-64 voices
     mutable std::mutex drumMutex_;      // Protects drumSamples_ map
 };
 

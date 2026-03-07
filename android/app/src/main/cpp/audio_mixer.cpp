@@ -122,7 +122,7 @@ void AudioMixer::init(int32_t sampleRate) {
     std::lock_guard<std::mutex> dLock(drumMutex_);
     drumVoices_.clear();
     for (int i = 0; i < 32; ++i) {
-        drumVoices_.emplace_back();
+        drumVoices_.push_back(std::make_unique<DrumVoice>());
     }
 }
 
@@ -724,11 +724,11 @@ void AudioMixer::triggerDrumPad(const std::string& id) {
 
     if (!target) return;
 
-    for (auto& voice : drumVoices_) {
-        if (voice.sample == nullptr || voice.readIndex.load() >= voice.sample->pcmData.size()) {
-            voice.readIndex.store(0, std::memory_order_relaxed);
-            // Activation happens here
-            voice.sample = target;
+    for (auto& voicePtr : drumVoices_) {
+        if (voicePtr->sample == nullptr || voicePtr->readIndex.load() >= voicePtr->sample->pcmData.size()) {
+            voicePtr->readIndex.store(0, std::memory_order_relaxed);
+            // Activation acontece aqui
+            voicePtr->sample = target;
             return;
         }
     }
@@ -736,8 +736,8 @@ void AudioMixer::triggerDrumPad(const std::string& id) {
 
 void AudioMixer::clearDrumSamples() {
     std::lock_guard<std::mutex> lock(drumMutex_);
-    for (auto& voice : drumVoices_) {
-        voice.sample = nullptr;
+    for (auto& voicePtr : drumVoices_) {
+        voicePtr->sample = nullptr;
     }
     drumSamples_.clear();
 }
@@ -1230,14 +1230,14 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     }
 
     // ── Drum Sampler mixing (RAM-based, polyphonic) ──
-    for (auto& voice : drumVoices_) {
-        const DrumSample* sample = voice.sample;
+    for (auto& voicePtr : drumVoices_) {
+        const DrumSample* sample = voicePtr->sample;
         if (!sample) continue;
 
-        size_t readIdx = voice.readIndex.load(std::memory_order_relaxed);
+        size_t readIdx = voicePtr->readIndex.load(std::memory_order_relaxed);
         size_t totalSamples = sample->pcmData.size();
         if (readIdx >= totalSamples) {
-            voice.sample = nullptr;
+            voicePtr->sample = nullptr;
             continue;
         }
 
@@ -1254,7 +1254,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                 outputR[i] += pcm[readIdx++];
             }
         }
-        voice.readIndex.store(readIdx, std::memory_order_relaxed);
+        voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
     }
 
     masterPeak_ = masterPeak;

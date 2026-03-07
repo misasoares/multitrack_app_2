@@ -170,6 +170,11 @@ extern "C" void engine_seek_to(int64_t framePosition) {
     LOGD("engine_seek_to: %lld", (long long)framePosition);
 }
 
+extern "C" void engine_schedule_jump(int64_t triggerFrame, int64_t targetFrame) {
+    if (!gMixer) return;
+    gMixer->scheduleJump(triggerFrame, targetFrame);
+}
+
 // ─── Per-track Parameters ────────────────────────────────────────────────────
 
 extern "C" void engine_set_volume(const char* trackId, float volume) {

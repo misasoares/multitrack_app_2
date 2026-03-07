@@ -12,6 +12,11 @@ abstract class IAudioEngineService {
   /// Seeks to a specific [timestamp] in the audio timeline.
   Future<void> seekTo(Duration timestamp);
 
+  /// Real-time jump with 10ms ramp (de-clicking).
+  /// Trigger time is the moment to execute the jump (if known).
+  /// If [triggerTime] is null or in the past, it jumps immediately.
+  Future<void> scheduleJump(Duration? triggerTime, Duration targetTime);
+
   // ─── Preview ───────────────────────────────────────────────────────
 
   /// Loads a list of [tracks] into the native engine memory for preview.

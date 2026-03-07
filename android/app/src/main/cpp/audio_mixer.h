@@ -222,6 +222,7 @@ public:
     void play();
     void pause();
     void seekTo(int64_t framePosition);
+    void scheduleJump(int64_t triggerFrame, int64_t targetFrame);
 
     // ── Per-track parameters ──
     void setVolume(const std::string& id, float volume);
@@ -330,6 +331,16 @@ private:
 
     // ── Metering ──
     std::atomic<float> masterPeak_{0.0f};
+
+    // ── Quantized Jump (Thread-Safe state) ──
+    std::atomic<bool>    jumpRequested_{false};
+    std::atomic<int64_t> jumpTargetFrame_{0};
+    std::atomic<int64_t> jumpTriggerFrame_{-1}; // -1 means no jump scheduled
+    std::atomic<bool>    isRampingDown_{false};
+    std::atomic<bool>    isRampingUp_{false};
+    std::atomic<bool>    isWaitingForJump_{false};
+    int32_t              jumpRampFrames_ = 480; // Default (10ms @ 48kHz)
+    int32_t              jumpRampProgress_ = 0;
 };
 
 #endif // AUDIO_MIXER_H

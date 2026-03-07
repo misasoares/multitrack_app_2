@@ -111,6 +111,12 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  Future<void> scheduleJump(Duration? triggerTime, Duration targetTime) async {
+    // JustAudio fallback (not sample accurate)
+    await seekTo(targetTime);
+  }
+
+  @override
   void setTrackVolume(String trackId, double volume) {
     final player = _players[trackId];
     if (player == null) return;

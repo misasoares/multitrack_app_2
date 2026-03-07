@@ -107,6 +107,10 @@ void AudioMixer::init(int32_t sampleRate) {
     gainSmoothSamples_ =
         static_cast<int32_t>(kGainSmoothingSeconds * static_cast<float>(sampleRate_));
     if (gainSmoothSamples_ < 1) gainSmoothSamples_ = 1;
+
+    // 10ms Quantized Jump Ramp
+    jumpRampFrames_ = static_cast<int32_t>(0.010f * static_cast<float>(sampleRate_));
+    if (jumpRampFrames_ < 1) jumpRampFrames_ = 1;
     
     // unique_ptr handles cleanup automatically
     tracks_.clear();
@@ -135,6 +139,10 @@ void AudioMixer::setSampleRate(int32_t sampleRate) {
     for (auto& band : masterEqBands_) {
         band.computeCoefficients(sampleRate_);
     }
+
+    // 10ms Quantized Jump Ramp
+    jumpRampFrames_ = static_cast<int32_t>(0.010f * static_cast<float>(sampleRate_));
+    if (jumpRampFrames_ < 1) jumpRampFrames_ = 1;
 }
 
 void AudioMixer::dispose() {
@@ -465,6 +473,14 @@ void AudioMixer::seekTo(int64_t framePosition) {
     }
 }
 
+void AudioMixer::scheduleJump(int64_t triggerFrame, int64_t targetFrame) {
+    if (targetFrame < 0) targetFrame = 0;
+    
+    // Both variables are atomic, allowing wait-free setup from main thread
+    jumpTargetFrame_.store(targetFrame, std::memory_order_relaxed);
+    jumpTriggerFrame_.store(triggerFrame, std::memory_order_relaxed);
+}
+
 // ─── Per-Track Parameters ────────────────────────────────────────────────────
 
 void AudioMixer::setVolume(const std::string& id, float volume) {
@@ -727,6 +743,53 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                 }
                 break;
             }
+        }
+    }
+
+    // ── Quantized Jump: Check Schedule / Execution ──
+    const int64_t currentTrigger = jumpTriggerFrame_.load(std::memory_order_relaxed);
+    if (currentTrigger != -1 && !tracks_.empty()) {
+        // Use the first track's playhead as the master reference time
+        auto firstTrackIt = tracks_.begin();
+        if (firstTrackIt != tracks_.end()) {
+            const int64_t globalPlayhead = firstTrackIt->second->playheadFrame;
+            // If the playhead is exactly at, or slightly passed the trigger point:
+            if (globalPlayhead >= currentTrigger) {
+                jumpTriggerFrame_.store(-1, std::memory_order_relaxed); // Clear schedule
+                jumpRequested_.store(true, std::memory_order_release);  // Fire jump
+            }
+        }
+    }
+
+    // If jump was fired manually or via schedule trigger
+    if (jumpRequested_.exchange(false)) {
+        isRampingDown_ = true;
+        isRampingUp_ = false;
+        isWaitingForJump_ = false;
+        jumpRampProgress_ = 0;
+    }
+
+    if (isWaitingForJump_) {
+        // Output silence while waiting for I/O to seek and fill buffers
+        std::memset(outputL, 0, sizeof(float) * numFrames);
+        std::memset(outputR, 0, sizeof(float) * numFrames);
+
+        // Check if tracks are refilled enough to start ramping up
+        bool ready = true;
+        for (auto& [_, track] : tracks_) {
+            // Need at least one full callback buffer to resume
+            if (track->ringBuffer->availableToRead() < static_cast<size_t>(numFrames * track->numChannels)) {
+                ready = false;
+                break;
+            }
+        }
+        if (ready) {
+            isWaitingForJump_ = false;
+            isRampingUp_ = true;
+            jumpRampProgress_ = 0;
+            // Fall through to normal mix loop so we can perform the start of fade-in immediately
+        } else {
+            return numFrames;
         }
     }
 
@@ -1081,6 +1144,47 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     }
 
     masterPeak_ = masterPeak;
+
+    // ── Quantized Jump: Apply Ramps to final mix ──
+    if (isRampingDown_) {
+        for (int32_t i = 0; i < numFrames; ++i) {
+            float multiplier = 1.0f - (static_cast<float>(jumpRampProgress_) / static_cast<float>(jumpRampFrames_));
+            multiplier = std::max(0.0f, multiplier);
+            outputL[i] *= multiplier;
+            outputR[i] *= multiplier;
+            jumpRampProgress_++;
+            if (jumpRampProgress_ >= jumpRampFrames_) {
+                isRampingDown_ = false;
+                isWaitingForJump_ = true;
+                // Signal I/O to seek and flush
+                int64_t target = jumpTargetFrame_.load();
+                for (auto& [_, track] : tracks_) {
+                    track->playheadFrame = target;
+                    track->seekFrameRequested.store(target);
+                    track->ringBuffer->reset();
+                    if (track->soundTouchProcessor) track->soundTouchProcessor->clear();
+                }
+                // Zero remaining frames in this block
+                for (int32_t j = i + 1; j < numFrames; ++j) {
+                    outputL[j] = 0.0f;
+                    outputR[j] = 0.0f;
+                }
+                break;
+            }
+        }
+    } else if (isRampingUp_) {
+        for (int32_t i = 0; i < numFrames; ++i) {
+            float multiplier = static_cast<float>(jumpRampProgress_) / static_cast<float>(jumpRampFrames_);
+            multiplier = std::min(1.0f, multiplier);
+            outputL[i] *= multiplier;
+            outputR[i] *= multiplier;
+            jumpRampProgress_++;
+            if (jumpRampProgress_ >= jumpRampFrames_) {
+                isRampingUp_ = false;
+                break;
+            }
+        }
+    }
 
     return numFrames;
 }

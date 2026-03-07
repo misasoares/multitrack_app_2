@@ -464,11 +464,13 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
               ),
             ),
 
+            // Timeline Section (Superior)
             Expanded(
+              flex: 2,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16.0,
-                  vertical: 32.0,
+                  vertical: 8.0,
                 ),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -488,6 +490,7 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                       child: SingleChildScrollView(
                         controller: _scrollController,
                         scrollDirection: Axis.horizontal,
+                        clipBehavior: Clip.none,
                         child: SizedBox(
                           key: _timelineKey,
                           width: zoomedWidth,
@@ -644,56 +647,51 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                     onHorizontalDragCancel: () {
                                       setState(() => _draggingMarkerId = null);
                                     },
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _showEditMarkerDialog(m),
-                                      child: Container(
-                                        width: 48,
-                                        color: Colors.transparent,
-                                        child: Stack(
-                                          clipBehavior: Clip.none,
-                                          children: [
-                                            // The vertical line (perfectly centered: 48 / 2 - 1 = 23)
-                                            Positioned(
-                                              left: 23.0,
-                                              top: 24.0,
-                                              bottom: 0.0,
-                                              width: 2.0,
-                                              child: Container(
+                                    child: Container(
+                                      width: 48,
+                                      color: Colors.transparent,
+                                      child: Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          // The vertical line (perfectly centered: 48 / 2 - 1 = 23)
+                                          Positioned(
+                                            left: 23.0,
+                                            top: 24.0,
+                                            bottom: 0.0,
+                                            width: 2.0,
+                                            child: Container(
+                                              color: _draggingMarkerId == m.id
+                                                  ? Colors.white
+                                                  : AppColors.primary,
+                                            ),
+                                          ),
+                                          // The handle/flag
+                                          Align(
+                                            alignment: Alignment.topCenter,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
                                                 color: _draggingMarkerId == m.id
                                                     ? Colors.white
                                                     : AppColors.primary,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
-                                            ),
-                                            // The handle/flag
-                                            Align(
-                                              alignment: Alignment.topCenter,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color:
-                                                      _draggingMarkerId == m.id
-                                                      ? Colors.white
-                                                      : AppColors.primary,
-                                                  borderRadius:
-                                                      BorderRadius.circular(4),
-                                                ),
-                                                child: Text(
-                                                  m.label,
-                                                  style: const TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                              child: Text(
+                                                m.label,
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -730,32 +728,122 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
             ),
             const SizedBox(height: 16),
 
-            // Marker List (Optional below the timeline)
+            // Marker List Section (Inferior)
             Expanded(
-              child: ListView.builder(
-                itemCount: _markers.length,
-                itemBuilder: (context, index) {
-                  final marker = _markers[index];
-                  return ListTile(
-                    leading: const Icon(Icons.flag, color: AppColors.primary),
-                    title: Text(
-                      marker.label,
-                      style: const TextStyle(color: AppColors.textPrimary),
+              flex: 3,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF121212),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    subtitle: Text(
-                      '${marker.timestamp.inMinutes}:${(marker.timestamp.inSeconds % 60).toString().padLeft(2, '0')}.${(marker.timestamp.inMilliseconds % 1000).toString().padLeft(3, '0')}',
-                      style: const TextStyle(color: AppColors.textMuted),
+                    Expanded(
+                      child: _markers.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'Nenhum marcador adicionado',
+                                style: TextStyle(color: AppColors.textMuted),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              itemCount: _markers.length,
+                              itemBuilder: (context, index) {
+                                // Sort markers by time
+                                final sortedMarkers =
+                                    List<Marker>.from(_markers)..sort(
+                                      (a, b) =>
+                                          a.timestamp.compareTo(b.timestamp),
+                                    );
+                                final marker = sortedMarkers[index];
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  color: const Color(0xFF1E1E1E),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: BorderSide(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
+                                    ),
+                                    leading: Container(
+                                      width: 12,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary,
+                                        borderRadius: BorderRadius.circular(2),
+                                      ),
+                                    ),
+                                    title: Text(
+                                      marker.label,
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${marker.timestamp.inMinutes.toString().padLeft(2, '0')}:${(marker.timestamp.inSeconds % 60).toString().padLeft(2, '0')}.${(marker.timestamp.inMilliseconds % 1000).toString().padLeft(3, '0')}',
+                                      style: const TextStyle(
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: AppColors.primary,
+                                          ),
+                                          onPressed: () =>
+                                              _showEditMarkerDialog(marker),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _markers.removeWhere(
+                                                (m) => m.id == marker.id,
+                                              );
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        setState(() {
-                          _markers.removeAt(index);
-                        });
-                      },
-                    ),
-                  );
-                },
+                  ],
+                ),
               ),
             ),
           ],

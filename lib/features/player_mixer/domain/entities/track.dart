@@ -22,10 +22,15 @@ class Track extends Equatable {
   /// True if this track is a utility track (click, metronome, guide voice, etc.)
   /// and should be excluded from the master waveform composition.
   bool get isUtilityTrack {
-    if (isClick) return true;
-    const pattern =
-        r'\b(click|metronomo|metronome|guia|guide|voz guia|locucao|vs)\b';
-    return RegExp(pattern, caseSensitive: false).hasMatch(name);
+    final lowerName = name.toLowerCase();
+    // DEFENSIVE: Always treat as utility if name contains 'click' or 'guia',
+    // or if the explicit database flag (isClick) is set.
+    if (isClick || lowerName.contains('click') || lowerName.contains('guia')) {
+      return true;
+    }
+    // Broader regex for other utility keywords (optional/extra insurance)
+    const extraPattern = r'\b(metronomo|metronome|guide|voz guia|locucao|vs)\b';
+    return RegExp(extraPattern, caseSensitive: false).hasMatch(name);
   }
 
   const Track({

@@ -12,6 +12,7 @@ import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.d
 import 'package:multitracks_df_pro/core/presentation/widgets/shared_waveform_timeline.dart';
 import 'package:multitracks_df_pro/injection_container.dart';
 import '../stores/live_performance_store.dart';
+import '../widgets/drum_rack_panel.dart';
 
 /// Live Performance (stage) page: pre-rendered playback, setlist ribbon, waveform, ephemeral mixer.
 class LivePerformancePage extends StatefulWidget {
@@ -34,6 +35,7 @@ class _LivePerformancePageState extends State<LivePerformancePage> {
     _store = sl<LivePerformanceStore>();
     _audioEngine = sl<IAudioEngineService>();
     _store.loadSetlist(widget.setlist);
+    _audioEngine.initializeDrumKit();
   }
 
   @override
@@ -106,6 +108,7 @@ class _LivePerformancePageState extends State<LivePerformancePage> {
                       ),
                       if (_store.isMetronomeVisible)
                         _MetronomePanelRight(store: _store),
+                      if (_store.isDrumRackVisible) const DrumRackPanel(),
                     ],
                   );
                 },
@@ -178,6 +181,27 @@ class _WaveformFloatingButtons extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
               ),
               tooltip: 'Mixer',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Observer(
+            builder: (_) => IconButton.filled(
+              onPressed: () => store.toggleDrumRackVisible(),
+              icon: Icon(
+                store.isDrumRackVisible
+                    ? Icons.grid_view
+                    : Icons.grid_view_outlined,
+                color: AppColors.primary,
+                size: 28,
+              ),
+              iconSize: 28,
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xE61A1A1A),
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.all(10),
+              ),
+              tooltip: 'Drum Rack',
             ),
           ),
         ],

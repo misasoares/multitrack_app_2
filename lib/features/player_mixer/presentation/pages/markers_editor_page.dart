@@ -15,6 +15,7 @@ class MarkersEditorPage extends StatefulWidget {
   final List<double> peaks;
   final List<int> clickMap;
   final List<Marker> initialMarkers;
+  final void Function(List<Marker>, List<double>)? onPreview;
 
   const MarkersEditorPage({
     super.key,
@@ -22,6 +23,7 @@ class MarkersEditorPage extends StatefulWidget {
     required this.peaks,
     required this.clickMap,
     required this.initialMarkers,
+    this.onPreview,
   });
 
   @override
@@ -71,18 +73,22 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
     // Listen to changes
     _positionSub = _audioEngine.onPreviewPosition.listen((p) {
       if (!mounted) return;
+
+      final screenWidth = MediaQuery.of(context).size.width;
+      final baseWidth = screenWidth - 32.0;
+      final zoomedWidth = baseWidth * _zoomLevel;
+
       if (!_isScrubbing) {
-        _currentPositionNotifier.value = p.inMicroseconds;
+        final snappedMs = _snapToClickMap(p.inMilliseconds);
+        _currentPositionNotifier.value = Duration(
+          milliseconds: snappedMs,
+        ).inMicroseconds;
       }
 
       // Auto-scroll logic
       if (!_isUserScrolling &&
           _scrollController.hasClients &&
           _duration.inMicroseconds > 0) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final baseWidth = screenWidth - 32.0; // Subtracting horizontal padding
-        final zoomedWidth = baseWidth * _zoomLevel;
-
         final progress = p.inMicroseconds / _duration.inMicroseconds;
         final needlePixelPos = progress * zoomedWidth;
 
@@ -113,7 +119,7 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
     _positionSub?.cancel();
     _currentPositionNotifier.dispose();
     _audioEngine.pausePreview();
-    _audioEngine.clearAllTracks();
+    // Intentionally omitted clearAllTracks() to preserve CreateMusicPage audio cache
     _scrollController.dispose();
     super.dispose();
   }
@@ -134,7 +140,7 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
     });
   }
 
-  int _snapToClickMap(int timeMs, double zoomedWidth) {
+  int _snapToClickMap(int timeMs) {
     if (widget.clickMap.isEmpty) return timeMs;
     // Find closest time in clickMap
     int closest = widget.clickMap.first;
@@ -465,6 +471,27 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
             ),
           ),
           actions: [
+            if (widget.onPreview != null)
+              TextButton.icon(
+                icon: const Icon(
+                  Icons.play_arrow,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                label: const Text(
+                  'Preview',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                onPressed: () {
+                  setState(() {
+                    _hasChanges = false;
+                  });
+                  widget.onPreview?.call(_markers, widget.peaks);
+                },
+              ),
             TextButton(
               onPressed: () => Navigator.pop(context, _markers),
               child: const Text(
@@ -577,14 +604,32 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                             markers: const [],
                                             onScrubStart: (pos) {
                                               _isScrubbing = true;
+                                              final snappedMs = _snapToClickMap(
+                                                pos.inMilliseconds,
+                                              );
+                                              final snappedPos = Duration(
+                                                milliseconds: snappedMs,
+                                              );
                                               _currentPositionNotifier.value =
-                                                  pos.inMicroseconds;
-                                              _audioEngine.seekTo(pos);
+                                                  snappedPos.inMicroseconds;
+                                              _audioEngine.seekTo(snappedPos);
                                             },
                                             onScrubUpdate: (pos) {
-                                              _currentPositionNotifier.value =
-                                                  pos.inMicroseconds;
-                                              _audioEngine.seekTo(pos);
+                                              final snappedMs = _snapToClickMap(
+                                                pos.inMilliseconds,
+                                              );
+                                              final snappedPos = Duration(
+                                                milliseconds: snappedMs,
+                                              );
+
+                                              // Only update if the snapped position actually changed (Grid Snap)
+                                              if (_currentPositionNotifier
+                                                      .value !=
+                                                  snappedPos.inMicroseconds) {
+                                                _currentPositionNotifier.value =
+                                                    snappedPos.inMicroseconds;
+                                                _audioEngine.seekTo(snappedPos);
+                                              }
                                             },
                                             onScrubEnd: () {
                                               _isScrubbing = false;
@@ -629,12 +674,13 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                 // Markers Overlay
                                 ..._markers.map((m) {
                                   // Calc X position
-                                  final durationMs =
-                                      _duration.inMilliseconds > 0
-                                      ? _duration.inMilliseconds.toDouble()
+                                  final durationMicros =
+                                      _duration.inMicroseconds > 0
+                                      ? _duration.inMicroseconds.toDouble()
                                       : 1.0;
                                   final t =
-                                      m.timestamp.inMilliseconds / durationMs;
+                                      m.timestamp.inMicroseconds /
+                                      durationMicros;
                                   if (t < 0 || t > 1)
                                     return const SizedBox.shrink(); // Out of bounds
 
@@ -698,7 +744,6 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                         // Magnetic snap
                                         final snappedTimeMs = _snapToClickMap(
                                           newTimeMs,
-                                          zoomedWidth,
                                         );
 
                                         // Update marker

@@ -84,14 +84,48 @@ class SharedWaveformTimeline extends StatelessWidget {
           child: Container(
             color:
                 Colors.transparent, // Ensure 100% transparency for background
-            child: CustomPaint(
-              painter: SharedWaveformPainter(
-                peaks: peaks,
-                progress: progress,
-                markers: markers,
-                duration: duration,
-              ),
-              size: Size(width, height),
+            width: width,
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Background layer (unplayed - grey) wrapped in RepaintBoundary
+                RepaintBoundary(
+                  child: CustomPaint(
+                    size: Size(width, height),
+                    painter: StaticWaveformPainter(
+                      peaks: peaks,
+                      markers: markers,
+                      duration: duration,
+                      color: const Color(0xFF404040),
+                    ),
+                  ),
+                ),
+
+                // Foreground layer (played - primary color) clipped dynamically
+                ClipRect(
+                  clipper: ProgressClipper(progress),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      size: Size(width, height),
+                      painter: StaticWaveformPainter(
+                        peaks: peaks,
+                        markers: markers,
+                        duration: duration,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Playhead needle
+                Positioned(
+                  left: progress.clamp(0.0, 1.0) * width - 1.0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(width: 2.0, color: AppColors.primary),
+                ),
+              ],
             ),
           ),
         );
@@ -105,22 +139,41 @@ class SharedWaveformTimeline extends StatelessWidget {
   }
 }
 
-class SharedWaveformPainter extends CustomPainter {
-  final List<double> peaks;
+class ProgressClipper extends CustomClipper<Rect> {
   final double progress;
+
+  ProgressClipper(this.progress);
+
+  @override
+  Rect getClip(Size size) {
+    return Rect.fromLTWH(
+      0,
+      0,
+      size.width * progress.clamp(0.0, 1.0),
+      size.height,
+    );
+  }
+
+  @override
+  bool shouldReclip(ProgressClipper oldClipper) =>
+      oldClipper.progress != progress;
+}
+
+class StaticWaveformPainter extends CustomPainter {
+  final List<double> peaks;
   final List<Marker> markers;
   final Duration duration;
+  final Color color;
 
-  SharedWaveformPainter({
+  StaticWaveformPainter({
     required this.peaks,
-    required this.progress,
     required this.markers,
     required this.duration,
+    required this.color,
   });
 
   static const double _maxBarWidth = 4.0;
-  static const double _minGap = 0.0; // Let bins glue together if very dense
-  static const double _playheadWidth = 2.0;
+  static const double _minGap = 0.0;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -128,12 +181,9 @@ class SharedWaveformPainter extends CustomPainter {
 
     final halfHeight = size.height / 2;
     final slotWidth = size.width / peaks.length;
-    // Allow bars to be contiguous if slotWidth is small, else clamp up to max width
     final barWidth = (slotWidth - _minGap).clamp(1.0, _maxBarWidth);
-    final playheadX = progress.clamp(0.0, 1.0) * size.width;
 
-    const colorPlayed = AppColors.primary; // Amber
-    const colorToCome = Color(0xFF404040);
+    final paint = Paint()..color = color;
 
     // Draw waveform peaks
     for (var i = 0; i < peaks.length; i++) {
@@ -142,32 +192,25 @@ class SharedWaveformPainter extends CustomPainter {
       final barHeight = peak * halfHeight * 0.9;
       if (barHeight < 0.5) continue;
 
-      final isPlayed = x <= playheadX;
-      final color = isPlayed ? colorPlayed : colorToCome;
-
       final rect = Rect.fromCenter(
         center: Offset(x, halfHeight),
         width: barWidth,
         height: barHeight,
       );
       final radius = Radius.circular(barWidth / 2);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, radius),
-        Paint()..color = color,
-      );
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, radius), paint);
     }
 
-    // Draw Markers (vertical dashed lines or solid lines indicating a marker)
-    final durationSec = duration.inMicroseconds > 0
-        ? duration.inMicroseconds / 1000000.0
+    // Draw Markers
+    final durationMicros = duration.inMicroseconds > 0
+        ? duration.inMicroseconds.toDouble()
         : 1.0;
 
     for (final marker in markers) {
-      final t = marker.timestamp.inMicroseconds / 1000000.0 / durationSec;
+      final t = marker.timestamp.inMicroseconds / durationMicros;
       if (t >= 0 && t <= 1) {
         final markerX = t * size.width;
 
-        // Parse color
         Color markerColor = Colors.white;
         try {
           if (marker.colorHex.isNotEmpty) {
@@ -184,7 +227,6 @@ class SharedWaveformPainter extends CustomPainter {
           ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke;
 
-        // Simple vertical line for marker
         canvas.drawLine(
           Offset(markerX, 0),
           Offset(markerX, size.height),
@@ -192,23 +234,12 @@ class SharedWaveformPainter extends CustomPainter {
         );
       }
     }
-
-    // Draw playhead
-    canvas.drawRect(
-      Rect.fromLTWH(
-        playheadX - _playheadWidth / 2,
-        0,
-        _playheadWidth,
-        size.height,
-      ),
-      Paint()..color = colorPlayed,
-    );
   }
 
   @override
-  bool shouldRepaint(SharedWaveformPainter oldDelegate) =>
-      oldDelegate.progress != progress ||
+  bool shouldRepaint(StaticWaveformPainter oldDelegate) =>
       oldDelegate.peaks != peaks ||
       oldDelegate.markers != markers ||
-      oldDelegate.duration != duration;
+      oldDelegate.duration != duration ||
+      oldDelegate.color != color;
 }

@@ -45,6 +45,8 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
 
   // Dragging state
   String? _draggingMarkerId;
+
+  // Unsaved changes state
   bool _hasChanges = false;
 
   @override
@@ -402,27 +404,29 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
     return await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF1A1A1A),
+            backgroundColor: const Color(0xFF1E1E1E),
             title: const Text(
               'Descartar alterações?',
               style: TextStyle(color: Colors.white),
             ),
             content: const Text(
-              'Você fez mudanças nos marcadores que ainda não foram salvas. Deseja realmente sair?',
-              style: TextStyle(color: Colors.white70),
+              'Você fez mudanças nos marcadores que ainda não foram salvas. Se sair agora, perderá tudo.',
+              style: TextStyle(color: AppColors.textPrimary),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: AppColors.textPrimary),
                 ),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Descartar'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Descartar',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
@@ -437,9 +441,11 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 
-        final shouldPop = await _showExitConfirmationDialog();
-        if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
+        final bool shouldDiscard = await _showExitConfirmationDialog();
+        if (shouldDiscard) {
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
         }
       },
       child: Scaffold(
@@ -448,16 +454,7 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
           backgroundColor: const Color(0xFF0A0A0A),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
-            onPressed: () async {
-              if (_hasChanges) {
-                final shouldPop = await _showExitConfirmationDialog();
-                if (shouldPop && context.mounted) {
-                  Navigator.of(context).pop();
-                }
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
+            onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
             'Editar Marcadores',
@@ -521,13 +518,12 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                 ),
               ),
 
-              // Timeline Section (Superior)
               Expanded(
                 flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16.0,
-                    vertical: 8.0,
+                    vertical: 32.0,
                   ),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -545,9 +541,9 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                           return false;
                         },
                         child: SingleChildScrollView(
+                          clipBehavior: Clip.none,
                           controller: _scrollController,
                           scrollDirection: Axis.horizontal,
-                          clipBehavior: Clip.none,
                           child: SizedBox(
                             key: _timelineKey,
                             width: zoomedWidth,
@@ -644,6 +640,23 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
 
                                   final markerX = t * zoomedWidth;
 
+                                  final Color markerColor =
+                                      m.colorHex == '#FFFFFF'
+                                      ? Colors.white
+                                      : Color(
+                                          int.parse(
+                                            m.colorHex.replaceAll('#', '0xff'),
+                                          ),
+                                        );
+                                  final Color activeColor =
+                                      _draggingMarkerId == m.id
+                                      ? Colors.white
+                                      : markerColor;
+                                  final Color textColor =
+                                      activeColor.computeLuminance() > 0.5
+                                      ? Colors.black
+                                      : Colors.white;
+
                                   return Positioned(
                                     left:
                                         markerX - 24, // center the 48px handle
@@ -726,66 +739,31 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                               bottom: 0.0,
                                               width: 2.0,
                                               child: Container(
-                                                color: _draggingMarkerId == m.id
-                                                    ? Colors.white
-                                                    : Color(
-                                                        int.parse(
-                                                          m.colorHex.replaceAll(
-                                                            '#',
-                                                            '0xFF',
-                                                          ),
-                                                        ),
-                                                      ),
+                                                color: activeColor,
                                               ),
                                             ),
                                             // The handle/flag
                                             Align(
                                               alignment: Alignment.topCenter,
-                                              child: Builder(
-                                                builder: (context) {
-                                                  final markerColor =
-                                                      _draggingMarkerId == m.id
-                                                      ? Colors.white
-                                                      : Color(
-                                                          int.parse(
-                                                            m.colorHex
-                                                                .replaceAll(
-                                                                  '#',
-                                                                  '0xFF',
-                                                                ),
-                                                          ),
-                                                        );
-                                                  final textColor =
-                                                      markerColor
-                                                              .computeLuminance() >
-                                                          0.5
-                                                      ? Colors.black
-                                                      : Colors.white;
-
-                                                  return Container(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          horizontal: 4,
-                                                          vertical: 2,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: markerColor,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
                                                     ),
-                                                    child: Text(
-                                                      m.label,
-                                                      style: TextStyle(
-                                                        color: textColor,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
+                                                decoration: BoxDecoration(
+                                                  color: activeColor,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  m.label,
+                                                  style: TextStyle(
+                                                    color: textColor,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -825,133 +803,79 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
               ),
               const SizedBox(height: 16),
 
-              // Marker List Section (Inferior)
+              // Marker List
               Expanded(
                 flex: 3,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF121212),
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(24),
-                      topRight: Radius.circular(24),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 4,
-                        margin: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white12,
-                          borderRadius: BorderRadius.circular(2),
+                child: ListView.builder(
+                  itemCount: _markers.length,
+                  itemBuilder: (context, index) {
+                    // Sort markers to display chronologically
+                    final sortedMarkers = List<Marker>.from(_markers)
+                      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+                    final marker = sortedMarkers[index];
+
+                    final Color markerColor = marker.colorHex == '#FFFFFF'
+                        ? Colors.white
+                        : Color(
+                            int.parse(marker.colorHex.replaceAll('#', '0xff')),
+                          );
+
+                    return Card(
+                      color: const Color(0xFF1E1E1E),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 4.0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: ListTile(
+                        onTap: () => _showEditMarkerDialog(marker),
+                        leading: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: markerColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        title: Text(
+                          marker.label,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${marker.timestamp.inMinutes.toString().padLeft(2, '0')}:${(marker.timestamp.inSeconds % 60).toString().padLeft(2, '0')}.${(marker.timestamp.inMilliseconds % 1000).toString().padLeft(3, '0')}',
+                          style: const TextStyle(color: AppColors.textMuted),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: () => _showEditMarkerDialog(marker),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                setState(() {
+                                  _markers.removeWhere(
+                                    (m) => m.id == marker.id,
+                                  );
+                                  _hasChanges = true;
+                                });
+                              },
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: _markers.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  'Nenhum marcador adicionado',
-                                  style: TextStyle(color: AppColors.textMuted),
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                itemCount: _markers.length,
-                                itemBuilder: (context, index) {
-                                  // Sort markers by time
-                                  final sortedMarkers =
-                                      List<Marker>.from(_markers)..sort(
-                                        (a, b) =>
-                                            a.timestamp.compareTo(b.timestamp),
-                                      );
-                                  final marker = sortedMarkers[index];
-
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    color: const Color(0xFF1E1E1E),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: BorderSide(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.05,
-                                        ),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 8,
-                                          ),
-                                      leading: Container(
-                                        width: 12,
-                                        height: 32,
-                                        decoration: BoxDecoration(
-                                          color: Color(
-                                            int.parse(
-                                              marker.colorHex.replaceAll(
-                                                '#',
-                                                '0xFF',
-                                              ),
-                                            ),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            2,
-                                          ),
-                                        ),
-                                      ),
-                                      title: Text(
-                                        marker.label,
-                                        style: const TextStyle(
-                                          color: AppColors.textPrimary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        '${marker.timestamp.inMinutes.toString().padLeft(2, '0')}:${(marker.timestamp.inSeconds % 60).toString().padLeft(2, '0')}.${(marker.timestamp.inMilliseconds % 1000).toString().padLeft(3, '0')}',
-                                        style: const TextStyle(
-                                          color: AppColors.textMuted,
-                                        ),
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.edit,
-                                              color: AppColors.primary,
-                                            ),
-                                            onPressed: () =>
-                                                _showEditMarkerDialog(marker),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(
-                                              Icons.delete,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () {
-                                              setState(() {
-                                                _markers.removeWhere(
-                                                  (m) => m.id == marker.id,
-                                                );
-                                                _hasChanges = true;
-                                              });
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ],

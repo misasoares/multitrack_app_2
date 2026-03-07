@@ -9,6 +9,7 @@ import 'package:multitracks_df_pro/core/theme/app_colors.dart';
 import 'package:multitracks_df_pro/core/theme/app_text_styles.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/setlist.dart';
 import 'package:multitracks_df_pro/features/player_mixer/domain/entities/track.dart';
+import 'package:multitracks_df_pro/core/presentation/widgets/shared_waveform_timeline.dart';
 import 'package:multitracks_df_pro/injection_container.dart';
 import '../stores/live_performance_store.dart';
 
@@ -103,7 +104,8 @@ class _LivePerformancePageState extends State<LivePerformancePage> {
                           ],
                         ),
                       ),
-                      if (_store.isMetronomeVisible) _MetronomePanelRight(store: _store),
+                      if (_store.isMetronomeVisible)
+                        _MetronomePanelRight(store: _store),
                     ],
                   );
                 },
@@ -204,7 +206,10 @@ class _MetronomePanelRight extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0A0A0A),
         border: Border(
-          left: BorderSide(color: AppColors.primary.withValues(alpha: 0.35), width: 1),
+          left: BorderSide(
+            color: AppColors.primary.withValues(alpha: 0.35),
+            width: 1,
+          ),
         ),
       ),
       child: SingleChildScrollView(
@@ -213,157 +218,172 @@ class _MetronomePanelRight extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-          Center(
-            child: Text(
-              'METRONOME',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textMuted,
-                letterSpacing: 1.5,
+            Center(
+              child: Text(
+                'METRONOME',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textMuted,
+                  letterSpacing: 1.5,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Observer(
-            builder: (_) => Column(
+            const SizedBox(height: 16),
+            Observer(
+              builder: (_) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    '${store.metronomeBpm.round()}',
+                    style: GoogleFonts.jetBrainsMono(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                      height: 1.0,
+                    ),
+                  ),
+                  Text(
+                    'bpm',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Observer(
+              builder: (_) => Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => store.tapTempo(),
+                  borderRadius: BorderRadius.circular(50),
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      border: Border.all(color: AppColors.primary, width: 2.5),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'TAP',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Observer(
+              builder: (_) => IconButton(
+                onPressed: () =>
+                    store.setMetronomePlaying(!store.isMetronomePlaying),
+                icon: Icon(
+                  store.isMetronomePlaying
+                      ? Icons.stop_circle
+                      : Icons.play_circle_outline,
+                  color: AppColors.primary,
+                  size: 48,
+                ),
+                iconSize: 48,
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A1A1A),
+                  minimumSize: const Size(64, 64),
+                ),
+                tooltip: store.isMetronomePlaying
+                    ? 'Parar click'
+                    : 'Play click',
+              ),
+            ),
+            const SizedBox(height: 24),
+            Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  '${store.metronomeBpm.round()}',
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 48,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                    height: 1.0,
+                  'Vol',
+                  style: AppTextStyles.labelMuted.copyWith(fontSize: 10),
+                ),
+                const SizedBox(height: 4),
+                Observer(
+                  builder: (_) => SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 6,
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: const Color(0xFF2A2A2A),
+                      thumbColor: AppColors.primary,
+                    ),
+                    child: Slider(
+                      value: _linearToDb(
+                        store.metronomeVolume,
+                      ).clamp(-60.0, 13.0),
+                      min: -60.0,
+                      max: 13.0,
+                      onChanged: (db) {
+                        final lin = db <= -59.9
+                            ? 0.0
+                            : math.pow(10.0, db / 20.0).toDouble();
+                        store.setMetronomeVolume(lin);
+                      },
+                    ),
                   ),
                 ),
-                Text(
-                  'bpm',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMuted,
+                Observer(
+                  builder: (_) {
+                    final db = _linearToDb(store.metronomeVolume);
+                    final label = db > -59.9
+                        ? (db > 0
+                              ? '+${db.toStringAsFixed(1)}'
+                              : db.toStringAsFixed(1))
+                        : '-INF';
+                    return Center(
+                      child: Text(
+                        label,
+                        style: AppTextStyles.labelMuted.copyWith(
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    'Pan L/R',
+                    style: AppTextStyles.labelMuted.copyWith(fontSize: 10),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Observer(
+                  builder: (_) => SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 6,
+                      activeTrackColor: AppColors.primary,
+                      inactiveTrackColor: const Color(0xFF2A2A2A),
+                      thumbColor: AppColors.primary,
+                    ),
+                    child: Slider(
+                      value: (store.metronomePan + 1) / 2,
+                      onChanged: (v) => store.setMetronomePan(v * 2 - 1),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          Observer(
-            builder: (_) => Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => store.tapTempo(),
-                borderRadius: BorderRadius.circular(50),
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    border: Border.all(color: AppColors.primary, width: 2.5),
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'TAP',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Observer(
-            builder: (_) => IconButton(
-              onPressed: () => store.setMetronomePlaying(!store.isMetronomePlaying),
-              icon: Icon(
-                store.isMetronomePlaying ? Icons.stop_circle : Icons.play_circle_outline,
-                color: AppColors.primary,
-                size: 48,
-              ),
-              iconSize: 48,
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0xFF1A1A1A),
-                minimumSize: const Size(64, 64),
-              ),
-              tooltip: store.isMetronomePlaying ? 'Parar click' : 'Play click',
-            ),
-          ),
-          const SizedBox(height: 24),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text('Vol', style: AppTextStyles.labelMuted.copyWith(fontSize: 10)),
-              const SizedBox(height: 4),
-              Observer(
-                builder: (_) => SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 6,
-                    activeTrackColor: AppColors.primary,
-                    inactiveTrackColor: const Color(0xFF2A2A2A),
-                    thumbColor: AppColors.primary,
-                  ),
-                  child: Slider(
-                    value: _linearToDb(store.metronomeVolume).clamp(-60.0, 13.0),
-                    min: -60.0,
-                    max: 13.0,
-                    onChanged: (db) {
-                      final lin = db <= -59.9
-                          ? 0.0
-                          : math.pow(10.0, db / 20.0).toDouble();
-                      store.setMetronomeVolume(lin);
-                    },
-                  ),
-                ),
-              ),
-              Observer(
-                builder: (_) {
-                  final db = _linearToDb(store.metronomeVolume);
-                  final label = db > -59.9
-                      ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
-                      : '-INF';
-                  return Center(
-                    child: Text(
-                      label,
-                      style: AppTextStyles.labelMuted.copyWith(
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Text('Pan L/R', style: AppTextStyles.labelMuted.copyWith(fontSize: 10)),
-              ),
-              const SizedBox(height: 4),
-              Observer(
-                builder: (_) => SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 6,
-                    activeTrackColor: AppColors.primary,
-                    inactiveTrackColor: const Color(0xFF2A2A2A),
-                    thumbColor: AppColors.primary,
-                  ),
-                  child: Slider(
-                    value: (store.metronomePan + 1) / 2,
-                    onChanged: (v) => store.setMetronomePan(v * 2 - 1),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],  // outer Column children
+          ], // outer Column children
         ),
       ),
     );
@@ -445,10 +465,16 @@ class _LiveHeader extends StatelessWidget {
                 builder: (_) => IconButton(
                   onPressed: store.isLoadingSong
                       ? null
-                      : (store.currentSetlist != null ? () => store.togglePlay() : null),
+                      : (store.currentSetlist != null
+                            ? () => store.togglePlay()
+                            : null),
                   icon: Icon(
-                    store.isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                    color: store.isLoadingSong ? AppColors.textMuted : AppColors.primary,
+                    store.isPlaying
+                        ? Icons.pause_circle_filled
+                        : Icons.play_circle_filled,
+                    color: store.isLoadingSong
+                        ? AppColors.textMuted
+                        : AppColors.primary,
                     size: 128,
                   ),
                   iconSize: 128,
@@ -485,7 +511,12 @@ class _SetlistRibbon extends StatelessWidget {
         builder: (_) {
           final setlist = store.currentSetlist;
           if (setlist == null || setlist.items.isEmpty) {
-            return const Center(child: Text('No songs', style: TextStyle(color: AppColors.textMuted)));
+            return const Center(
+              child: Text(
+                'No songs',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
+            );
           }
           final loading = store.isLoadingSong;
           final playing = store.isPlaying;
@@ -500,7 +531,10 @@ class _SetlistRibbon extends StatelessWidget {
               final duration = music.duration;
               final keyStr = music.key.isNotEmpty ? music.key : '';
               final bpmStr = music.bpm > 0 ? '${music.bpm}bpm' : '';
-              final meta = [keyStr, bpmStr].where((s) => s.isNotEmpty).join(' / ');
+              final meta = [
+                keyStr,
+                bpmStr,
+              ].where((s) => s.isNotEmpty).join(' / ');
               final canTap = !loading && !playing;
               return GestureDetector(
                 onTap: canTap ? () => store.goToSong(index) : null,
@@ -509,12 +543,19 @@ class _SetlistRibbon extends StatelessWidget {
                   height: cardHeight,
                   child: Container(
                     margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: isActive ? AppColors.primary.withValues(alpha: 0.25) : const Color(0xFF1A1A1A),
+                      color: isActive
+                          ? AppColors.primary.withValues(alpha: 0.25)
+                          : const Color(0xFF1A1A1A),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isActive ? AppColors.primary : const Color(0xFF2A2A2A),
+                        color: isActive
+                            ? AppColors.primary
+                            : const Color(0xFF2A2A2A),
                         width: isActive ? 2 : 1,
                       ),
                     ),
@@ -529,7 +570,9 @@ class _SetlistRibbon extends StatelessWidget {
                             '${(index + 1).toString().padLeft(2, '0')} ${music.title}${isActive ? ' (Active)' : ''}',
                             style: GoogleFonts.inter(
                               fontSize: 13,
-                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                              fontWeight: isActive
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: AppColors.textPrimary,
                             ),
                             maxLines: 1,
@@ -539,7 +582,9 @@ class _SetlistRibbon extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '${_formatDuration(duration)}${meta.isNotEmpty ? ' / $meta' : ''}',
-                          style: AppTextStyles.labelMuted.copyWith(fontSize: 11),
+                          style: AppTextStyles.labelMuted.copyWith(
+                            fontSize: 11,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -572,7 +617,10 @@ class _WaveformSection extends StatelessWidget {
           return Container(
             color: const Color(0xFF0D0D0D),
             child: const Center(
-              child: Text('No waveform', style: TextStyle(color: AppColors.textMuted)),
+              child: Text(
+                'No waveform',
+                style: TextStyle(color: AppColors.textMuted),
+              ),
             ),
           );
         }
@@ -581,7 +629,10 @@ class _WaveformSection extends StatelessWidget {
             ? duration.inMicroseconds / 1000000.0
             : 1.0;
         final progress = durationSec > 0
-            ? (position.inMicroseconds / 1000000.0 / durationSec).clamp(0.0, 1.0)
+            ? (position.inMicroseconds / 1000000.0 / durationSec).clamp(
+                0.0,
+                1.0,
+              )
             : 0.0;
 
         final peaks = item.masterWaveformPeaks;
@@ -617,52 +668,18 @@ class _WaveformSection extends StatelessWidget {
                           ],
                         ),
                       )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          final height = constraints.maxHeight;
-                          final gestureChild = GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onHorizontalDragStart: (details) {
-                              if (store.isPlaying) return;
-                              store.startScrubbing();
-                              final percentage =
-                                  (details.localPosition.dx / width).clamp(0.0, 1.0);
-                              final totalMicroseconds = duration.inMicroseconds;
-                              final newPosition = Duration(
-                                microseconds: (totalMicroseconds * percentage).round(),
-                              );
-                              store.updateScrubPosition(newPosition);
-                            },
-                            onHorizontalDragUpdate: (details) {
-                              if (store.isPlaying) return;
-                              final percentage =
-                                  (details.localPosition.dx / width).clamp(0.0, 1.0);
-                              final totalMicroseconds = duration.inMicroseconds;
-                              final newPosition = Duration(
-                                microseconds: (totalMicroseconds * percentage).round(),
-                              );
-                              store.updateScrubPosition(newPosition);
-                            },
-                            onHorizontalDragEnd: (_) => store.endScrubbing(),
-                            onHorizontalDragCancel: () => store.endScrubbing(),
-                            child: CustomPaint(
-                              painter: _WaveformPainter(
-                                peaks: peaks,
-                                progress: progress,
-                              ),
-                              size: Size(width, height),
-                            ),
-                          );
-                          return Observer(
-                            builder: (_) {
-                              if (store.isPlaying) {
-                                return AbsorbPointer(child: gestureChild);
-                              }
-                              return gestureChild;
-                            },
-                          );
+                    : SharedWaveformTimeline(
+                        peaks: peaks,
+                        progress: progress,
+                        isPlaying: store.isPlaying,
+                        duration: duration,
+                        markers: item.originalMusic.markers,
+                        onScrubStart: (pos) {
+                          store.startScrubbing();
+                          store.updateScrubPosition(pos);
                         },
+                        onScrubUpdate: (pos) => store.updateScrubPosition(pos),
+                        onScrubEnd: () => store.endScrubbing(),
                       ),
               ),
               const SizedBox(height: 6),
@@ -670,7 +687,8 @@ class _WaveformSection extends StatelessWidget {
                 children: [
                   if (item.originalMusic.markers.isNotEmpty)
                     ...item.originalMusic.markers.take(6).map((m) {
-                      final t = m.timestamp.inMicroseconds / 1000000.0 / durationSec;
+                      final t =
+                          m.timestamp.inMicroseconds / 1000000.0 / durationSec;
                       final inRange = t >= 0 && t <= 1;
                       return Padding(
                         padding: const EdgeInsets.only(right: 12),
@@ -680,7 +698,9 @@ class _WaveformSection extends StatelessWidget {
                             fontSize: 9,
                             fontWeight: FontWeight.w600,
                             color: inRange
-                                ? (progress >= t ? AppColors.primary : AppColors.textMuted)
+                                ? (progress >= t
+                                      ? AppColors.primary
+                                      : AppColors.textMuted)
                                 : AppColors.textMuted,
                           ),
                         ),
@@ -701,57 +721,7 @@ class _WaveformSection extends StatelessWidget {
   }
 }
 
-class _WaveformPainter extends CustomPainter {
-  final List<double> peaks;
-  final double progress;
-
-  _WaveformPainter({required this.peaks, required this.progress});
-
-  static const double _maxBarWidth = 2.0;
-  static const double _minGap = 0.5;
-  static const double _playheadWidth = 2.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (peaks.isEmpty) return;
-    final halfHeight = size.height / 2;
-    final slotWidth = size.width / peaks.length;
-    final barWidth = (slotWidth - _minGap).clamp(1.0, _maxBarWidth);
-    final playheadX = progress.clamp(0.0, 1.0) * size.width;
-    const colorPlayed = AppColors.primary; // Amber
-    const colorToCome = Color(0xFF404040);
-
-    for (var i = 0; i < peaks.length; i++) {
-      final x = i * slotWidth + slotWidth / 2;
-      final peak = peaks[i].clamp(0.0, 1.0);
-      final barHeight = peak * halfHeight * 0.9;
-      if (barHeight < 0.5) continue;
-      final isPlayed = x <= playheadX;
-      final color = isPlayed ? colorPlayed : colorToCome;
-      final rect = Rect.fromCenter(
-        center: Offset(x, halfHeight),
-        width: barWidth,
-        height: barHeight,
-      );
-      final radius = Radius.circular(barWidth / 2);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, radius),
-        Paint()..color = color,
-      );
-    }
-
-    canvas.drawRect(
-      Rect.fromLTWH(playheadX - _playheadWidth / 2, 0, _playheadWidth, size.height),
-      Paint()..color = colorPlayed,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_WaveformPainter oldDelegate) =>
-      oldDelegate.progress != progress || oldDelegate.peaks != peaks;
-}
-
-/// Bottom panel (height 340): Tracks scroll + Master. No metronome (moved to right panel).
+// Bottom panel (height 340): Tracks scroll + Master. No metronome (moved to right panel).
 class _SuperMixerPanel extends StatelessWidget {
   final LivePerformanceStore store;
   final IAudioEngineService audioEngine;
@@ -781,7 +751,10 @@ class _SuperMixerPanel extends StatelessWidget {
                 final tracks = store.currentTracks;
                 if (tracks.isEmpty) {
                   return const Center(
-                    child: Text('No tracks', style: TextStyle(color: AppColors.textMuted)),
+                    child: Text(
+                      'No tracks',
+                      style: TextStyle(color: AppColors.textMuted),
+                    ),
                   );
                 }
                 final lc = levelController;
@@ -790,7 +763,10 @@ class _SuperMixerPanel extends StatelessWidget {
                     child: SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
                     ),
                   );
                 }
@@ -863,10 +839,7 @@ class _MasterStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            'VS OUT',
-            style: AppTextStyles.labelMuted.copyWith(fontSize: 8),
-          ),
+          Text('VS OUT', style: AppTextStyles.labelMuted.copyWith(fontSize: 8)),
           const SizedBox(height: 8),
           Expanded(
             child: Observer(
@@ -877,14 +850,20 @@ class _MasterStrip extends StatelessWidget {
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 8.0,
-                        activeTrackColor: AppColors.primary.withValues(alpha: 0.6),
+                        activeTrackColor: AppColors.primary.withValues(
+                          alpha: 0.6,
+                        ),
                         inactiveTrackColor: const Color(0xFF0A0A0A),
                         thumbShape: const _RectangularSliderThumbShape(),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
+                        overlayShape: const RoundSliderOverlayShape(
+                          overlayRadius: 18,
+                        ),
                         thumbColor: Colors.transparent,
                       ),
                       child: Slider(
-                        value: _linearToDb(store.masterVolume).clamp(-60.0, 13.0),
+                        value: _linearToDb(
+                          store.masterVolume,
+                        ).clamp(-60.0, 13.0),
                         min: -60.0,
                         max: 13.0,
                         onChanged: (db) {
@@ -904,7 +883,9 @@ class _MasterStrip extends StatelessWidget {
             builder: (_) {
               final db = _linearToDb(store.masterVolume);
               final label = db > -59.9
-                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
+                  ? (db > 0
+                        ? '+${db.toStringAsFixed(1)}'
+                        : db.toStringAsFixed(1))
                   : '-INF';
               return Text(
                 label,
@@ -945,7 +926,9 @@ class _TrackFaderStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final h = constraints.maxHeight.isFinite ? constraints.maxHeight : 220.0;
+        final h = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : 220.0;
         return Container(
           height: h,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
@@ -955,133 +938,141 @@ class _TrackFaderStrip extends StatelessWidget {
             border: Border.all(color: const Color(0xFF2A2A2A)),
           ),
           child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Top: Track name ──
-          Text(
-            track.name.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFFB0B0B0),
-              fontFamily: 'monospace',
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          // ── M / S buttons ──
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _MuteSoloButton(
-                label: 'M',
-                isActive: track.isMuted,
-                activeColor: AppColors.alert,
-                onPressed: () => store.setTrackMute(track.id, !track.isMuted),
+              // ── Top: Track name ──
+              Text(
+                track.name.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFB0B0B0),
+                  fontFamily: 'monospace',
+                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(width: 4),
-              _MuteSoloButton(
-                label: 'S',
-                isActive: track.isSolo,
-                activeColor: AppColors.primary,
-                onPressed: () => store.setTrackSolo(track.id, !track.isSolo),
+              const SizedBox(height: 6),
+              // ── M / S buttons ──
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _MuteSoloButton(
+                    label: 'M',
+                    isActive: track.isMuted,
+                    activeColor: AppColors.alert,
+                    onPressed: () =>
+                        store.setTrackMute(track.id, !track.isMuted),
+                  ),
+                  const SizedBox(width: 4),
+                  _MuteSoloButton(
+                    label: 'S',
+                    isActive: track.isSolo,
+                    activeColor: AppColors.primary,
+                    onPressed: () =>
+                        store.setTrackSolo(track.id, !track.isSolo),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // ── Body: VU LEDs + Fader ──
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // VU meter (reactive from store.trackPeaks when isPlaying)
+                    SizedBox(
+                      width: 10,
+                      child: Observer(
+                        builder: (_) {
+                          final peak = store.trackPeaks[track.id] ?? 0.0;
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              return CustomPaint(
+                                painter: _VuLedStripPainter(peak: peak),
+                                size: Size(10, constraints.maxHeight),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    // Fader
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final h = constraints.maxHeight;
+                          return SizedBox(
+                            height: h,
+                            child: RotatedBox(
+                              quarterTurns: 3,
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 8.0,
+                                  activeTrackColor: const Color(0xFF1A1A1A),
+                                  inactiveTrackColor: const Color(0xFF0A0A0A),
+                                  thumbShape:
+                                      const _RectangularSliderThumbShape(),
+                                  overlayShape: const RoundSliderOverlayShape(
+                                    overlayRadius: 18,
+                                  ),
+                                  thumbColor: Colors.transparent,
+                                ),
+                                child: Slider(
+                                  value: _linearToDb(
+                                    track.volume,
+                                  ).clamp(-60.0, 13.0),
+                                  min: -60.0,
+                                  max: 13.0,
+                                  onChanged: (db) {
+                                    final lin = db <= -59.9
+                                        ? 0.0
+                                        : math.pow(10.0, db / 20.0).toDouble();
+                                    store.setTrackVolume(track.id, lin);
+                                  },
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              // ── Base: gain (dB) in Amber ──
+              Builder(
+                builder: (_) {
+                  final db = _linearToDb(track.volume);
+                  final label = db > -59.9
+                      ? (db > 0
+                            ? '+${db.toStringAsFixed(1)}'
+                            : db.toStringAsFixed(1))
+                      : '-INF';
+                  return Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'monospace',
+                      color: (track.volume - 1.0).abs() < 0.01
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                    ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // ── Body: VU LEDs + Fader ──
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // VU meter (reactive from store.trackPeaks when isPlaying)
-                SizedBox(
-                  width: 10,
-                  child: Observer(
-                    builder: (_) {
-                      final peak = store.trackPeaks[track.id] ?? 0.0;
-                      return LayoutBuilder(
-                        builder: (context, constraints) {
-                          return CustomPaint(
-                            painter: _VuLedStripPainter(peak: peak),
-                            size: Size(10, constraints.maxHeight),
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // Fader
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final h = constraints.maxHeight;
-                      return SizedBox(
-                        height: h,
-                        child: RotatedBox(
-                          quarterTurns: 3,
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              trackHeight: 8.0,
-                              activeTrackColor: const Color(0xFF1A1A1A),
-                              inactiveTrackColor: const Color(0xFF0A0A0A),
-                              thumbShape: const _RectangularSliderThumbShape(),
-                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
-                              thumbColor: Colors.transparent,
-                            ),
-                            child: Slider(
-                              value: _linearToDb(track.volume).clamp(-60.0, 13.0),
-                              min: -60.0,
-                              max: 13.0,
-                              onChanged: (db) {
-                                final lin = db <= -59.9
-                                    ? 0.0
-                                    : math.pow(10.0, db / 20.0).toDouble();
-                                store.setTrackVolume(track.id, lin);
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 4),
-          // ── Base: gain (dB) in Amber ──
-          Builder(
-            builder: (_) {
-              final db = _linearToDb(track.volume);
-              final label = db > -59.9
-                  ? (db > 0 ? '+${db.toStringAsFixed(1)}' : db.toStringAsFixed(1))
-                  : '-INF';
-              return Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'monospace',
-                  color: (track.volume - 1.0).abs() < 0.01
-                      ? AppColors.primary
-                      : AppColors.textMuted,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
+        );
       },
     );
   }
 }
-
 
 /// VU meter: segment LEDs from bottom to top (green → amber → red). Lit by [peak] (0.0–1.0).
 class _VuLedStripPainter extends CustomPainter {
@@ -1124,7 +1115,8 @@ class _VuLedStripPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_VuLedStripPainter oldDelegate) => oldDelegate.peak != peak;
+  bool shouldRepaint(_VuLedStripPainter oldDelegate) =>
+      oldDelegate.peak != peak;
 }
 
 /// Thumb em forma de retângulo cinza/chumbo com linha amarela no meio (fader físico).
@@ -1219,7 +1211,9 @@ class _MuteSoloButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
-                color: isActive ? (label == 'M' ? Colors.white : Colors.black) : AppColors.textMuted,
+                color: isActive
+                    ? (label == 'M' ? Colors.white : Colors.black)
+                    : AppColors.textMuted,
               ),
             ),
           ),
@@ -1228,4 +1222,3 @@ class _MuteSoloButton extends StatelessWidget {
     );
   }
 }
-

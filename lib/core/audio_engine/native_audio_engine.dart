@@ -999,6 +999,8 @@ class NativeAudioEngine implements IAudioEngineService {
       final file = File('${directory.path}/$fileName');
 
       try {
+        // ignore: avoid_print
+        print('DrumKit: Tentando carregar $assetPath para ${file.path}');
         final data = await rootBundle.load(assetPath);
         final bytes = data.buffer.asUint8List(
           data.offsetInBytes,
@@ -1006,10 +1008,23 @@ class NativeAudioEngine implements IAudioEngineService {
         );
         await file.writeAsBytes(bytes, flush: true);
 
-        await loadDrumSample('pad_$i', file.path);
+        if (file.existsSync()) {
+          // ignore: avoid_print
+          print(
+            'DrumKit: Arquivo temporário criado (${file.lengthSync()} bytes)',
+          );
+          final success = await loadDrumSample('pad_$i', file.path);
+          // ignore: avoid_print
+          print('DrumKit: engine_load_drum_sample pad_$i status: $success');
+        } else {
+          // ignore: avoid_print
+          print(
+            'DrumKit: ERRO - Arquivo temporário não encontrado após escrita',
+          );
+        }
       } catch (e) {
         // ignore: avoid_print
-        print('Error loading drum sample $i ($assetPath): $e');
+        print('DrumKit: Erro fatal no pad $i ($assetPath): $e');
       }
     }
   }

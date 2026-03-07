@@ -667,7 +667,7 @@ void AudioMixer::setTrackClickMap(const std::string& id,
 bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePath) {
     drwav wav;
     if (!drwav_init_file(&wav, filePath.c_str(), nullptr)) {
-        LOGE_MIX("loadDrumSample: failed to open WAV %s", filePath.c_str());
+        LOGE_MIX("DrumKit: FALHA ao abrir WAV %s", filePath.c_str());
         return false;
     }
 
@@ -708,7 +708,7 @@ bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePa
         drumSamples_[id] = std::move(sample);
     }
 
-    LOGD_MIX("loadDrumSample: loaded %s (%zu samples) at %d Hz", id.c_str(), sample->pcmData.size(), sampleRate_);
+    LOGD_MIX("DrumKit: Carregando sample %s - Status: OK (%zu samples)", id.c_str(), sample->pcmData.size());
     return true;
 }
 
@@ -929,8 +929,36 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         }
     }
 
+    // ── Drum Sampler mixing (polyphonic) ──
+    for (auto& voicePtr : drumVoices_) {
+        const DrumSample* sample = voicePtr->sample;
+        if (!sample) continue;
+
+        size_t readIdx = voicePtr->readIndex.load(std::memory_order_relaxed);
+        size_t totalSamples = sample->pcmData.size();
+        if (readIdx >= totalSamples) {
+            voicePtr->sample = nullptr;
+            continue;
+        }
+
+        const int32_t ch = sample->numChannels;
+        const float* pcm = sample->pcmData.data();
+
+        for (int32_t i = 0; i < numFrames && readIdx < totalSamples; ++i) {
+            if (ch == 1) { // Mono sample
+                float s = pcm[readIdx++];
+                outputL[i] += s;
+                outputR[i] += s;
+            } else { // Stereo sample
+                outputL[i] += pcm[readIdx++];
+                outputR[i] += pcm[readIdx++];
+            }
+        }
+        voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
+    }
+
     if (!isPlaying_ || tracks_.empty()) {
-        // Apply master volume to metronome-only or silence
+        // Apply master volume to output (metronome / drums)
         const float mv = masterVolume_.load(std::memory_order_relaxed);
         const float ng = masterNormalizationGain_.load(std::memory_order_relaxed);
         const float totalGain = mv * ng;
@@ -1229,33 +1257,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         }
     }
 
-    // ── Drum Sampler mixing (RAM-based, polyphonic) ──
-    for (auto& voicePtr : drumVoices_) {
-        const DrumSample* sample = voicePtr->sample;
-        if (!sample) continue;
-
-        size_t readIdx = voicePtr->readIndex.load(std::memory_order_relaxed);
-        size_t totalSamples = sample->pcmData.size();
-        if (readIdx >= totalSamples) {
-            voicePtr->sample = nullptr;
-            continue;
-        }
-
-        const int32_t ch = sample->numChannels;
-        const float* pcm = sample->pcmData.data();
-
-        for (int32_t i = 0; i < numFrames && readIdx < totalSamples; ++i) {
-            if (ch == 1) { // Mono sample
-                float s = pcm[readIdx++];
-                outputL[i] += s;
-                outputR[i] += s;
-            } else { // Stereo sample
-                outputL[i] += pcm[readIdx++];
-                outputR[i] += pcm[readIdx++];
-            }
-        }
-        voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
-    }
+    // ── Master Bus Processing (with Bypass) ── 
+    // ... logic above ...
 
     masterPeak_ = masterPeak;
 

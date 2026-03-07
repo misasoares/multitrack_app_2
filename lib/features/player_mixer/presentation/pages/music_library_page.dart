@@ -11,6 +11,7 @@ import '../stores/create_music_store.dart';
 import 'create_music_page.dart';
 import 'setlist_library_page.dart';
 import 'package:multitracks_df_pro/features/performance/presentation/pages/performance_list_page.dart';
+import 'system_page.dart';
 
 class MusicLibraryPage extends StatefulWidget {
   const MusicLibraryPage({super.key});
@@ -236,7 +237,10 @@ class _LibraryHeader extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.2),
                   ),
                 ),
-                child: const Icon(Icons.library_music, color: AppColors.primary),
+                child: const Icon(
+                  Icons.library_music,
+                  color: AppColors.primary,
+                ),
               ),
               SizedBox(width: isNarrow ? 8 : 16),
               if (!isNarrow) ...[
@@ -343,7 +347,10 @@ class _LibraryHeader extends StatelessWidget {
                     foregroundColor: Colors.black,
                     elevation: 4,
                     shadowColor: AppColors.primary.withValues(alpha: 0.4),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(2),
                     ),
@@ -383,7 +390,11 @@ class _FilterBar extends StatelessWidget {
             // Duration Filter Button
             TextButton.icon(
               onPressed: () => _showDurationFilterDialog(context, store),
-              icon: const Icon(Icons.timer, size: 16, color: AppColors.textMuted),
+              icon: const Icon(
+                Icons.timer,
+                size: 16,
+                color: AppColors.textMuted,
+              ),
               label: Text(
                 'DURATION',
                 style: GoogleFonts.jetBrainsMono(
@@ -407,34 +418,34 @@ class _FilterBar extends StatelessWidget {
             const SizedBox(width: 8),
             Observer(
               builder: (_) => DropdownButton<MusicSortType>(
-              value: store.sortBy,
-              dropdownColor: const Color(0xFF1E1E1E),
-              underline: const SizedBox(),
-              icon: const Icon(
-                Icons.arrow_drop_down,
-                color: Color(0xFFCCCCCC),
-                size: 16,
+                value: store.sortBy,
+                dropdownColor: const Color(0xFF1E1E1E),
+                underline: const SizedBox(),
+                icon: const Icon(
+                  Icons.arrow_drop_down,
+                  color: Color(0xFFCCCCCC),
+                  size: 16,
+                ),
+                style: GoogleFonts.jetBrainsMono(
+                  color: const Color(0xFFCCCCCC),
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                onChanged: (MusicSortType? newValue) {
+                  if (newValue != null) {
+                    store.setSortBy(newValue);
+                  }
+                },
+                items: MusicSortType.values.map((MusicSortType value) {
+                  return DropdownMenuItem<MusicSortType>(
+                    value: value,
+                    child: Text(_getSortLabel(value)),
+                  );
+                }).toList(),
               ),
-              style: GoogleFonts.jetBrainsMono(
-                color: const Color(0xFFCCCCCC),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-              onChanged: (MusicSortType? newValue) {
-                if (newValue != null) {
-                  store.setSortBy(newValue);
-                }
-              },
-              items: MusicSortType.values.map((MusicSortType value) {
-                return DropdownMenuItem<MusicSortType>(
-                  value: value,
-                  child: Text(_getSortLabel(value)),
-                );
-              }).toList(),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -904,7 +915,16 @@ class _BottomNavBar extends StatelessWidget {
               );
             },
           ),
-          _NavBarItem(icon: Icons.settings, label: 'SYSTEM'),
+          _NavBarItem(
+            icon: Icons.settings,
+            label: 'SYSTEM',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SystemPage()),
+              );
+            },
+          ),
           _NavBarItem(icon: Icons.account_circle, label: 'PROFILE'),
         ],
       ),

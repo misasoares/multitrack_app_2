@@ -284,6 +284,16 @@ class JustAudioEngine implements IAudioEngineService {
   @override
   void setTrackClickMap(String trackId, List<int> clickMapMs) {} // Click map only supported by NativeAudioEngine.
 
+  // ── Drum Rack ──
+  @override
+  Future<bool> loadDrumSample(String id, String filePath) async => false;
+
+  @override
+  void triggerDrumPad(String id) {}
+
+  @override
+  void clearDrumSamples() {}
+
   @override
   void renderTrackOffline({
     required String trackId,

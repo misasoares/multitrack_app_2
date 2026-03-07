@@ -220,6 +220,18 @@ typedef _SetTrackClickMapNative =
 typedef _SetTrackClickMapDart =
     void Function(Pointer<Utf8> trackId, Pointer<Int32> mapMs, int size);
 
+// ── Drum Rack ──
+typedef _LoadDrumSampleNative =
+    Int8 Function(Pointer<Utf8> id, Pointer<Utf8> path);
+typedef _LoadDrumSampleDart =
+    int Function(Pointer<Utf8> id, Pointer<Utf8> path);
+
+typedef _TriggerDrumPadNative = Void Function(Pointer<Utf8> id);
+typedef _TriggerDrumPadDart = void Function(Pointer<Utf8> id);
+
+typedef _ClearDrumSamplesNative = Void Function();
+typedef _ClearDrumSamplesDart = void Function();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -278,6 +290,11 @@ class NativeAudioEngine implements IAudioEngineService {
   _ExtractPeaksFromFileDart? _extractPeaksFromFile;
   _ExtractBeatMapDart? _extractBeatMap;
   _SetTrackClickMapDart? _setTrackClickMap;
+
+  // ── Drum Rack ──
+  _LoadDrumSampleDart? _loadDrumSample;
+  _TriggerDrumPadDart? _triggerDrumPad;
+  _ClearDrumSamplesDart? _clearDrumSamples;
 
   late final DynamicLibrary _lib;
 
@@ -461,6 +478,26 @@ class NativeAudioEngine implements IAudioEngineService {
       print(
         'NativeAudioEngine Warning: engine_set_track_click_map not found: $e',
       );
+    }
+
+    try {
+      _loadDrumSample = lib
+          .lookup<NativeFunction<_LoadDrumSampleNative>>(
+            'engine_load_drum_sample',
+          )
+          .asFunction<_LoadDrumSampleDart>();
+
+      _triggerDrumPad = lib
+          .lookup<NativeFunction<_TriggerDrumPadNative>>('engine_trigger_pad')
+          .asFunction<_TriggerDrumPadDart>();
+
+      _clearDrumSamples = lib
+          .lookup<NativeFunction<_ClearDrumSamplesNative>>(
+            'engine_clear_drum_samples',
+          )
+          .asFunction<_ClearDrumSamplesDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: Drum Rack symbols not found: $e');
     }
 
     _getRenderProgress = lib
@@ -918,6 +955,37 @@ class NativeAudioEngine implements IAudioEngineService {
       calloc.free(trackIdPtr);
       calloc.free(mapPtr);
     }
+  }
+
+  // ─── Drum Rack ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<bool> loadDrumSample(String id, String filePath) async {
+    final fn = _loadDrumSample;
+    if (fn == null) return false;
+
+    final idPtr = id.toNativeUtf8();
+    final pathPtr = filePath.toNativeUtf8();
+    try {
+      final result = fn(idPtr, pathPtr);
+      return result != 0;
+    } finally {
+      calloc.free(idPtr);
+      calloc.free(pathPtr);
+    }
+  }
+
+  @override
+  void triggerDrumPad(String id) {
+    if (_triggerDrumPad == null) return;
+    final idPtr = id.toNativeUtf8();
+    _triggerDrumPad!(idPtr);
+    calloc.free(idPtr);
+  }
+
+  @override
+  void clearDrumSamples() {
+    _clearDrumSamples?.call();
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────

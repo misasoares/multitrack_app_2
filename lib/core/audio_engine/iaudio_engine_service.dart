@@ -187,6 +187,17 @@ abstract class IAudioEngineService {
   /// Synchronous: the C++ side deep-copies the array and queues the command.
   void setTrackClickMap(String trackId, List<int> clickMapMs);
 
+  // ─── Drum Rack ──────────────────────────────────────────────────────
+
+  /// Loads a WAV file into RAM as a DrumSample for zero-latency triggering.
+  Future<bool> loadDrumSample(String id, String filePath);
+
+  /// Triggers a drum sample by its ID. Lock-free on the audio thread.
+  void triggerDrumPad(String id);
+
+  /// Clears all loaded drum samples and releases their RAM.
+  void clearDrumSamples();
+
   // ─── Offline Render (Export Show) ────────────────────────────────────
 
   /// Single EQ band for offline render (DSP-only; matches C++ EqBand).

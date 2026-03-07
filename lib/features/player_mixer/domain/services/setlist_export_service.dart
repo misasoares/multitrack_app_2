@@ -186,7 +186,10 @@ class SetlistExportService {
       }
 
       // ── LUFS Analysis: compute normalization gain after all tracks are rendered ──
+      // Filter out utility tracks (Click, Guide, etc.) from LUFS analysis
+      // to avoid transients affecting the master loudness calculation.
       final renderedPaths = updatedTracks
+          .where((t) => !t.isUtilityTrack)
           .map((t) => path.join(itemDir, '${t.id}.wav'))
           .where((p) => File(p).existsSync())
           .toList();

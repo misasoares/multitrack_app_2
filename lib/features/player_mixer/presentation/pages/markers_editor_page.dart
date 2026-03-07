@@ -662,33 +662,63 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                             child: Container(
                                               color: _draggingMarkerId == m.id
                                                   ? Colors.white
-                                                  : AppColors.primary,
+                                                  : Color(
+                                                      int.parse(
+                                                        m.colorHex.replaceAll(
+                                                          '#',
+                                                          '0xFF',
+                                                        ),
+                                                      ),
+                                                    ),
                                             ),
                                           ),
                                           // The handle/flag
                                           Align(
                                             alignment: Alignment.topCenter,
-                                            child: Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: _draggingMarkerId == m.id
+                                            child: Builder(
+                                              builder: (context) {
+                                                final markerColor =
+                                                    _draggingMarkerId == m.id
                                                     ? Colors.white
-                                                    : AppColors.primary,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                m.label,
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
+                                                    : Color(
+                                                        int.parse(
+                                                          m.colorHex.replaceAll(
+                                                            '#',
+                                                            '0xFF',
+                                                          ),
+                                                        ),
+                                                      );
+                                                final textColor =
+                                                    markerColor
+                                                            .computeLuminance() >
+                                                        0.5
+                                                    ? Colors.black
+                                                    : Colors.white;
+
+                                                return Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: markerColor,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    m.label,
+                                                    style: TextStyle(
+                                                      color: textColor,
+                                                      fontSize: 10,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                             ),
                                           ),
                                         ],
@@ -794,7 +824,14 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                       width: 12,
                                       height: 32,
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary,
+                                        color: Color(
+                                          int.parse(
+                                            marker.colorHex.replaceAll(
+                                              '#',
+                                              '0xFF',
+                                            ),
+                                          ),
+                                        ),
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),

@@ -28,9 +28,9 @@ const MarkerModelSchema = Schema(
       name: r'label',
       type: IsarType.string,
     ),
-    r'timestampMs': PropertySchema(
+    r'timestampMicros': PropertySchema(
       id: 3,
-      name: r'timestampMs',
+      name: r'timestampMicros',
       type: IsarType.long,
     )
   },
@@ -76,7 +76,7 @@ void _markerModelSerialize(
   writer.writeString(offsets[0], object.colorHex);
   writer.writeString(offsets[1], object.id);
   writer.writeString(offsets[2], object.label);
-  writer.writeLong(offsets[3], object.timestampMs);
+  writer.writeLong(offsets[3], object.timestampMicros);
 }
 
 MarkerModel _markerModelDeserialize(
@@ -89,7 +89,7 @@ MarkerModel _markerModelDeserialize(
     colorHex: reader.readStringOrNull(offsets[0]),
     id: reader.readStringOrNull(offsets[1]),
     label: reader.readStringOrNull(offsets[2]),
-    timestampMs: reader.readLongOrNull(offsets[3]),
+    timestampMicros: reader.readLongOrNull(offsets[3]),
   );
   return object;
 }
@@ -565,63 +565,63 @@ extension MarkerModelQueryFilter
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsIsNull() {
+      timestampMicrosIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'timestampMs',
+        property: r'timestampMicros',
       ));
     });
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsIsNotNull() {
+      timestampMicrosIsNotNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'timestampMs',
+        property: r'timestampMicros',
       ));
     });
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsEqualTo(int? value) {
+      timestampMicrosEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'timestampMs',
+        property: r'timestampMicros',
         value: value,
       ));
     });
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsGreaterThan(
+      timestampMicrosGreaterThan(
     int? value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'timestampMs',
+        property: r'timestampMicros',
         value: value,
       ));
     });
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsLessThan(
+      timestampMicrosLessThan(
     int? value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'timestampMs',
+        property: r'timestampMicros',
         value: value,
       ));
     });
   }
 
   QueryBuilder<MarkerModel, MarkerModel, QAfterFilterCondition>
-      timestampMsBetween(
+      timestampMicrosBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
@@ -629,7 +629,7 @@ extension MarkerModelQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'timestampMs',
+        property: r'timestampMicros',
         lower: lower,
         includeLower: includeLower,
         upper: upper,

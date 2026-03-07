@@ -16,7 +16,7 @@ class TrackModel {
   bool? isClick;
   bool? isClickTrack;
   int? order;
-  int? durationInMilliseconds;
+  int? durationInMicroseconds;
   List<EqBandModel>? eqBands;
   bool? applyTranspose;
   int? octaveShift;
@@ -35,7 +35,7 @@ class TrackModel {
     this.isClick,
     this.isClickTrack,
     this.order,
-    this.durationInMilliseconds,
+    this.durationInMicroseconds,
     this.eqBands,
     this.applyTranspose,
     this.octaveShift,
@@ -54,7 +54,7 @@ class TrackModel {
       isClick: track.isClick,
       isClickTrack: track.isClickTrack,
       order: track.order,
-      durationInMilliseconds: track.duration.inMilliseconds,
+      durationInMicroseconds: track.duration.inMicroseconds,
       eqBands: track.eqBands.isNotEmpty
           ? track.eqBands.map((b) => EqBandModel.fromEntity(b)).toList()
           : null,
@@ -76,7 +76,7 @@ class TrackModel {
       isClick: isClick ?? false,
       isClickTrack: isClickTrack ?? false,
       order: order ?? 0,
-      duration: Duration(milliseconds: durationInMilliseconds ?? 0),
+      duration: Duration(microseconds: durationInMicroseconds ?? 0),
       eqBands: eqBands?.map((b) => b.toEntity()).toList() ?? const [],
       applyTranspose: applyTranspose ?? true,
       octaveShift: octaveShift ?? 0,

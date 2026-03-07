@@ -18,9 +18,9 @@ const TrackModelSchema = Schema(
       name: r'applyTranspose',
       type: IsarType.bool,
     ),
-    r'durationInMilliseconds': PropertySchema(
+    r'durationInMicroseconds': PropertySchema(
       id: 1,
-      name: r'durationInMilliseconds',
+      name: r'durationInMicroseconds',
       type: IsarType.long,
     ),
     r'eqBands': PropertySchema(
@@ -150,7 +150,7 @@ void _trackModelSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.applyTranspose);
-  writer.writeLong(offsets[1], object.durationInMilliseconds);
+  writer.writeLong(offsets[1], object.durationInMicroseconds);
   writer.writeObjectList<EqBandModel>(
     offsets[2],
     allOffsets,
@@ -179,7 +179,7 @@ TrackModel _trackModelDeserialize(
 ) {
   final object = TrackModel(
     applyTranspose: reader.readBoolOrNull(offsets[0]),
-    durationInMilliseconds: reader.readLongOrNull(offsets[1]),
+    durationInMicroseconds: reader.readLongOrNull(offsets[1]),
     eqBands: reader.readObjectList<EqBandModel>(
       offsets[2],
       EqBandModelSchema.deserialize,
@@ -280,63 +280,63 @@ extension TrackModelQueryFilter
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsIsNull() {
+      durationInMicrosecondsIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
       ));
     });
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsIsNotNull() {
+      durationInMicrosecondsIsNotNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
       ));
     });
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsEqualTo(int? value) {
+      durationInMicrosecondsEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
         value: value,
       ));
     });
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsGreaterThan(
+      durationInMicrosecondsGreaterThan(
     int? value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
         value: value,
       ));
     });
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsLessThan(
+      durationInMicrosecondsLessThan(
     int? value, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
         value: value,
       ));
     });
   }
 
   QueryBuilder<TrackModel, TrackModel, QAfterFilterCondition>
-      durationInMillisecondsBetween(
+      durationInMicrosecondsBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
@@ -344,7 +344,7 @@ extension TrackModelQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'durationInMilliseconds',
+        property: r'durationInMicroseconds',
         lower: lower,
         includeLower: includeLower,
         upper: upper,

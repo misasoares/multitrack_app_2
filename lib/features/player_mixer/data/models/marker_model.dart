@@ -7,16 +7,16 @@ part 'marker_model.g.dart';
 class MarkerModel {
   String? id;
   String? label;
-  int? timestampMs; // Isar doesn't support Duration directly
+  int? timestampMicros; // Isar doesn't support Duration directly
   String? colorHex;
 
-  MarkerModel({this.id, this.label, this.timestampMs, this.colorHex});
+  MarkerModel({this.id, this.label, this.timestampMicros, this.colorHex});
 
   factory MarkerModel.fromEntity(Marker marker) {
     return MarkerModel(
       id: marker.id,
       label: marker.label,
-      timestampMs: marker.timestamp.inMilliseconds,
+      timestampMicros: marker.timestamp.inMicroseconds,
       colorHex: marker.colorHex,
     );
   }
@@ -25,7 +25,7 @@ class MarkerModel {
     return Marker(
       id: id ?? '',
       label: label ?? '',
-      timestamp: Duration(milliseconds: timestampMs ?? 0),
+      timestamp: Duration(microseconds: timestampMicros ?? 0),
       colorHex: colorHex ?? '#FFFFFF',
     );
   }

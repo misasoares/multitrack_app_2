@@ -169,6 +169,25 @@ struct MixerTrack {
     size_t nextClickIndex = 0;
 };
 
+// ─── Drum Rack ───────────────────────────────────────────────────────────────
+
+/// A single drum sample loaded into RAM.
+struct DrumSample {
+    std::string id;
+    int32_t numChannels = 0;
+    std::vector<float> pcmData;
+};
+
+/// An active playback instance of a DrumSample.
+struct DrumVoice {
+    const DrumSample* sample = nullptr;
+    std::atomic<size_t> readIndex{0};
+
+    bool isActive() const {
+        return sample != nullptr && readIndex.load() < sample->pcmData.size();
+    }
+};
+
 // ─── Command Queue ───────────────────────────────────────────────────────────
 
 enum class EngineCommand {
@@ -269,6 +288,16 @@ public:
                           const int32_t* msTimestamps,
                           int32_t numTimestamps);
 
+    // ── Drum Rack ──
+    /// Loads a WAV file into RAM as a DrumSample.
+    bool loadDrumSample(const std::string& id, const std::string& filePath);
+
+    /// Triggers a DrumSample by ID using an available voice from the pool.
+    void triggerDrumPad(const std::string& id);
+
+    /// Clears all loaded drum samples.
+    void clearDrumSamples();
+
     // ── DSP ──
     /// Fills `outputL` and `outputR` with `numFrames` mixed samples.
     /// Returns the number of frames actually written (may be less if all
@@ -341,6 +370,11 @@ private:
     std::atomic<bool>    isWaitingForJump_{false};
     int32_t              jumpRampFrames_ = 480; // Default (10ms @ 48kHz)
     int32_t              jumpRampProgress_ = 0;
+
+    // ── Drum Rack State ──
+    std::unordered_map<std::string, std::unique_ptr<DrumSample>> drumSamples_;
+    std::vector<DrumVoice> drumVoices_; // Pool of 32-64 voices
+    mutable std::mutex drumMutex_;      // Protects drumSamples_ map
 };
 
 #endif // AUDIO_MIXER_H

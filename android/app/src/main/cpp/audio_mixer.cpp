@@ -117,6 +117,13 @@ void AudioMixer::init(int32_t sampleRate) {
 
     isPlaying_ = false;
     hasSoloedTracks_ = false;
+
+    // Initialize Drum Voice Pool (32 voices)
+    std::lock_guard<std::mutex> dLock(drumMutex_);
+    drumVoices_.clear();
+    for (int i = 0; i < 32; ++i) {
+        drumVoices_.emplace_back();
+    }
 }
 
 void AudioMixer::setSampleRate(int32_t sampleRate) {
@@ -657,6 +664,85 @@ void AudioMixer::setTrackClickMap(const std::string& id,
     LOGD_MIX("setTrackClickMap: queued %d timestamps for track %s", numTimestamps, id.c_str());
 }
 
+bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePath) {
+    drwav wav;
+    if (!drwav_init_file(&wav, filePath.c_str(), nullptr)) {
+        LOGE_MIX("loadDrumSample: failed to open WAV %s", filePath.c_str());
+        return false;
+    }
+
+    const int32_t numCh = static_cast<int32_t>(wav.channels);
+    const uint32_t fileRate = wav.sampleRate;
+    const uint64_t totalFrames = wav.totalPCMFrameCount;
+
+    if (numCh < 1 || numCh > 2 || totalFrames == 0) {
+        drwav_uninit(&wav);
+        return false;
+    }
+
+    auto sample = std::make_unique<DrumSample>();
+    sample->id = id;
+    sample->numChannels = numCh;
+
+    bool needsResample = (fileRate != static_cast<uint32_t>(sampleRate_));
+    if (needsResample) {
+        const size_t outFrames = static_cast<size_t>(
+            static_cast<double>(totalFrames) * static_cast<double>(sampleRate_) / static_cast<double>(fileRate));
+        sample->pcmData.resize(outFrames * numCh);
+        
+        std::vector<float> sourcePcm(totalFrames * numCh);
+        drwav_read_pcm_frames_f32(&wav, totalFrames, sourcePcm.data());
+        
+        resampleFrames(sourcePcm.data(), static_cast<size_t>(totalFrames), numCh,
+                      static_cast<int32_t>(fileRate), sampleRate_,
+                      sample->pcmData.data(), outFrames);
+    } else {
+        sample->pcmData.resize(totalFrames * numCh);
+        drwav_read_pcm_frames_f32(&wav, totalFrames, sample->pcmData.data());
+    }
+
+    drwav_uninit(&wav);
+
+    {
+        std::lock_guard<std::mutex> lock(drumMutex_);
+        drumSamples_[id] = std::move(sample);
+    }
+
+    LOGD_MIX("loadDrumSample: loaded %s (%zu samples) at %d Hz", id.c_str(), sample->pcmData.size(), sampleRate_);
+    return true;
+}
+
+void AudioMixer::triggerDrumPad(const std::string& id) {
+    const DrumSample* target = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(drumMutex_);
+        auto it = drumSamples_.find(id);
+        if (it != drumSamples_.end()) {
+            target = it->second.get();
+        }
+    }
+
+    if (!target) return;
+
+    for (auto& voice : drumVoices_) {
+        if (voice.sample == nullptr || voice.readIndex.load() >= voice.sample->pcmData.size()) {
+            voice.readIndex.store(0, std::memory_order_relaxed);
+            // Activation happens here
+            voice.sample = target;
+            return;
+        }
+    }
+}
+
+void AudioMixer::clearDrumSamples() {
+    std::lock_guard<std::mutex> lock(drumMutex_);
+    for (auto& voice : drumVoices_) {
+        voice.sample = nullptr;
+    }
+    drumSamples_.clear();
+}
+
+
 // ─── DSP — Core Mix Loop (Wait-Free, Allocation-Free) ────────────────────────
 
 int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
@@ -1141,6 +1227,34 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         if (vsPlaying) {
             metronomePhaseFrames_ += 1.0f;
         }
+    }
+
+    // ── Drum Sampler mixing (RAM-based, polyphonic) ──
+    for (auto& voice : drumVoices_) {
+        const DrumSample* sample = voice.sample;
+        if (!sample) continue;
+
+        size_t readIdx = voice.readIndex.load(std::memory_order_relaxed);
+        size_t totalSamples = sample->pcmData.size();
+        if (readIdx >= totalSamples) {
+            voice.sample = nullptr;
+            continue;
+        }
+
+        const int32_t ch = sample->numChannels;
+        const float* pcm = sample->pcmData.data();
+
+        for (int32_t i = 0; i < numFrames && readIdx < totalSamples; ++i) {
+            if (ch == 1) { // Mono sample
+                float s = pcm[readIdx++];
+                outputL[i] += s;
+                outputR[i] += s;
+            } else { // Stereo sample
+                outputL[i] += pcm[readIdx++];
+                outputR[i] += pcm[readIdx++];
+            }
+        }
+        voice.readIndex.store(readIdx, std::memory_order_relaxed);
     }
 
     masterPeak_ = masterPeak;

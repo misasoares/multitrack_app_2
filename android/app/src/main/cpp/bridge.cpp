@@ -451,3 +451,24 @@ extern "C" void engine_clear_drum_samples() {
     if (!gMixer) return;
     gMixer->clearDrumSamples();
 }
+
+#include <jni.h>
+extern "C" JNIEXPORT void JNICALL
+Java_com_multitracksdf_multitracks_1df_1pro_MainActivity_onNativeMidiNoteOn(JNIEnv *env, jobject thiz, jint note) {
+    // Hardcode GM Drum Map temporário para o show de hoje
+    std::string padId = "";
+    if (note == 36) padId = "pad_1"; // Kick
+    else if (note == 38) padId = "pad_2"; // Snare
+    else if (note == 42) padId = "pad_3"; // HiHat Closed
+    else if (note == 46) padId = "pad_4"; // HiHat Open
+    else if (note == 43) padId = "pad_5"; // Tom Low
+    else if (note == 47) padId = "pad_6"; // Tom Mid
+    else if (note == 50) padId = "pad_7"; // Tom High
+    else if (note == 49) padId = "pad_8"; // Crash
+    else if (note >= 0)  padId = "pad_1"; // Fallback
+
+    if (!padId.empty()) {
+        engine_trigger_pad(padId.c_str());
+    }
+}
+

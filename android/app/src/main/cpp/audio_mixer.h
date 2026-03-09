@@ -169,7 +169,6 @@ struct MixerTrack {
     bool isClickTrack = false;
     bool isUtilityTrack = false; // e.g. guide or click
     std::vector<int64_t> clickFrames;   // Beat timestamps converted to frames
-    size_t nextClickIndex = 0;
 };
 
 // (Drum Rack logic moved to drum_sampler.h)

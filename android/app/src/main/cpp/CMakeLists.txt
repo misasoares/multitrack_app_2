@@ -22,6 +22,8 @@ FetchContent_MakeAvailable(oboe)
 
 # ── Audio engine shared library ──
 add_library(audio_engine SHARED
+        drum_sampler.cpp
+        metronome_engine.cpp
     audio_mixer.cpp
     audio_utils.cpp
     audio_decoder.cpp

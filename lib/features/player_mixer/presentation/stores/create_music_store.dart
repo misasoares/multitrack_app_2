@@ -167,6 +167,7 @@ abstract class CreateMusicStoreBase with Store {
     await _yieldFrame(); // Let Flutter render the spinner first
     try {
       final player = AudioPlayer();
+      bool hasClickTrackAssigned = tracks.any((t) => t.isClickTrack);
 
       for (final file in files) {
         Duration duration = Duration.zero;
@@ -177,13 +178,24 @@ abstract class CreateMusicStoreBase with Store {
           debugPrint('Error getting duration for ${file.path}: $e');
         }
 
+        final isClick = file.name.toLowerCase().contains('click');
+        final isUtility = Track.checkIsUtility(file.name, isClick: isClick);
+
+        // Auto-detect master click track if NOT already assigned
+        bool setAsClickTrack = false;
+        if (!hasClickTrackAssigned && Track.checkIsClick(file.name)) {
+          setAsClickTrack = true;
+          hasClickTrackAssigned = true;
+        }
+
         final newTrack = Track(
           id: _uuid.v4(),
           name: file.name,
           filePath: file.path,
           volume: 1.0,
-          pan: 0.0, // TEMPORARIO: Importando no centro (0.0)
-          isClick: file.name.toLowerCase().contains('click'),
+          pan: isUtility ? -1.0 : 1.0, // Utility: Left (L), Others: Right (R)
+          isClick: isClick,
+          isClickTrack: setAsClickTrack,
           order: tracks.length,
           duration: duration,
         );
@@ -220,13 +232,22 @@ abstract class CreateMusicStoreBase with Store {
         debugPrint('Error getting duration for $filePath: $e');
       }
 
+      final isUtility = Track.checkIsUtility(name, isClick: isClick);
+
+      // Auto-detect master click track if NONE exists in the song
+      bool setAsClickTrack = false;
+      if (!tracks.any((t) => t.isClickTrack) && Track.checkIsClick(name)) {
+        setAsClickTrack = true;
+      }
+
       final newTrack = Track(
         id: _uuid.v4(),
         name: name,
         filePath: filePath,
         volume: 1.0,
-        pan: 0.0,
+        pan: isUtility ? -1.0 : 1.0, // Utility: Left (L), Others: Right (R)
         isClick: isClick,
+        isClickTrack: setAsClickTrack,
         order: tracks.length,
         duration: duration,
       );

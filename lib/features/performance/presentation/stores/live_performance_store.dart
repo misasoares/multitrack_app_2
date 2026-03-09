@@ -90,9 +90,9 @@ abstract class LivePerformanceStoreBase with Store {
   @observable
   double metronomeBpm = 120.0;
 
-  /// Metronome click volume (0.0 to 1.0). Synced to native.
+  /// Metronome click volume (0.0 to 3.0). Synced to native.
   @observable
-  double metronomeVolume = 0.8;
+  double metronomeVolume = 2.0;
 
   /// Metronome pan (-1 = left, 0 = center, 1 = right). Synced to native.
   @observable
@@ -223,6 +223,16 @@ abstract class LivePerformanceStoreBase with Store {
         );
         _audioEngine.setTrackClickMap(t.id, finalClickMap);
       }
+
+      // Identifica e marca track de utilidade (Voz Guia, Click) para o motor C++
+      if (t.isUtilityTrack) {
+        print(
+          'DEBUG UTILITY: Marcando track "${t.name}" como UTILITY no motor.',
+        );
+        _audioEngine.setTrackUtility(t.id, true);
+      } else {
+        _audioEngine.setTrackUtility(t.id, false);
+      }
     }
 
     // Sync metronome BPM (tempo-scaled) with the engine
@@ -233,8 +243,10 @@ abstract class LivePerformanceStoreBase with Store {
 
     // Apply hidden LUFS normalization gain (calculated during render).
     // This silently adjusts the Master Bus for uniform loudness between songs.
-    // The UI Master fader is NOT affected — it stays at whatever the user set.
     _audioEngine.setMasterNormalizationGain(item.normalizationGain);
+
+    // Apply Peak normalization gain for utility tracks (Guidance, etc.)
+    _audioEngine.setUtilityNormalizationGain(item.utilityNormalizationGain);
   }
 
   @action
@@ -445,10 +457,7 @@ abstract class LivePerformanceStoreBase with Store {
 
   @action
   void setMetronomeVolume(double volume) {
-    metronomeVolume = volume.clamp(
-      0.0,
-      5.0,
-    ); // Linear gain, headroom up to +13 dB
+    metronomeVolume = volume.clamp(0.0, 3.0); // Digital boost up to 300%
     _audioEngine.setMetronomeVolume(metronomeVolume);
   }
 

@@ -19,6 +19,9 @@ class Track extends Equatable {
   /// Pre-computed waveform peak bins (e.g. from Render Show); null if not yet computed.
   final List<double>? waveformPeaks;
 
+  /// Hidden normalization gain calculated during import (linear).
+  final double normalizationGain;
+
   /// True if this track is a utility track (click, metronome, guide voice, etc.)
   /// and should be excluded from the master waveform composition.
   bool get isUtilityTrack => checkIsUtility(name, isClick: isClick);
@@ -64,6 +67,7 @@ class Track extends Equatable {
     this.applyTranspose = true,
     this.octaveShift = 0,
     this.waveformPeaks,
+    this.normalizationGain = 1.0,
   });
 
   Track copyWith({
@@ -82,6 +86,7 @@ class Track extends Equatable {
     bool? applyTranspose,
     int? octaveShift,
     List<double>? waveformPeaks,
+    double? normalizationGain,
   }) {
     return Track(
       id: id ?? this.id,
@@ -99,6 +104,7 @@ class Track extends Equatable {
       applyTranspose: applyTranspose ?? this.applyTranspose,
       octaveShift: octaveShift ?? this.octaveShift,
       waveformPeaks: waveformPeaks ?? this.waveformPeaks,
+      normalizationGain: normalizationGain ?? this.normalizationGain,
     );
   }
 
@@ -119,5 +125,6 @@ class Track extends Equatable {
     applyTranspose,
     octaveShift,
     waveformPeaks,
+    normalizationGain,
   ];
 }

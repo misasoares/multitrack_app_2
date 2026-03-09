@@ -20,6 +20,9 @@ class SetlistItem extends Equatable {
   /// Calculated offline during render and applied silently in the Master Bus.
   final double normalizationGain;
 
+  /// Normalization gain for utility tracks (Click, Guide) using Peak normalization.
+  final double utilityNormalizationGain;
+
   const SetlistItem({
     required this.id,
     required this.originalMusic,
@@ -30,6 +33,7 @@ class SetlistItem extends Equatable {
     this.transposableTrackIds = const [],
     this.exportedItemDirectory,
     this.normalizationGain = 1.0,
+    this.utilityNormalizationGain = 1.0,
   });
 
   factory SetlistItem.fromMusic(Music music) {
@@ -49,6 +53,7 @@ class SetlistItem extends Equatable {
     List<String>? transposableTrackIds,
     String? exportedItemDirectory,
     double? normalizationGain,
+    double? utilityNormalizationGain,
   }) {
     return SetlistItem(
       id: id ?? this.id,
@@ -61,6 +66,8 @@ class SetlistItem extends Equatable {
       exportedItemDirectory:
           exportedItemDirectory ?? this.exportedItemDirectory,
       normalizationGain: normalizationGain ?? this.normalizationGain,
+      utilityNormalizationGain:
+          utilityNormalizationGain ?? this.utilityNormalizationGain,
     );
   }
 
@@ -75,5 +82,6 @@ class SetlistItem extends Equatable {
     transposableTrackIds,
     exportedItemDirectory,
     normalizationGain,
+    utilityNormalizationGain,
   ];
 }

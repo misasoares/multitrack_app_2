@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:ffi';
 import 'dart:isolate';
 import 'dart:io';
-
+import 'dart:math' as math;
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 
@@ -185,21 +185,42 @@ class SetlistExportService {
         );
       }
 
-      // ── LUFS Analysis: compute normalization gain after all tracks are rendered ──
-      // Filter out utility tracks (Click, Guide, etc.) from LUFS analysis
-      // to avoid transients affecting the master loudness calculation.
-      final renderedPaths = updatedTracks
+      // ── Normalization Analysis ──
+      // 1. LUFS for VS tracks (Vocal Support / Backing Tracks)
+      final vsPaths = updatedTracks
           .where((t) => !t.isUtilityTrack)
           .map((t) => path.join(itemDir, '${t.id}.wav'))
           .where((p) => File(p).existsSync())
           .toList();
 
       double normGain = 1.0;
-      if (renderedPaths.isNotEmpty) {
+      if (vsPaths.isNotEmpty) {
         try {
-          normGain = await _analyzeLufsInIsolate(renderedPaths, -14.0);
+          normGain = await _analyzeLufsInIsolate(vsPaths, -14.0);
         } catch (e) {
           print('LUFS analysis error for ${item.originalMusic.title}: $e');
+        }
+      }
+
+      // 2. Peak Normalization for Utility tracks (Guide, etc.)
+      // Target: -3dB (approx 0.7079 linear)
+      final utilityTracks = updatedTracks
+          .where((t) => t.isUtilityTrack)
+          .toList();
+      double utilityNormGain = 1.0;
+      if (utilityTracks.isNotEmpty) {
+        double maxPeak = 0.0;
+        for (final t in utilityTracks) {
+          if (t.waveformPeaks != null && t.waveformPeaks!.isNotEmpty) {
+            final trackMax = t.waveformPeaks!.reduce(math.max);
+            if (trackMax > maxPeak) maxPeak = trackMax;
+          }
+        }
+        if (maxPeak > 0.001) {
+          // Target -3dB = 0.7079
+          utilityNormGain = 0.7079 / maxPeak;
+          // Security: don't boost more than 4x (12dB) to avoid excessive noise
+          if (utilityNormGain > 4.0) utilityNormGain = 4.0;
         }
       }
 
@@ -208,6 +229,7 @@ class SetlistExportService {
           exportedItemDirectory: itemDir,
           originalMusic: item.originalMusic.copyWith(tracks: updatedTracks),
           normalizationGain: normGain,
+          utilityNormalizationGain: utilityNormGain,
         ),
       );
     }

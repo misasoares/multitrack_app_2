@@ -306,6 +306,21 @@ extern "C" void engine_set_track_eq(const char* trackId,
     gMixer->setTrackEq(std::string(trackId), bandIndex, filterType, frequency, gainDb, q);
 }
 
+extern "C" void engine_set_track_normalization_gain(const char* trackId, float gain) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackNormalizationGain(std::string(trackId), gain);
+}
+
+extern "C" void engine_set_track_tempo(const char* trackId, float tempo) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackTempo(std::string(trackId), tempo);
+}
+
+extern "C" void engine_set_track_pitch(const char* trackId, int32_t semitones) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackPitch(std::string(trackId), semitones);
+}
+
 extern "C" void engine_set_master_eq(int32_t bandIndex,
                                      int32_t filterType,
                                      float frequency,
@@ -443,6 +458,23 @@ extern "C" double engine_analyze_lufs(const char** trackPaths,
     LOGD("engine_analyze_lufs: LUFS=%.2f, truePeak=%.4f, normGain=%.4f",
          result.integratedLufs, result.truePeak, result.normalizationGain);
     return static_cast<double>(result.normalizationGain);
+}
+
+extern "C" int32_t engine_analyze_track(const char* filePath, 
+                                         float targetLufs, 
+                                         float* outLufs, 
+                                         float* outPeak, 
+                                         float* outGain) {
+    if (!filePath || !outLufs || !outPeak || !outGain) return 0;
+
+    LufsResult result = analyzeTrackLufs(std::string(filePath), targetLufs);
+    if (!result.success) return 0;
+
+    *outLufs = result.integratedLufs;
+    *outPeak = result.truePeak;
+    *outGain = result.normalizationGain;
+
+    return 1;
 }
 
 // ─── Drum Rack FFI ──────────────────────────────────────────────────────────

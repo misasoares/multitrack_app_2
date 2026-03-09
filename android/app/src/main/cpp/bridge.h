@@ -60,6 +60,10 @@ void engine_set_volume(const char* trackId, float volume);
 void engine_set_pan(const char* trackId, float pan);
 void engine_set_mute(const char* trackId, int32_t isMuted);
 void engine_set_solo(const char* trackId, int32_t isSolo);
+void engine_set_track_normalization_gain(const char* trackId, float gain);
+void engine_set_track_utility(const char* trackId, int32_t isUtility);
+void engine_set_track_tempo(const char* trackId, float tempo);
+void engine_set_track_pitch(const char* trackId, int32_t semitones);
 
 // ── DSP ──
 int32_t engine_process(float* outputL, float* outputR, int32_t numFrames);
@@ -114,6 +118,7 @@ void engine_set_master_volume(float volume);
 /// Hidden normalization gain applied silently in the Master Bus (LUFS normalization).
 /// Does NOT affect the UI fader. Default = 1.0 (no normalization).
 void engine_set_master_normalization_gain(float gain);
+void engine_set_utility_normalization_gain(float gain);
 
 /// Metronome: volume, pan (-1..1), BPM, playing flag.
 void engine_set_metronome_volume(float volume);
@@ -142,6 +147,14 @@ void engine_set_track_click_map(const char* trackId,
 /// targetLufs: target loudness (e.g. -14.0).
 /// Returns the normalization gain (linear). 1.0 on failure.
 double engine_analyze_lufs(const char** trackPaths, int32_t numTracks, float targetLufs);
+
+/// Analyzes a single track and returns results via pointers.
+/// Returns 1 on success, 0 on failure.
+int32_t engine_analyze_track(const char* filePath, 
+                             float targetLufs, 
+                             float* outLufs, 
+                             float* outPeak, 
+                             float* outGain);
 
 // ── Drum Rack ──
 bool engine_load_drum_sample(const char* id, const char* path);

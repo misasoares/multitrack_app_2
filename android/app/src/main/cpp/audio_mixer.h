@@ -21,6 +21,8 @@
 #include <queue>
 
 #include "lock_free_ring_buffer.h"
+#include "drum_sampler.h"
+#include "metronome_engine.h"
 
 // ─── SoundTouch ──────────────────────────────────────────────────────────────
 #include "SoundTouch.h" // Requires target_include_directories to point to soundtouch/include
@@ -170,27 +172,7 @@ struct MixerTrack {
     size_t nextClickIndex = 0;
 };
 
-// ─── Drum Rack ───────────────────────────────────────────────────────────────
-
-/// A single drum sample loaded into RAM.
-struct DrumSample {
-    std::string id;
-    int32_t numChannels = 0;
-    std::vector<float> pcmData;
-};
-
-/// An active playback instance of a DrumSample.
-struct DrumVoice {
-    const DrumSample* sample = nullptr;
-    std::atomic<size_t> readIndex{0};
-    float volume = 1.0f;
-    float panL = 0.707f;
-    float panR = 0.707f;
-
-    bool isActive() const {
-        return sample != nullptr && readIndex.load() < sample->pcmData.size();
-    }
-};
+// (Drum Rack logic moved to drum_sampler.h)
 
 // ─── Command Queue ───────────────────────────────────────────────────────────
 
@@ -362,14 +344,8 @@ private:
     std::atomic<float> utilityNormalizationGain_{1.0f}; // Utility (Guide/Click) normalization gain
     std::vector<BiquadFilter> masterEqBands_;
 
-    // ── Metronome (lock-free: atomics read in process(), no allocation) ──
-    std::atomic<float> metronomeVolume_{0.8f};
-    std::atomic<float> metronomePan_{-1.0f};   // -1 = left
-    std::atomic<float> metronomeBpm_{120.0f};
-    std::atomic<bool> isMetronomePlaying_{false};
-    float metronomePhaseFrames_      = 0.0f;   // position within beat period (audio thread only)
-    float metronomeClickFramesLeft_  = 0.0f;   // remaining frames of current click (audio thread only)
-    float metronomeSinePhase_        = 0.0f;   // phase in radians for 1 kHz sine (audio thread only)
+    // ── Metronome Component (Delegated) ──
+    std::unique_ptr<MetronomeEngine> metronome_;
 
     // ── Metering ──
     std::atomic<float> masterPeak_{0.0f};
@@ -384,11 +360,8 @@ private:
     int32_t              jumpRampFrames_ = 480; // Default (10ms @ 48kHz)
     int32_t              jumpRampProgress_ = 0;
 
-    // ── Drum Rack State ──
-    std::unordered_map<std::string, std::pair<float, float>> drumPadSettings_; // ID -> {Volume, Pan}
-    std::unordered_map<std::string, std::unique_ptr<DrumSample>> drumSamples_;
-    std::vector<std::unique_ptr<DrumVoice>> drumVoices_; // Pool of 32-64 voices
-    mutable std::mutex drumMutex_;      // Protects drumSamples_ map and settings
+    // ── Drum Sampler Component (Delegated) ──
+    std::unique_ptr<DrumSampler> drumSampler_;
 };
 
 #endif // AUDIO_MIXER_H

@@ -98,11 +98,14 @@ void BiquadFilter::resetState() {
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
-AudioMixer::AudioMixer() = default;
+AudioMixer::AudioMixer() {
+    drumSampler_ = std::make_unique<DrumSampler>();
+    metronome_ = std::make_unique<MetronomeEngine>();
+}
 AudioMixer::~AudioMixer() { dispose(); }
 
 void AudioMixer::init(int32_t sampleRate) {
-       std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
     sampleRate_ = sampleRate > 0 ? sampleRate : kDefaultSampleRate;
     gainSmoothSamples_ =
         static_cast<int32_t>(kGainSmoothingSeconds * static_cast<float>(sampleRate_));
@@ -112,18 +115,13 @@ void AudioMixer::init(int32_t sampleRate) {
     jumpRampFrames_ = static_cast<int32_t>(0.010f * static_cast<float>(sampleRate_));
     if (jumpRampFrames_ < 1) jumpRampFrames_ = 1;
     
-    // unique_ptr handles cleanup automatically
     tracks_.clear();
 
     isPlaying_ = false;
     hasSoloedTracks_ = false;
 
-    // Initialize Drum Voice Pool (32 voices)
-    std::lock_guard<std::mutex> dLock(drumMutex_);
-    drumVoices_.clear();
-    for (int i = 0; i < 32; ++i) {
-        drumVoices_.push_back(std::make_unique<DrumVoice>());
-    }
+    // Sub-engines are already initialized in constructor, 
+    // but we could reset them here if needed.
 }
 
 void AudioMixer::setSampleRate(int32_t sampleRate) {
@@ -629,19 +627,19 @@ void AudioMixer::setTrackUtility(const std::string& id, bool isUtility) {
 }
 
 void AudioMixer::setMetronomeVolume(float volume) {
-    metronomeVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
+    if (metronome_) metronome_->setVolume(volume);
 }
 
 void AudioMixer::setMetronomePan(float pan) {
-    metronomePan_.store(std::clamp(pan, -1.0f, 1.0f), std::memory_order_relaxed);
+    if (metronome_) metronome_->setPan(pan);
 }
 
 void AudioMixer::setMetronomeBpm(float bpm) {
-    metronomeBpm_.store(std::clamp(bpm, 20.0f, 300.0f), std::memory_order_relaxed);
+    if (metronome_) metronome_->setBpm(bpm);
 }
 
 void AudioMixer::setMetronomePlaying(bool playing) {
-    isMetronomePlaying_.store(playing, std::memory_order_relaxed);
+    if (metronome_) metronome_->setPlaying(playing);
 }
 
 // ─── SoundTouch Setters ───
@@ -688,95 +686,19 @@ void AudioMixer::setTrackClickMap(const std::string& id,
 }
 
 bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePath) {
-    std::lock_guard<std::mutex> lock(drumMutex_);
-    // 1. Alocação segura e inicialização
-    drwav* wav = new drwav{};
-    if (!drwav_init_file(wav, filePath.c_str(), nullptr)) {
-        LOGE_MIX("DrumKit: Falha ao abrir WAV. Arquivo invalido ou corrompido: %s", filePath.c_str());
-        delete wav;
-        return false; // Aborta com segurança antes de qualquer leitura
-    }
-    // 2. Leitura segura dos metadados
-    const int32_t numCh = static_cast<int32_t>(wav->channels);
-    const int64_t totalFrames = static_cast<int64_t>(wav->totalPCMFrameCount);
-    const uint32_t fileRate = wav->sampleRate;
-    if (numCh < 1 || numCh > 2 || totalFrames <= 0) {
-        LOGE_MIX("DrumKit: Formato WAV invalido para %s", id.c_str());
-        drwav_uninit(wav);
-        delete wav;
-        return false;
-    }
-    // 3. Leitura dos dados PCM
-    std::vector<float> tempPcm(static_cast<size_t>(totalFrames * numCh), 0.0f);
-    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(wav, totalFrames, tempPcm.data());
-    drwav_uninit(wav);
-    delete wav;
-
-    if (framesRead == 0) {
-        return false;
-    }
-    auto drumSample = std::make_unique<DrumSample>();
-    drumSample->id = id;
-    drumSample->numChannels = numCh;
-    // 4. Resample se necessário (reutilizando a lógica do motor)
-    if (fileRate != static_cast<uint32_t>(sampleRate_)) {
-        const size_t outFrames = static_cast<size_t>(
-            static_cast<double>(framesRead) * static_cast<double>(sampleRate_) / static_cast<double>(fileRate));
-        drumSample->pcmData.resize(outFrames * numCh, 0.0f);
-        resampleFrames(tempPcm.data(), static_cast<size_t>(framesRead), numCh,
-                       static_cast<int32_t>(fileRate), sampleRate_,
-                       drumSample->pcmData.data(), outFrames);
-    } else {
-        drumSample->pcmData = std::move(tempPcm);
-    }
-    drumSamples_[id] = std::move(drumSample);
-    LOGD_MIX("DrumKit: Sample %s carregado com sucesso na RAM.", id.c_str());
-    return true;
+    return drumSampler_ ? drumSampler_->loadDrumSample(id, filePath) : false;
 }
 
 void AudioMixer::triggerDrumPad(const std::string& id) {
-    const DrumSample* target = nullptr;
-    float vol = 1.0f;
-    float pan = 1.0f; // Default R as requested for show-routing
-    {
-        std::lock_guard<std::mutex> lock(drumMutex_);
-        auto it = drumSamples_.find(id);
-        if (it != drumSamples_.end()) {
-            target = it->second.get();
-        }
-        auto sIt = drumPadSettings_.find(id);
-        if (sIt != drumPadSettings_.end()) {
-            vol = sIt->second.first;
-            pan = sIt->second.second;
-        }
-    }
-
-    if (!target) return;
-
-    for (auto& voicePtr : drumVoices_) {
-        if (voicePtr->sample == nullptr || voicePtr->readIndex.load() >= voicePtr->sample->pcmData.size()) {
-            voicePtr->readIndex.store(0, std::memory_order_relaxed);
-            voicePtr->volume = vol;
-            const float angle = (pan + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
-            voicePtr->panL = std::cos(angle);
-            voicePtr->panR = std::sin(angle);
-            voicePtr->sample = target;
-            return;
-        }
-    }
+    if (drumSampler_) drumSampler_->triggerDrumPad(id);
 }
 
 void AudioMixer::setDrumPadParams(const std::string& id, float volume, float pan) {
-    std::lock_guard<std::mutex> lock(drumMutex_);
-    drumPadSettings_[id] = {volume, pan};
+    if (drumSampler_) drumSampler_->setDrumPadParams(id, volume, pan);
 }
 
 void AudioMixer::clearDrumSamples() {
-    std::lock_guard<std::mutex> lock(drumMutex_);
-    for (auto& voicePtr : drumVoices_) {
-        voicePtr->sample = nullptr;
-    }
-    drumSamples_.clear();
+    if (drumSampler_) drumSampler_->clearDrumSamples();
 }
 
 
@@ -928,83 +850,15 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
     std::memset(outputL, 0, sizeof(float) * numFrames);
     std::memset(outputR, 0, sizeof(float) * numFrames);
 
-    // ── Metronome: synthetic click when VS is not playing (lock-free, no allocation) ──
+    // ── Metronome & Drum Sampler (New Modular Call) ──
     const bool vsPlaying = isPlaying_ && !tracks_.empty();
-    if (!vsPlaying && isMetronomePlaying_.load(std::memory_order_relaxed)) {
-        const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
-        const float periodFrames = (60.0f / (bpm > 0.1f ? bpm : 120.0f)) *
-            static_cast<float>(sampleRate_);
-        const float clickDurationFrames = 0.015f * static_cast<float>(sampleRate_); // 15 ms
-        const float twoPi = 2.0f * static_cast<float>(M_PI);
-        const float phaseIncr = twoPi * 1000.0f / static_cast<float>(sampleRate_);
-        const float vol = metronomeVolume_.load(std::memory_order_relaxed);
-        const float pan = metronomePan_.load(std::memory_order_relaxed);
-        // Constant-power pan: angle in [0, pi/2], L = cos(angle), R = sin(angle)
-        const float angle = (pan + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
-        const float gainL = std::cos(angle);
-        const float gainR = std::sin(angle);
-
-        for (int32_t i = 0; i < numFrames; ++i) {
-            if (metronomeClickFramesLeft_ > 0.5f) {
-                float envelope = metronomeClickFramesLeft_ / clickDurationFrames;
-                if (envelope > 1.0f) envelope = 1.0f;
-                float sample = std::sin(metronomeSinePhase_) * envelope * vol;
-                outputL[i] += sample * gainL;
-                outputR[i] += sample * gainR;
-                metronomeClickFramesLeft_ -= 1.0f;
-                metronomeSinePhase_ += phaseIncr;
-                if (metronomeSinePhase_ >= twoPi) metronomeSinePhase_ -= twoPi;
-            } else {
-                metronomePhaseFrames_ += 1.0f;
-                if (metronomePhaseFrames_ >= periodFrames) {
-                    metronomePhaseFrames_ -= periodFrames;
-                    metronomeClickFramesLeft_ = clickDurationFrames;
-                    metronomeSinePhase_ = 0.0f;
-                }
-            }
-        }
-    } else {
-        // Advance phase when metronome off so first click is on beat when turned on
-        if (!isMetronomePlaying_.load(std::memory_order_relaxed)) {
-            const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
-            const float periodFrames = (60.0f / (bpm > 0.1f ? bpm : 120.0f)) *
-                static_cast<float>(sampleRate_);
-            metronomePhaseFrames_ += numFrames;
-            while (metronomePhaseFrames_ >= periodFrames) metronomePhaseFrames_ -= periodFrames;
-        }
+    if (!vsPlaying && metronome_) {
+        static std::vector<int64_t> emptyFrames;
+        size_t dummyIdx = 0;
+        metronome_->processSyntheticClick(outputL, outputR, numFrames, sampleRate_, 0, emptyFrames, dummyIdx, 1.0f);
     }
-
-    // ── Drum Sampler mixing (polyphonic) ──
-    for (auto& voicePtr : drumVoices_) {
-        const DrumSample* sample = voicePtr->sample;
-        if (!sample) continue;
-
-        size_t readIdx = voicePtr->readIndex.load(std::memory_order_relaxed);
-        size_t totalSamples = sample->pcmData.size();
-        if (readIdx >= totalSamples) {
-            voicePtr->sample = nullptr;
-            continue;
-        }
-
-        const int32_t ch = sample->numChannels;
-        const float* pcm = sample->pcmData.data();
-        const float v = voicePtr->volume;
-        const float pL = voicePtr->panL;
-        const float pR = voicePtr->panR;
-
-        for (int32_t i = 0; i < numFrames && readIdx < totalSamples; ++i) {
-            if (ch == 1) { // Mono sample
-                float s = pcm[readIdx++];
-                outputL[i] += s * v * pL;
-                outputR[i] += s * v * pR;
-            } else { // Stereo sample
-                float sL = pcm[readIdx++];
-                float sR = pcm[readIdx++];
-                outputL[i] += sL * v * pL;
-                outputR[i] += sR * v * pR;
-            }
-        }
-        voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
+    if (drumSampler_) {
+        drumSampler_->processMixed(outputL, outputR, numFrames);
     }
 
     if (!isPlaying_ || tracks_.empty()) {
@@ -1203,44 +1057,15 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
             float sampleL = trackOutput[i * 2];
             float sampleR = trackOutput[i * 2 + 1];
 
-            // ── Click Track: Hard-Mute + Synth Click (SoundTouch path) ──
-            if (track.isClickTrack) {
+            // ── Click Track: Integrated Synth Click (Synced Mode) ──
+            if (track.isClickTrack && vsPlaying && metronome_) {
                 sampleL = 0.0f;
                 sampleR = 0.0f;
-
-                if (vsPlaying) {
-                    bool triggerBeep = false;
-                    if (track.nextClickIndex < track.clickFrames.size()) {
-                        const int64_t currentAbsoluteFrame = track.playheadFrame + static_cast<int64_t>(i);
-                        if (currentAbsoluteFrame >= track.clickFrames[track.nextClickIndex]) {
-                            triggerBeep = true;
-                            metronomePhaseFrames_ = -static_cast<float>(i);
-                            metronomeClickFramesLeft_ = 0.015f * static_cast<float>(sampleRate_);
-                            metronomeSinePhase_ = 0.0f;
-                            track.nextClickIndex++;
-                        }
-                    }
-
-                    if (triggerBeep || metronomeClickFramesLeft_ > 0.5f) {
-                        const float phaseInc = 1000.0f * 2.0f * static_cast<float>(M_PI) / static_cast<float>(sampleRate_);
-                        const float clickSample = std::sin(metronomeSinePhase_);
-                        metronomeSinePhase_ += phaseInc;
-                        if (metronomeSinePhase_ > 2.0f * static_cast<float>(M_PI))
-                            metronomeSinePhase_ -= 2.0f * static_cast<float>(M_PI);
-
-                        float env = metronomeClickFramesLeft_ / (0.015f * static_cast<float>(sampleRate_));
-                        if (env > 1.0f) env = 1.0f;
-                        env = env * env;
-
-                        const float vol = metronomeVolume_.load(std::memory_order_relaxed);
-                        sampleL = clickSample * env * vol;
-                        sampleR = clickSample * env * vol;
-                    }
-                }
-
-                if (metronomeClickFramesLeft_ > 0.0f) {
-                    metronomeClickFramesLeft_ -= 1.0f;
-                }
+                float tickL = 0.0f;
+                float tickR = 0.0f;
+                metronome_->processSyntheticClick(&tickL, &tickR, 1, sampleRate_, track.playheadFrame + static_cast<int64_t>(i), track.clickFrames, track.nextClickIndex, 1.0f);
+                sampleL = tickL;
+                sampleR = tickR;
             }
 
             if (!track.isEqFlat) {
@@ -1316,8 +1141,8 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
         masterPeak = std::max(masterPeak, std::abs(r));
 
         // Free-wheel: advance invisible clock while VS plays so pause hands off seamlessly
-        if (vsPlaying) {
-            metronomePhaseFrames_ += 1.0f;
+        if (vsPlaying && metronome_) {
+            metronome_->advancePhaseOnly(1, sampleRate_);
         }
     }
 

@@ -208,6 +208,22 @@ class MockIAudioEngineService extends _i1.Mock
       );
 
   @override
+  void setTrackNormalizationGain(
+    String? trackId,
+    double? gain,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #setTrackNormalizationGain,
+          [
+            trackId,
+            gain,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   void setTrackEq({
     required String? trackId,
     required int? bandIndex,
@@ -278,6 +294,31 @@ class MockIAudioEngineService extends _i1.Mock
         Invocation.method(
           #setMasterNormalizationGain,
           [gain],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setUtilityNormalizationGain(double? gain) => super.noSuchMethod(
+        Invocation.method(
+          #setUtilityNormalizationGain,
+          [gain],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
+  void setTrackUtility(
+    String? trackId,
+    bool? isUtility,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #setTrackUtility,
+          [
+            trackId,
+            isUtility,
+          ],
         ),
         returnValueForMissingStub: null,
       );
@@ -474,6 +515,24 @@ class MockIAudioEngineService extends _i1.Mock
       );
 
   @override
+  void setDrumPadParams(
+    String? id,
+    double? volume,
+    double? pan,
+  ) =>
+      super.noSuchMethod(
+        Invocation.method(
+          #setDrumPadParams,
+          [
+            id,
+            volume,
+            pan,
+          ],
+        ),
+        returnValueForMissingStub: null,
+      );
+
+  @override
   _i4.Future<void> initializeDrumKit() => (super.noSuchMethod(
         Invocation.method(
           #initializeDrumKit,
@@ -538,6 +597,20 @@ class MockIAudioEngineService extends _i1.Mock
         ),
         returnValueForMissingStub: null,
       );
+
+  @override
+  _i4.Future<_i3.AudioAnalysisResult?> analyzeTrack(
+    String? filePath, {
+    double? targetLufs = -14.0,
+  }) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #analyzeTrack,
+          [filePath],
+          {#targetLufs: targetLufs},
+        ),
+        returnValue: _i4.Future<_i3.AudioAnalysisResult?>.value(),
+      ) as _i4.Future<_i3.AudioAnalysisResult?>);
 }
 
 /// A class which mocks [IMusicRepository].

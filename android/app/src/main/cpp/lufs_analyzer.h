@@ -27,4 +27,7 @@ struct LufsResult {
 /// @return LufsResult with measured LUFS, true peak, and the normalization gain.
 LufsResult analyzeMixLufs(const std::vector<std::string>& trackPaths, float targetLufs);
 
+/// Analyzes a single audio file (supports MP3, WAV, FLAC).
+LufsResult analyzeTrackLufs(const std::string& filePath, float targetLufs);
+
 #endif // LUFS_ANALYZER_H

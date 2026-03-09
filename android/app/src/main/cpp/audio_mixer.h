@@ -140,6 +140,9 @@ struct MixerTrack {
     std::atomic<bool> isMuted{false};
     std::atomic<bool> isSolo{false};
 
+    /// Hidden gain for LUFS/Peak normalization (linear).
+    std::atomic<float> normalizationGain{1.0f};
+
     // ── Pre-allocated buffers (resized once in loadTrack; zero allocation in process()) ──
     std::vector<float> processBuffer;      // stereo: kMaxProcessFrames * 2
     std::vector<float> stMonoInputBuffer;  // mono→stereo feed: kStMonoChunkSize * 2
@@ -242,6 +245,9 @@ public:
                     float frequency,
                     float gainDb,
                     float q);
+
+    /// Set the hidden normalization gain for a specific track.
+    void setTrackNormalizationGain(const std::string& id, float gain);
 
     /// Set a parametric EQ band for the Master Output.
     void setMasterEq(int bandIndex,

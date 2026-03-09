@@ -615,6 +615,14 @@ void AudioMixer::setUtilityNormalizationGain(float gain) {
     utilityNormalizationGain_.store(std::clamp(gain, 0.0f, 10.0f), std::memory_order_relaxed);
 }
 
+void AudioMixer::setTrackNormalizationGain(const std::string& id, float gain) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = tracks_.find(id);
+    if (it != tracks_.end()) {
+        it->second->normalizationGain.store(gain, std::memory_order_relaxed);
+    }
+}
+
 void AudioMixer::setTrackUtility(const std::string& id, bool isUtility) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = tracks_.find(id);
@@ -939,8 +947,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     outputL[i] += sampleL * panL;
                     outputR[i] += sampleR * panR;
                 } else {
-                    sampleL *= (effectiveGain * norm);
-                    sampleR *= (effectiveGain * norm);
+                    const float trackNorm = track.normalizationGain.load(std::memory_order_relaxed);
+                    sampleL *= (effectiveGain * norm * trackNorm);
+                    sampleR *= (effectiveGain * norm * trackNorm);
                     outputL[i] += sampleL * panL;
                     outputR[i] += sampleR * panR;
                 }
@@ -1036,8 +1045,9 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     }
                 }
             }
-            sampleL *= effectiveGain;
-            sampleR *= effectiveGain;
+            const float trackNorm = track.normalizationGain.load(std::memory_order_relaxed);
+            sampleL *= (effectiveGain * trackNorm);
+            sampleR *= (effectiveGain * trackNorm);
             outputL[i] += sampleL * panL;
             outputR[i] += sampleR * panR;
             trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));

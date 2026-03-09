@@ -360,3 +360,127 @@ LufsResult analyzeMixLufs(const std::vector<std::string>& trackPaths, float targ
 
     return result;
 }
+
+LufsResult analyzeTrackLufs(const std::string& filePath, float targetLufs) {
+    // For WAV files, use the memory-efficient streaming analyzer
+    auto dot = filePath.rfind('.');
+    if (dot != std::string::npos) {
+        std::string ext = filePath.substr(dot);
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        if (ext == ".wav") {
+            return analyzeMixLufs({filePath}, targetLufs);
+        }
+    }
+
+    // For other formats (MP3/FLAC), we decode the full file into memory.
+    // While less RAM-efficient, it's the safest way to ensure compatibility.
+#ifdef __ANDROID__
+    #include "audio_decoder.h"
+#else
+    // Fallback if decoder not available in current context (should not happen on Android)
+    LufsResult res; res.success = false; return res;
+#endif
+
+    DecodedAudio decoded = decodeAudioFile(filePath);
+    if (!decoded.success) {
+        LufsResult res; res.success = false; return res;
+    }
+
+    // Reuse the LUFS calculation logic (simplified for single buffer)
+    LufsResult result{};
+    result.success = true;
+    result.integratedLufs = -120.0f;
+    result.truePeak = 0.0f;
+
+    int32_t sampleRate = decoded.sampleRate;
+    int32_t numChannels = decoded.numChannels;
+    int64_t numFrames = decoded.numFrames;
+
+    KWeightBiquad preFilter, rlbFilter;
+    computePreFilter(preFilter, sampleRate);
+    computeRlbFilter(rlbFilter, sampleRate);
+
+    const int32_t blockSamples = static_cast<int32_t>(kGateBlockSeconds * sampleRate);
+    const int32_t stepSamples  = static_cast<int32_t>(kGateStepSeconds * sampleRate);
+
+    std::vector<double> squaredL(blockSamples, 0.0);
+    std::vector<double> squaredR(blockSamples, 0.0);
+    int32_t sqIdx = 0;
+    int64_t nextBlockEnd = blockSamples;
+    std::vector<double> blockPowers;
+    blockPowers.reserve(static_cast<size_t>(numFrames / stepSamples + 1));
+
+    double truePeakLinear = 0.0;
+    const float* pcm = decoded.pcmData.data();
+
+    for (int64_t f = 0; f < numFrames; ++f) {
+        double l, r;
+        if (numChannels >= 2) {
+            l = static_cast<double>(pcm[f * numChannels]);
+            r = static_cast<double>(pcm[f * numChannels + 1]);
+        } else {
+            l = r = static_cast<double>(pcm[f * numChannels]);
+        }
+
+        truePeakLinear = std::max(truePeakLinear, std::max(std::abs(l), std::abs(r)));
+
+        l = preFilter.processL(l);
+        r = preFilter.processR(r);
+        l = rlbFilter.processL(l);
+        r = rlbFilter.processR(r);
+
+        squaredL[sqIdx] = l * l;
+        squaredR[sqIdx] = r * r;
+        sqIdx = (sqIdx + 1) % blockSamples;
+
+        if (f + 1 >= nextBlockEnd) {
+            double sumL = 0.0, sumR = 0.0;
+            for (int32_t j = 0; j < blockSamples; ++j) {
+                sumL += squaredL[j];
+                sumR += squaredR[j];
+            }
+            blockPowers.push_back((sumL / blockSamples) + (sumR / blockSamples));
+            nextBlockEnd += stepSamples;
+        }
+    }
+
+    // Gating and final calculation (same as analyzeMixLufs)
+    const double absoluteGateThreshold = std::pow(10.0, (kAbsoluteGateLufs - kLufsOffset) / 10.0);
+    std::vector<double> aboveAbsolute;
+    for (double p : blockPowers) if (p > absoluteGateThreshold) aboveAbsolute.push_back(p);
+
+    if (aboveAbsolute.empty()) {
+        result.integratedLufs = -120.0f;
+        result.truePeak = static_cast<float>(truePeakLinear);
+        result.normalizationGain = 1.0f;
+        return result;
+    }
+
+    const double meanAboveAbsolute = std::accumulate(aboveAbsolute.begin(), aboveAbsolute.end(), 0.0) / aboveAbsolute.size();
+    const double relativeGateThreshold = std::pow(10.0, (kLufsOffset + 10.0 * std::log10(meanAboveAbsolute) + kRelativeGateOffsetDb - kLufsOffset) / 10.0);
+
+    std::vector<double> aboveRelative;
+    for (double p : aboveAbsolute) if (p > relativeGateThreshold) aboveRelative.push_back(p);
+
+    if (aboveRelative.empty()) {
+        result.integratedLufs = -120.0f;
+        result.truePeak = static_cast<float>(truePeakLinear);
+        result.normalizationGain = 1.0f;
+        return result;
+    }
+
+    const double meanAboveRelative = std::accumulate(aboveRelative.begin(), aboveRelative.end(), 0.0) / aboveRelative.size();
+    const double integratedLufs = kLufsOffset + 10.0 * std::log10(meanAboveRelative);
+    const double deltaDdb = static_cast<double>(targetLufs) - integratedLufs;
+    double normGain = std::pow(10.0, deltaDdb / 20.0);
+
+    if (truePeakLinear > 0.0 && truePeakLinear * normGain > 1.0) {
+        normGain = 1.0 / truePeakLinear;
+    }
+
+    result.integratedLufs = static_cast<float>(integratedLufs);
+    result.truePeak = static_cast<float>(truePeakLinear);
+    result.normalizationGain = static_cast<float>(normGain);
+
+    return result;
+}

@@ -9,10 +9,10 @@
 MetronomeEngine::MetronomeEngine() = default;
 
 void MetronomeEngine::processSyntheticClick(float* outputL, float* outputR, int32_t numFrames,
-                                            int32_t sampleRate, int64_t currentAbsoluteFrame,
+                                            int64_t currentAbsoluteFrame,
                                             const std::vector<int64_t>& clickFrames,
-                                            size_t& nextClickIndex,
                                             float utilityGain) {
+    const int32_t sampleRate = sampleRate_.load(std::memory_order_relaxed);
     const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
     const float periodFrames = (60.0f / (bpm > 0.1f ? bpm : 120.0f)) * static_cast<float>(sampleRate);
     const float clickDurationFrames = 0.015f * static_cast<float>(sampleRate);
@@ -26,9 +26,9 @@ void MetronomeEngine::processSyntheticClick(float* outputL, float* outputR, int3
     const float gainR = std::sin(angle);
 
     if (clickFrames.empty()) {
-        // Mode 1: Free-wheel (VS stopped or no click map)
+        // Mode 1: Free-wheel
         if (!isMetronomePlaying_.load(std::memory_order_relaxed)) {
-            advancePhaseOnly(numFrames, sampleRate);
+            advancePhaseOnly(numFrames);
             return;
         }
 
@@ -52,18 +52,18 @@ void MetronomeEngine::processSyntheticClick(float* outputL, float* outputR, int3
             }
         }
     } else {
-        // Mode 2: Synced with VS (clickFrames provided)
+        // Mode 2: Synced with VS
         for (int32_t i = 0; i < numFrames; ++i) {
             bool triggerBeep = false;
-            if (nextClickIndex < clickFrames.size()) {
+            if (nextClickIndex_ < clickFrames.size()) {
                 const int64_t frameNow = currentAbsoluteFrame + static_cast<int64_t>(i);
-                if (frameNow >= clickFrames[nextClickIndex]) {
+                if (frameNow >= clickFrames[nextClickIndex_]) {
                     triggerBeep = true;
-                    // Sync free-wheel clock
+                    // Sync internal clock phase
                     metronomePhaseFrames_ = -static_cast<float>(i);
                     metronomeClickFramesLeft_ = clickDurationFrames;
                     metronomeSinePhase_ = 0.0f;
-                    nextClickIndex++;
+                    nextClickIndex_++;
                 }
             }
 
@@ -74,7 +74,7 @@ void MetronomeEngine::processSyntheticClick(float* outputL, float* outputR, int3
 
                 float env = metronomeClickFramesLeft_ / clickDurationFrames;
                 if (env > 1.0f) env = 1.0f;
-                env = env * env; // Exponential decay
+                env = env * env; 
 
                 float sample = clickSample * env * vol * utilityGain;
                 outputL[i] += sample * gainL;
@@ -88,10 +88,18 @@ void MetronomeEngine::processSyntheticClick(float* outputL, float* outputR, int3
     }
 }
 
-void MetronomeEngine::advancePhaseOnly(int32_t numFrames, int32_t sampleRate) {
+void MetronomeEngine::advancePhaseOnly(int32_t numFrames) {
+    const int32_t sampleRate = sampleRate_.load(std::memory_order_relaxed);
     const float bpm = metronomeBpm_.load(std::memory_order_relaxed);
     if (bpm <= 0.1f) return;
     const float periodFrames = (60.0f / bpm) * static_cast<float>(sampleRate);
     metronomePhaseFrames_ += static_cast<float>(numFrames);
     while (metronomePhaseFrames_ >= periodFrames) metronomePhaseFrames_ -= periodFrames;
+}
+
+void MetronomeEngine::resetSyncedIndex(int64_t framePosition, const std::vector<int64_t>& clickFrames) {
+    nextClickIndex_ = 0;
+    while (nextClickIndex_ < clickFrames.size() && clickFrames[nextClickIndex_] < framePosition) {
+        nextClickIndex_++;
+    }
 }

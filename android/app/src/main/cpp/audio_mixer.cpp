@@ -477,6 +477,16 @@ void AudioMixer::seekTo(int64_t framePosition) {
             band.resetState();
         if (track->soundTouchProcessor)
             track->soundTouchProcessor->clear();
+
+        // [CORREÇÃO DO BUG DO METRÔNOMO]
+        if (!track->clickFrames.empty()) {
+            // Reseta o índice e avança até encontrar o primeiro click futuro
+            track->nextClickIndex = 0;
+            while (track->nextClickIndex < track->clickFrames.size() && 
+                   track->clickFrames[track->nextClickIndex] < pos) {
+                track->nextClickIndex++;
+            }
+        }
     }
 }
 
@@ -605,6 +615,19 @@ void AudioMixer::setMasterNormalizationGain(float gain) {
     masterNormalizationGain_.store(std::clamp(gain, 0.0f, 10.0f), std::memory_order_relaxed);
 }
 
+void AudioMixer::setUtilityNormalizationGain(float gain) {
+    // Use the same range as master
+    utilityNormalizationGain_.store(std::clamp(gain, 0.0f, 10.0f), std::memory_order_relaxed);
+}
+
+void AudioMixer::setTrackUtility(const std::string& id, bool isUtility) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = tracks_.find(id);
+    if (it != tracks_.end()) {
+        it->second->isUtilityTrack = isUtility;
+    }
+}
+
 void AudioMixer::setMetronomeVolume(float volume) {
     metronomeVolume_.store(std::clamp(volume, 0.0f, 5.0f), std::memory_order_relaxed);  // Headroom up to +13 dB
 }
@@ -713,11 +736,18 @@ bool AudioMixer::loadDrumSample(const std::string& id, const std::string& filePa
 
 void AudioMixer::triggerDrumPad(const std::string& id) {
     const DrumSample* target = nullptr;
+    float vol = 1.0f;
+    float pan = 1.0f; // Default R as requested for show-routing
     {
         std::lock_guard<std::mutex> lock(drumMutex_);
         auto it = drumSamples_.find(id);
         if (it != drumSamples_.end()) {
             target = it->second.get();
+        }
+        auto sIt = drumPadSettings_.find(id);
+        if (sIt != drumPadSettings_.end()) {
+            vol = sIt->second.first;
+            pan = sIt->second.second;
         }
     }
 
@@ -726,11 +756,19 @@ void AudioMixer::triggerDrumPad(const std::string& id) {
     for (auto& voicePtr : drumVoices_) {
         if (voicePtr->sample == nullptr || voicePtr->readIndex.load() >= voicePtr->sample->pcmData.size()) {
             voicePtr->readIndex.store(0, std::memory_order_relaxed);
-            // Activation acontece aqui
+            voicePtr->volume = vol;
+            const float angle = (pan + 1.0f) * 0.5f * static_cast<float>(M_PI * 0.5);
+            voicePtr->panL = std::cos(angle);
+            voicePtr->panR = std::sin(angle);
             voicePtr->sample = target;
             return;
         }
     }
+}
+
+void AudioMixer::setDrumPadParams(const std::string& id, float volume, float pan) {
+    std::lock_guard<std::mutex> lock(drumMutex_);
+    drumPadSettings_[id] = {volume, pan};
 }
 
 void AudioMixer::clearDrumSamples() {
@@ -825,6 +863,14 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                 } else {
                     LOGE_MIX("DEBUG METRONOMO: FALHA FATAL! ID [%s] nao encontrado no tracks_ map. Total de tracks: %zu",
                              cmd.trackId.c_str(), tracks_.size());
+                }
+                break;
+            }
+
+            case EngineCommand::SET_UTILITY_TRACK: {
+                auto it = tracks_.find(cmd.trackId);
+                if (it != tracks_.end()) {
+                    it->second->isUtilityTrack = (cmd.intParam != 0);
                 }
                 break;
             }
@@ -942,15 +988,20 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
 
         const int32_t ch = sample->numChannels;
         const float* pcm = sample->pcmData.data();
+        const float v = voicePtr->volume;
+        const float pL = voicePtr->panL;
+        const float pR = voicePtr->panR;
 
         for (int32_t i = 0; i < numFrames && readIdx < totalSamples; ++i) {
             if (ch == 1) { // Mono sample
                 float s = pcm[readIdx++];
-                outputL[i] += s;
-                outputR[i] += s;
+                outputL[i] += s * v * pL;
+                outputR[i] += s * v * pR;
             } else { // Stereo sample
-                outputL[i] += pcm[readIdx++];
-                outputR[i] += pcm[readIdx++];
+                float sL = pcm[readIdx++];
+                float sR = pcm[readIdx++];
+                outputL[i] += sL * v * pL;
+                outputR[i] += sR * v * pR;
             }
         }
         voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
@@ -1015,7 +1066,7 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     sampleR = 0.0f;
 
                     if (vsPlaying) {
-                        // 2. Check if we crossed a beat timestamp
+                        // 2. Check if we crossed a beat timestamp (FIX: >= 0 ensuring frame 0 is caught)
                         bool triggerBeep = false;
                         if (track.nextClickIndex < track.clickFrames.size()) {
                             const int64_t currentAbsoluteFrame = track.playheadFrame + static_cast<int64_t>(i);
@@ -1043,8 +1094,10 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                             env = env * env;
 
                             const float vol = metronomeVolume_.load(std::memory_order_relaxed);
-                            sampleL = clickSample * env * vol;
-                            sampleR = clickSample * env * vol;
+                            const float un = utilityNormalizationGain_.load(std::memory_order_relaxed);
+                            // Synthetic click ignores track volume/mute fader as requested
+                            sampleL = clickSample * env * vol * un;
+                            sampleR = clickSample * env * vol * un;
                         }
                     }
 
@@ -1062,10 +1115,22 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                         }
                     }
                 }
-                sampleL *= effectiveGain;
-                sampleR *= effectiveGain;
-                outputL[i] += sampleL * panL;
-                outputR[i] += sampleR * panR;
+
+                // Apply Normalization Bus based on track type
+                const float norm = track.isUtilityTrack ? utilityNormalizationGain_.load(std::memory_order_relaxed) 
+                                                       : masterNormalizationGain_.load(std::memory_order_relaxed);
+                
+                // For Click Tracks, we already applied utility normalization above and we skip effectiveGain (fader)
+                if (track.isClickTrack) {
+                    outputL[i] += sampleL * panL;
+                    outputR[i] += sampleR * panR;
+                } else {
+                    sampleL *= (effectiveGain * norm);
+                    sampleR *= (effectiveGain * norm);
+                    outputL[i] += sampleL * panL;
+                    outputR[i] += sampleR * panR;
+                }
+                
                 trackPeak = std::max(trackPeak, std::max(std::abs(sampleL), std::abs(sampleR)));
             }
             track.playheadFrame = std::min(track.numFrames, track.playheadFrame + numFrames);
@@ -1279,6 +1344,15 @@ int32_t AudioMixer::process(float* outputL, float* outputR, int32_t numFrames) {
                     track->seekFrameRequested.store(target);
                     track->ringBuffer->reset();
                     if (track->soundTouchProcessor) track->soundTouchProcessor->clear();
+
+                    // [CORREÇÃO DO BUG DO METRÔNOMO]
+                    if (!track->clickFrames.empty()) {
+                        track->nextClickIndex = 0;
+                        while (track->nextClickIndex < track->clickFrames.size() && 
+                               track->clickFrames[track->nextClickIndex] < target) {
+                            track->nextClickIndex++;
+                        }
+                    }
                 }
                 // Zero remaining frames in this block
                 for (int32_t j = i + 1; j < numFrames; ++j) {

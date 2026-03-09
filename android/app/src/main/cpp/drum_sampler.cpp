@@ -83,7 +83,7 @@ void DrumSampler::clearDrumSamples() {
     drumSamples_.clear();
 }
 
-void DrumSampler::processMixed(float* outputL, float* outputR, int32_t numFrames) {
+int32_t DrumSampler::processMixed(float* outputL, float* outputR, int32_t numFrames) {
     for (auto& voicePtr : drumVoices_) {
         const DrumSample* sample = voicePtr->sample;
         if (!sample) continue;
@@ -115,4 +115,5 @@ void DrumSampler::processMixed(float* outputL, float* outputR, int32_t numFrames
         }
         voicePtr->readIndex.store(readIdx, std::memory_order_relaxed);
     }
+    return numFrames;
 }

@@ -38,7 +38,7 @@ public:
     void triggerDrumPad(const std::string& id);
     void clearDrumSamples();
 
-    void processMixed(float* outputL, float* outputR, int32_t numFrames);
+    int32_t processMixed(float* outputL, float* outputR, int32_t numFrames);
 
 private:
     std::unordered_map<std::string, std::pair<float, float>> drumPadSettings_;

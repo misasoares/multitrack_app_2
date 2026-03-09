@@ -122,10 +122,16 @@ abstract class IAudioEngineService {
   /// Sets the Master Volume (0.0 to 1.0).
   void setMasterVolume(double volume);
 
-  /// Sets the hidden LUFS normalization gain (linear).
+  /// Sets the hidden LUFS normalization gain (linear) for the Master Bus.
   /// Applied silently in the Master Bus. Does NOT affect the UI fader.
   /// Default = 1.0 (no normalization).
   void setMasterNormalizationGain(double gain);
+
+  /// Sets the hidden normalization gain (Peak or LUFS) for Utility tracks (Guide/Metronome).
+  void setUtilityNormalizationGain(double gain);
+
+  /// Tag a track as Utility (e.g. Guide track).
+  void setTrackUtility(String trackId, bool isUtility);
 
   /// Metronome (synthetic click when VS is paused). Volume 0..1, pan -1..1, BPM, playing.
   void setMetronomeVolume(double volume);
@@ -197,6 +203,9 @@ abstract class IAudioEngineService {
 
   /// Clears all loaded drum samples and releases their RAM.
   void clearDrumSamples();
+
+  /// Sets individual volume and pan for a drum pad.
+  void setDrumPadParams(String id, double volume, double pan);
 
   /// Loads the fixed drum kit from assets (8 pads).
   Future<void> initializeDrumKit();

@@ -165,6 +165,7 @@ struct MixerTrack {
 
     // ── Click Track (metronome from beat map) ──
     bool isClickTrack = false;
+    bool isUtilityTrack = false; // e.g. guide or click
     std::vector<int64_t> clickFrames;   // Beat timestamps converted to frames
     size_t nextClickIndex = 0;
 };
@@ -182,6 +183,9 @@ struct DrumSample {
 struct DrumVoice {
     const DrumSample* sample = nullptr;
     std::atomic<size_t> readIndex{0};
+    float volume = 1.0f;
+    float panL = 0.707f;
+    float panR = 0.707f;
 
     bool isActive() const {
         return sample != nullptr && readIndex.load() < sample->pcmData.size();
@@ -194,7 +198,8 @@ enum class EngineCommand {
     CLEAR_TRACKS,
     SET_TEMPO,
     SET_PITCH,
-    SET_CLICK_MAP
+    SET_CLICK_MAP,
+    SET_UTILITY_TRACK
 };
 
 struct CommandMessage {
@@ -267,10 +272,14 @@ public:
     /// Set the Master Volume (linear gain 0.0 to 5.0, ~+13 dB headroom).
     void setMasterVolume(float volume);
 
-    /// Set the hidden normalization gain (LUFS normalization).
-    /// Applied silently in the Master Bus alongside masterVolume_.
-    /// Does NOT affect the UI fader. Default = 1.0 (no normalization).
+    /// Set the hidden normalization gain for the Main VS Output.
     void setMasterNormalizationGain(float gain);
+
+    /// Set the hidden normalization gain for Utility Tracks (Guide, etc).
+    void setUtilityNormalizationGain(float gain);
+
+    /// Marks a track as a Utility track (Guide) so it uses the Utility Bus.
+    void setTrackUtility(const std::string& id, bool isUtility);
 
     /// Metronome (synthetic click when VS is paused/stopped).
     void setMetronomeVolume(float volume);
@@ -291,6 +300,9 @@ public:
     // ── Drum Rack ──
     /// Loads a WAV file into RAM as a DrumSample.
     bool loadDrumSample(const std::string& id, const std::string& filePath);
+
+    /// Sets the volume and pan for a specific drum pad.
+    void setDrumPadParams(const std::string& id, float volume, float pan);
 
     /// Triggers a DrumSample by ID using an available voice from the pool.
     void triggerDrumPad(const std::string& id);
@@ -346,7 +358,8 @@ private:
 
     // ── Master FX (atomic for lock-free read in process()) ──
     std::atomic<float> masterVolume_{1.0f};
-    std::atomic<float> masterNormalizationGain_{1.0f};  // Hidden LUFS normalization gain
+    std::atomic<float> masterNormalizationGain_{1.0f};  // VS normalization gain
+    std::atomic<float> utilityNormalizationGain_{1.0f}; // Utility (Guide/Click) normalization gain
     std::vector<BiquadFilter> masterEqBands_;
 
     // ── Metronome (lock-free: atomics read in process(), no allocation) ──
@@ -372,9 +385,10 @@ private:
     int32_t              jumpRampProgress_ = 0;
 
     // ── Drum Rack State ──
+    std::unordered_map<std::string, std::pair<float, float>> drumPadSettings_; // ID -> {Volume, Pan}
     std::unordered_map<std::string, std::unique_ptr<DrumSample>> drumSamples_;
     std::vector<std::unique_ptr<DrumVoice>> drumVoices_; // Pool of 32-64 voices
-    mutable std::mutex drumMutex_;      // Protects drumSamples_ map
+    mutable std::mutex drumMutex_;      // Protects drumSamples_ map and settings
 };
 
 #endif // AUDIO_MIXER_H

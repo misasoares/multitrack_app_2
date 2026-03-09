@@ -325,6 +325,16 @@ extern "C" void engine_set_master_normalization_gain(float gain) {
     gMixer->setMasterNormalizationGain(gain);
 }
 
+extern "C" void engine_set_utility_normalization_gain(float gain) {
+    if (!gMixer) return;
+    gMixer->setUtilityNormalizationGain(gain);
+}
+
+extern "C" void engine_set_track_utility(const char* trackId, int32_t isUtility) {
+    if (!gMixer || !trackId) return;
+    gMixer->setTrackUtility(std::string(trackId), isUtility != 0);
+}
+
 extern "C" void engine_set_metronome_volume(float volume) {
     if (!gMixer) return;
     gMixer->setMetronomeVolume(volume);
@@ -445,6 +455,11 @@ extern "C" bool engine_load_drum_sample(const char* id, const char* path) {
 extern "C" void engine_trigger_pad(const char* id) {
     if (!gMixer) return;
     gMixer->triggerDrumPad(id);
+}
+
+extern "C" void engine_set_drum_pad_params(const char* id, float volume, float pan) {
+    if (!gMixer || !id) return;
+    gMixer->setDrumPadParams(std::string(id), volume, pan);
 }
 
 extern "C" void engine_clear_drum_samples() {

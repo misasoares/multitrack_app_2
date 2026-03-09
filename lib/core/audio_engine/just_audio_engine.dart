@@ -224,6 +224,16 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  void setUtilityNormalizationGain(double gain) {
+    // Utility normalization is only supported by the native C++ engine.
+  }
+
+  @override
+  void setTrackUtility(String trackId, bool isUtility) {
+    // Utility flagging is only supported by the native C++ engine.
+  }
+
+  @override
   void setMetronomeVolume(double volume) {}
 
   @override
@@ -293,6 +303,11 @@ class JustAudioEngine implements IAudioEngineService {
 
   @override
   void clearDrumSamples() {}
+
+  @override
+  void setDrumPadParams(String id, double volume, double pan) {
+    // Drum pad params only supported by NativeAudioEngine.
+  }
 
   @override
   Future<void> initializeDrumKit() async {

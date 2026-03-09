@@ -129,6 +129,14 @@ typedef _SetMasterVolumeDart = void Function(double volume);
 typedef _SetMasterNormalizationGainNative = Void Function(Float gain);
 typedef _SetMasterNormalizationGainDart = void Function(double gain);
 
+typedef _SetUtilityNormalizationGainNative = Void Function(Float gain);
+typedef _SetUtilityNormalizationGainDart = void Function(double gain);
+
+typedef _SetTrackUtilityNative =
+    Void Function(Pointer<Utf8> trackId, Int32 isUtility);
+typedef _SetTrackUtilityDart =
+    void Function(Pointer<Utf8> trackId, int isUtility);
+
 typedef _SetMetronomeVolumeNative = Void Function(Float volume);
 typedef _SetMetronomeVolumeDart = void Function(double volume);
 
@@ -233,6 +241,11 @@ typedef _TriggerDrumPadDart = void Function(Pointer<Utf8> id);
 typedef _ClearDrumSamplesNative = Void Function();
 typedef _ClearDrumSamplesDart = void Function();
 
+typedef _SetDrumPadParamsNative =
+    Void Function(Pointer<Utf8> id, Float volume, Float pan);
+typedef _SetDrumPadParamsDart =
+    void Function(Pointer<Utf8> id, double volume, double pan);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
 // ─────────────────────────────────────────────────────────────────────────────
@@ -272,6 +285,8 @@ class NativeAudioEngine implements IAudioEngineService {
   _SetMasterEqDart? _setMasterEq;
   _SetMasterVolumeDart? _setMasterVolume;
   _SetMasterNormalizationGainDart? _setMasterNormalizationGain;
+  _SetUtilityNormalizationGainDart? _setUtilityNormalizationGain;
+  _SetTrackUtilityDart? _setTrackUtility;
   _SetMetronomeVolumeDart? _setMetronomeVolume;
   _SetMetronomePanDart? _setMetronomePan;
   _SetMetronomeBpmDart? _setMetronomeBpm;
@@ -296,6 +311,7 @@ class NativeAudioEngine implements IAudioEngineService {
   _LoadDrumSampleDart? _loadDrumSample;
   _TriggerDrumPadDart? _triggerDrumPad;
   _ClearDrumSamplesDart? _clearDrumSamples;
+  _SetDrumPadParamsDart? _setDrumPadParams;
 
   late final DynamicLibrary _lib;
 
@@ -402,6 +418,18 @@ class NativeAudioEngine implements IAudioEngineService {
           )
           .asFunction<_SetMasterNormalizationGainDart>();
 
+      _setUtilityNormalizationGain = lib
+          .lookup<NativeFunction<_SetUtilityNormalizationGainNative>>(
+            'engine_set_utility_normalization_gain',
+          )
+          .asFunction<_SetUtilityNormalizationGainDart>();
+
+      _setTrackUtility = lib
+          .lookup<NativeFunction<_SetTrackUtilityNative>>(
+            'engine_set_track_utility',
+          )
+          .asFunction<_SetTrackUtilityDart>();
+
       _setMetronomeVolume = lib
           .lookup<NativeFunction<_SetMetronomeVolumeNative>>(
             'engine_set_metronome_volume',
@@ -497,6 +525,12 @@ class NativeAudioEngine implements IAudioEngineService {
             'engine_clear_drum_samples',
           )
           .asFunction<_ClearDrumSamplesDart>();
+
+      _setDrumPadParams = lib
+          .lookup<NativeFunction<_SetDrumPadParamsNative>>(
+            'engine_set_drum_pad_params',
+          )
+          .asFunction<_SetDrumPadParamsDart>();
     } catch (e) {
       print('NativeAudioEngine Warning: Drum Rack symbols not found: $e');
     }
@@ -793,6 +827,19 @@ class NativeAudioEngine implements IAudioEngineService {
   }
 
   @override
+  void setUtilityNormalizationGain(double gain) {
+    _setUtilityNormalizationGain?.call(gain);
+  }
+
+  @override
+  void setTrackUtility(String trackId, bool isUtility) {
+    if (_setTrackUtility == null) return;
+    final idPtr = trackId.toNativeUtf8();
+    _setTrackUtility!(idPtr, isUtility ? 1 : 0);
+    calloc.free(idPtr);
+  }
+
+  @override
   void setMetronomeVolume(double volume) {
     _setMetronomeVolume?.call(volume);
   }
@@ -987,6 +1034,14 @@ class NativeAudioEngine implements IAudioEngineService {
   @override
   void clearDrumSamples() {
     _clearDrumSamples?.call();
+  }
+
+  @override
+  void setDrumPadParams(String id, double volume, double pan) {
+    if (_setDrumPadParams == null) return;
+    final idPtr = id.toNativeUtf8();
+    _setDrumPadParams!(idPtr, volume, pan);
+    calloc.free(idPtr);
   }
 
   @override

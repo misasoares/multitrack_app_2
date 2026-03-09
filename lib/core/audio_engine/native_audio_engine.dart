@@ -229,6 +229,24 @@ typedef _SetTrackClickMapNative =
 typedef _SetTrackClickMapDart =
     void Function(Pointer<Utf8> trackId, Pointer<Int32> mapMs, int size);
 
+// ── LUFS Analysis ──
+typedef _EngineAnalyzeTrackNative =
+    Int32 Function(
+      Pointer<Utf8> filePath,
+      Float targetLufs,
+      Pointer<Float> outLufs,
+      Pointer<Float> outPeak,
+      Pointer<Float> outGain,
+    );
+typedef _EngineAnalyzeTrackDart =
+    int Function(
+      Pointer<Utf8> filePath,
+      double targetLufs,
+      Pointer<Float> outLufs,
+      Pointer<Float> outPeak,
+      Pointer<Float> outGain,
+    );
+
 // ── Drum Rack ──
 typedef _LoadDrumSampleNative =
     Int8 Function(Pointer<Utf8> id, Pointer<Utf8> path);
@@ -245,6 +263,11 @@ typedef _SetDrumPadParamsNative =
     Void Function(Pointer<Utf8> id, Float volume, Float pan);
 typedef _SetDrumPadParamsDart =
     void Function(Pointer<Utf8> id, double volume, double pan);
+
+typedef _SetTrackNormalizationGainNative =
+    Void Function(Pointer<Utf8> trackId, Float gain);
+typedef _SetTrackNormalizationGainDart =
+    void Function(Pointer<Utf8> trackId, double gain);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NativeAudioEngine — IAudioEngineService implementation via dart:ffi
@@ -291,6 +314,7 @@ class NativeAudioEngine implements IAudioEngineService {
   _SetMetronomePanDart? _setMetronomePan;
   _SetMetronomeBpmDart? _setMetronomeBpm;
   _SetMetronomePlayingDart? _setMetronomePlaying;
+  _SetTrackNormalizationGainDart? _setTrackNormalizationGain;
   _ClearAllTracksDart? _clearAllTracks;
   late final _GetPositionDart _getPosition;
   late final _GetSampleRateDart _getSampleRate;
@@ -312,6 +336,8 @@ class NativeAudioEngine implements IAudioEngineService {
   _TriggerDrumPadDart? _triggerDrumPad;
   _ClearDrumSamplesDart? _clearDrumSamples;
   _SetDrumPadParamsDart? _setDrumPadParams;
+
+  _EngineAnalyzeTrackDart? _engineAnalyzeTrack;
 
   late final DynamicLibrary _lib;
 
@@ -459,6 +485,12 @@ class NativeAudioEngine implements IAudioEngineService {
             'engine_clear_all_tracks',
           )
           .asFunction<_ClearAllTracksDart>();
+
+      _setTrackNormalizationGain = lib
+          .lookup<NativeFunction<_SetTrackNormalizationGainNative>>(
+            'engine_set_track_normalization_gain',
+          )
+          .asFunction<_SetTrackNormalizationGainDart>();
     } catch (e) {
       print('NativeAudioEngine Warning: specific new symbols not found: $e');
     }
@@ -533,6 +565,16 @@ class NativeAudioEngine implements IAudioEngineService {
           .asFunction<_SetDrumPadParamsDart>();
     } catch (e) {
       print('NativeAudioEngine Warning: Drum Rack symbols not found: $e');
+    }
+
+    try {
+      _engineAnalyzeTrack = lib
+          .lookup<NativeFunction<_EngineAnalyzeTrackNative>>(
+            'engine_analyze_track',
+          )
+          .asFunction<_EngineAnalyzeTrackDart>();
+    } catch (e) {
+      print('NativeAudioEngine Warning: engine_analyze_track not found: $e');
     }
 
     _getRenderProgress = lib
@@ -742,20 +784,26 @@ class NativeAudioEngine implements IAudioEngineService {
       final cachedVolume = _volumeCache[trackId] ?? 1.0;
       _setVolume(idPtr, cachedVolume);
     }
-
     calloc.free(idPtr);
   }
 
   @override
   void setTrackSolo(String trackId, bool isSolo) {
+    final idPtr = trackId.toNativeUtf8();
     if (isSolo) {
       _soloedIds.add(trackId);
     } else {
       _soloedIds.remove(trackId);
     }
-
-    final idPtr = trackId.toNativeUtf8();
     _setSolo(idPtr, isSolo ? 1 : 0);
+    calloc.free(idPtr);
+  }
+
+  @override
+  void setTrackNormalizationGain(String trackId, double gain) {
+    if (_setTrackNormalizationGain == null) return;
+    final Pointer<Utf8> idPtr = trackId.toNativeUtf8();
+    _setTrackNormalizationGain!(idPtr, gain);
     calloc.free(idPtr);
   }
 
@@ -835,8 +883,11 @@ class NativeAudioEngine implements IAudioEngineService {
   void setTrackUtility(String trackId, bool isUtility) {
     if (_setTrackUtility == null) return;
     final idPtr = trackId.toNativeUtf8();
-    _setTrackUtility!(idPtr, isUtility ? 1 : 0);
-    calloc.free(idPtr);
+    try {
+      _setTrackUtility!(idPtr, isUtility ? 1 : 0);
+    } finally {
+      calloc.free(idPtr);
+    }
   }
 
   @override
@@ -1166,6 +1217,41 @@ class NativeAudioEngine implements IAudioEngineService {
     } finally {
       calloc.free(idPtr);
     }
+  }
+
+  @override
+  Future<AudioAnalysisResult?> analyzeTrack(
+    String filePath, {
+    double targetLufs = -14.0,
+  }) async {
+    final fn = _engineAnalyzeTrack;
+    if (fn == null) return null;
+
+    // Run in a background isolate to avoid blocking the UI thread during analysis.
+    return await Isolate.run(() {
+      final pathPtr = filePath.toNativeUtf8();
+      final lufsPtr = calloc<Float>();
+      final peakPtr = calloc<Float>();
+      final gainPtr = calloc<Float>();
+
+      try {
+        final result = fn(pathPtr, targetLufs, lufsPtr, peakPtr, gainPtr);
+
+        if (result == 1) {
+          return AudioAnalysisResult(
+            integratedLufs: lufsPtr.value,
+            truePeak: peakPtr.value,
+            normalizationGain: gainPtr.value,
+          );
+        }
+        return null;
+      } finally {
+        calloc.free(pathPtr);
+        calloc.free(lufsPtr);
+        calloc.free(peakPtr);
+        calloc.free(gainPtr);
+      }
+    });
   }
 
   @override

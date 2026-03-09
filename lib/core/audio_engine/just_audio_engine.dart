@@ -146,6 +146,11 @@ class JustAudioEngine implements IAudioEngineService {
   }
 
   @override
+  void setTrackNormalizationGain(String trackId, double gain) {
+    // just_audio does not support per-track LUFS normalization gain natively.
+  }
+
+  @override
   void setTrackSolo(String trackId, bool isSolo) {
     if (isSolo) {
       _soloedTrackIds.add(trackId);
@@ -344,5 +349,19 @@ class JustAudioEngine implements IAudioEngineService {
       await player.dispose();
     }
     _players.clear();
+  }
+
+  @override
+  Future<AudioAnalysisResult?> analyzeTrack(
+    String filePath, {
+    double targetLufs = -14.0,
+  }) async {
+    // just_audio does not support offline LUFS analysis.
+    // Return a neutral result for testing/fallback.
+    return const AudioAnalysisResult(
+      integratedLufs: -14.0,
+      truePeak: 0.7,
+      normalizationGain: 1.0,
+    );
   }
 }

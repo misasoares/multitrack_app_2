@@ -79,7 +79,8 @@ abstract class IAudioEngineService {
   /// if any track has solo enabled, all non-soloed tracks are silenced.
   void setTrackSolo(String trackId, bool isSolo);
 
-  // ─── Parametric EQ ─────────────────────────────────────────────────
+  /// Seta o ganho de normalização "oculto" (calculado via LUFS) para uma track específica.
+  void setTrackNormalizationGain(String trackId, double gain);
 
   // ─── Parametric EQ ─────────────────────────────────────────────────
 
@@ -242,6 +243,30 @@ abstract class IAudioEngineService {
   ///
   /// Call this when the page/feature is disposed to prevent memory leaks.
   void dispose();
+
+  /// Analyzes a single audio file and returns its LUFS and True Peak.
+  /// [targetLufs] is usually -14.0 for VS tracks.
+  Future<AudioAnalysisResult?> analyzeTrack(
+    String filePath, {
+    double targetLufs = -14.0,
+  });
+}
+
+/// Result of an integrated LUFS analysis.
+class AudioAnalysisResult {
+  final double integratedLufs;
+  final double truePeak;
+  final double normalizationGain;
+
+  const AudioAnalysisResult({
+    required this.integratedLufs,
+    required this.truePeak,
+    required this.normalizationGain,
+  });
+
+  @override
+  String toString() =>
+      'LUFS: ${integratedLufs.toStringAsFixed(2)}, Peak: ${truePeak.toStringAsFixed(2)}, Gain: ${normalizationGain.toStringAsFixed(3)}';
 }
 
 /// DSP-only EQ band for offline render (matches C++ EqBand).

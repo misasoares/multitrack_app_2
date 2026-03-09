@@ -70,7 +70,7 @@ class TrackModel {
       name: name ?? '',
       filePath: filePath ?? '',
       volume: volume ?? 1.0,
-      pan: pan ?? 0.0,
+      pan: pan ?? 1.0,
       isMuted: isMuted ?? false,
       isSolo: isSolo ?? false,
       isClick: isClick ?? false,

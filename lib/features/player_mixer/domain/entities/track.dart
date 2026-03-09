@@ -21,16 +21,31 @@ class Track extends Equatable {
 
   /// True if this track is a utility track (click, metronome, guide voice, etc.)
   /// and should be excluded from the master waveform composition.
-  bool get isUtilityTrack {
+  bool get isUtilityTrack => checkIsUtility(name, isClick: isClick);
+
+  /// Helper to check if a track name or flag indicates a utility track.
+  static bool checkIsUtility(String name, {bool isClick = false}) {
     final lowerName = name.toLowerCase();
     // DEFENSIVE: Always treat as utility if name contains 'click' or 'guia',
     // or if the explicit database flag (isClick) is set.
-    if (isClick || lowerName.contains('click') || lowerName.contains('guia')) {
+    if (isClick ||
+        lowerName.contains('click') ||
+        lowerName.contains('guia') ||
+        lowerName.contains('click track')) {
       return true;
     }
     // Broader regex for other utility keywords (optional/extra insurance)
-    const extraPattern = r'\b(metronomo|metronome|guide|voz guia|locucao|vs)\b';
+    const extraPattern =
+        r'\b(metronomo|metronome|guide|guias|voz guia|locucao)\b';
     return RegExp(extraPattern, caseSensitive: false).hasMatch(name);
+  }
+
+  /// Helper to check if a track name indicates it's a Click/Metronome.
+  static bool checkIsClick(String name) {
+    final lowerName = name.toLowerCase();
+    return lowerName.contains('click') ||
+        lowerName.contains('metronomo') ||
+        lowerName.contains('metronome');
   }
 
   const Track({
@@ -38,7 +53,7 @@ class Track extends Equatable {
     required this.name,
     required this.filePath,
     this.volume = 1.0,
-    this.pan = 0.0,
+    this.pan = 1.0,
     this.isMuted = false,
     this.isSolo = false,
     this.isClick = false,

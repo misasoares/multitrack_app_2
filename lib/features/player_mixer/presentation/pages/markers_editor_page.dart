@@ -681,8 +681,9 @@ class _MarkersEditorPageState extends State<MarkersEditorPage> {
                                   final t =
                                       m.timestamp.inMicroseconds /
                                       durationMicros;
-                                  if (t < 0 || t > 1)
+                                  if (t < 0 || t > 1) {
                                     return const SizedBox.shrink(); // Out of bounds
+                                  }
 
                                   final markerX = t * zoomedWidth;
 

@@ -4,11 +4,11 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../domain/entities/track.dart';
-import '../stores/setlist_config_store.dart';
+import '../stores/stage_store.dart';
 
 class TransposeConfigDialog extends StatelessWidget {
   final String itemId;
-  final SetlistConfigStore store;
+  final StageStore store;
 
   const TransposeConfigDialog({
     super.key,
@@ -231,7 +231,7 @@ class _TrackTransposeTile extends StatelessWidget {
   final String itemId;
   final Track track;
   final int globalTranspose;
-  final SetlistConfigStore store;
+  final StageStore store;
 
   const _TrackTransposeTile({
     required this.itemId,

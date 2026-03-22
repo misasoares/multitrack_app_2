@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import '../stores/setlist_config_store.dart';
+import '../stores/stage_store.dart';
 import '../../../../core/audio_engine/iaudio_engine_service.dart';
 import '../../../../core/audio_engine/mixer_level_controller.dart';
 import '../../domain/entities/track.dart';
@@ -9,10 +9,8 @@ import 'eq/eq_interactive_dialog.dart';
 import '../../../../../core/audio_engine/audio_dsp_service.dart';
 import 'package:get_it/get_it.dart';
 
-/// A full-screen or large dialog widget that provides a real-time audio mixer
-/// with vertical faders and VU meters, styled after the "Amber Stage Commander" design.
 class LiveMixerWidget extends StatefulWidget {
-  final SetlistConfigStore store;
+  final StageStore store;
   final String itemId;
   final String songTitle;
   final IAudioEngineService audioEngine;
@@ -249,7 +247,7 @@ class _LiveMixerWidgetState extends State<LiveMixerWidget> {
                       ),
                       shape: const RoundedRectangleBorder(),
                       elevation: 5,
-                      shadowColor: const Color(0xFFf9ac06).withOpacity(0.4),
+                      shadowColor: const Color(0xFFf9ac06).withValues(alpha: 0.4),
                     ).copyWith(
                       elevation: WidgetStateProperty.resolveWith(
                         (states) =>
@@ -390,7 +388,7 @@ class TrackChannelStrip extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black,
                   border: Border.all(
-                    color: const Color(0xFFf9ac06).withOpacity(0.2),
+                    color: const Color(0xFFf9ac06).withValues(alpha: 0.2),
                   ),
                 ),
                 child: Text(
@@ -452,7 +450,7 @@ class TrackChannelStrip extends StatelessWidget {
                 child: _SmallButton(
                   label: 'M',
                   isActive: track.isMuted,
-                  activeColor: Colors.red.withOpacity(0.6),
+                  activeColor: Colors.red.withValues(alpha: 0.6),
                   onPressed: () {
                     onMuteChanged?.call(track.id, !track.isMuted);
                   },
@@ -463,7 +461,7 @@ class TrackChannelStrip extends StatelessWidget {
                 child: _SmallButton(
                   label: 'S',
                   isActive: track.isSolo,
-                  activeColor: const Color(0xFFf9ac06).withOpacity(0.6),
+                  activeColor: const Color(0xFFf9ac06).withValues(alpha: 0.6),
                   onPressed: () {
                     onSoloChanged?.call(track.id, !track.isSolo);
                   },
@@ -497,10 +495,10 @@ class MasterChannelStrip extends StatelessWidget {
       width: 140,
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
-        border: Border.all(color: const Color(0xFFf9ac06).withOpacity(0.2)),
+        border: Border.all(color: const Color(0xFFf9ac06).withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             blurRadius: 10,
             spreadRadius: 2,
           ),
@@ -558,7 +556,7 @@ class MasterChannelStrip extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.black,
                   border: Border.all(
-                    color: const Color(0xFFf9ac06).withOpacity(0.3),
+                    color: const Color(0xFFf9ac06).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Text(
@@ -733,7 +731,7 @@ class _CustomThumbShape extends SliderComponentShape {
 
     // Draw lines on the fader knob
     final linePaint = Paint()
-      ..color = Colors.black.withOpacity(0.3)
+      ..color = Colors.black.withValues(alpha: 0.3)
       ..strokeWidth = isMaster ? 2 : 1;
 
     final lineSpacing = isMaster ? 6.0 : 4.0;
@@ -796,7 +794,7 @@ class _PanSliderState extends State<_PanSlider> {
               trackHeight: 2,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              activeTrackColor: const Color(0xFFf9ac06).withOpacity(0.5),
+              activeTrackColor: const Color(0xFFf9ac06).withValues(alpha: 0.5),
               inactiveTrackColor: Colors.grey.shade800,
               thumbColor: const Color(0xFFf9ac06),
             ),
@@ -848,7 +846,7 @@ class VuMeterPainter extends CustomPainter {
     canvas.drawRect(
       rect,
       Paint()
-        ..color = Colors.white.withOpacity(0.05)
+        ..color = Colors.white.withValues(alpha: 0.05)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
@@ -892,7 +890,7 @@ class VuMeterPainter extends CustomPainter {
         canvas.drawRRect(
           RRect.fromRectAndRadius(segmentRect, const Radius.circular(1)),
           Paint()
-            ..color = color.withOpacity(0.3)
+            ..color = color.withValues(alpha: 0.3)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
         );
       }
@@ -924,11 +922,11 @@ class _SmallButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: isActive
-              ? activeColor.withOpacity(0.2)
+              ? activeColor.withValues(alpha: 0.2)
               : const Color(0xFF0A0A0A),
           border: Border.all(
             color: isActive
-                ? activeColor.withOpacity(0.4)
+                ? activeColor.withValues(alpha: 0.4)
                 : const Color(0xFF2A2A2A),
           ),
           borderRadius: BorderRadius.circular(2),

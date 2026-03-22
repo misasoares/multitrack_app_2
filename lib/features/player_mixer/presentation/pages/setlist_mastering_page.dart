@@ -3,7 +3,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../domain/entities/setlist.dart';
-import '../stores/setlist_config_store.dart';
+import '../stores/stage_store.dart';
 import '../widgets/setlist_song_config_tile.dart';
 import '../../../../../injection_container.dart';
 
@@ -17,12 +17,12 @@ class SetlistMasteringPage extends StatefulWidget {
 }
 
 class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
-  late final SetlistConfigStore _store;
+  late final StageStore _store;
 
   @override
   void initState() {
     super.initState();
-    _store = sl<SetlistConfigStore>();
+    _store = sl<StageStore>();
     _store.init(widget.setlist);
   }
 
@@ -88,12 +88,12 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     final isNarrow = constraints.maxWidth < 600;
-                    final crossAxisCount =
-                        isNarrow ? 1 : (constraints.maxWidth > 900 ? 3 : 2);
+                    final crossAxisCount = isNarrow
+                        ? 1
+                        : (constraints.maxWidth > 900 ? 3 : 2);
                     return GridView.builder(
                       padding: const EdgeInsets.all(16),
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
@@ -160,9 +160,10 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
                         children: [
                           _buildStat(
                             'SONG COUNT:',
-                            (setlist?.items.length ?? 0)
-                                .toString()
-                                .padLeft(2, '0'),
+                            (setlist?.items.length ?? 0).toString().padLeft(
+                              2,
+                              '0',
+                            ),
                           ),
                           const SizedBox(height: 4),
                           _buildStat(
@@ -206,7 +207,8 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
                 ),
                 SizedBox(width: isNarrow ? 8 : 12),
                 ElevatedButton.icon(
-                  onPressed: _store.currentSetlist == null ||
+                  onPressed:
+                      _store.currentSetlist == null ||
                           _store.currentSetlist!.items.isEmpty
                       ? null
                       : () => _onRenderShowPressed(context),
@@ -225,9 +227,7 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
                     foregroundColor: Colors.black,
                     padding: btnPadding,
                     textStyle: fontSize == null
-                        ? GoogleFonts.jetBrainsMono(
-                            fontWeight: FontWeight.bold,
-                          )
+                        ? GoogleFonts.jetBrainsMono(fontWeight: FontWeight.bold)
                         : GoogleFonts.jetBrainsMono(
                             fontWeight: FontWeight.bold,
                             fontSize: fontSize,
@@ -287,7 +287,7 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
       builder: (_) => _ShowRenderDialog(store: _store),
     );
     try {
-      await _store.renderShow();
+      await _store.renderSetlist();
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -313,7 +313,7 @@ class _SetlistMasteringPageState extends State<SetlistMasteringPage> {
 
 class _ShowRenderDialog extends StatelessWidget {
   const _ShowRenderDialog({required this.store});
-  final SetlistConfigStore store;
+  final StageStore store;
 
   @override
   Widget build(BuildContext context) {

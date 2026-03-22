@@ -4,7 +4,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../domain/entities/setlist_item.dart';
 import '../dialogs/transpose_config_dialog.dart';
-import '../stores/setlist_config_store.dart';
+import '../stores/stage_store.dart';
 import 'eq/eq_interactive_dialog.dart';
 import 'preview_timeline.dart';
 import 'package:get_it/get_it.dart';
@@ -21,7 +21,7 @@ class SetlistSongConfigTile extends StatelessWidget {
   final ValueChanged<double> onTempoChanged;
   final Stream<Duration> positionStream;
   final ValueChanged<Duration> onSeek;
-  final SetlistConfigStore store; // NEW
+  final StageStore store; // NEW
 
   const SetlistSongConfigTile({
     super.key,
@@ -104,215 +104,219 @@ class SetlistSongConfigTile extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _buildBadge('Orig Key: ${item.originalMusic.key}'),
+                              _buildBadge(
+                                'Orig Key: ${item.originalMusic.key}',
+                              ),
                               const SizedBox(height: 4),
-                              _buildBadge('Orig BPM: ${item.originalMusic.bpm}'),
+                              _buildBadge(
+                                'Orig BPM: ${item.originalMusic.bpm}',
+                              ),
                             ],
                           ),
                         ),
                       ),
                     ],
                   ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-              // Volume Control
-              Row(
-                children: [
-                  SizedBox(
-                    width: 40,
-                    child: Text(
-                      'VOL',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: AppColors.primary.withValues(
-                          alpha: 0.3,
-                        ),
-                        inactiveTrackColor: const Color(0xFF333333),
-                        thumbColor: AppColors.primary,
-                        overlayColor: AppColors.primary.withValues(alpha: 0.1),
-                        trackHeight: 4,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 8,
-                        ),
-                      ),
-                      child: Slider(
-                        value: item.volume.clamp(0.0, 1.5),
-                        min: 0.0,
-                        max: 1.5,
-                        onChanged: onVolumeChanged,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 60,
-                    child: Text(
-                      '${_formatDb(item.volume)} dB',
-                      textAlign: TextAlign.end,
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // BPM Control
-              Row(
-                children: [
-                  SizedBox(
-                    width: 40,
-                    child: Text(
-                      'BPM',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: AppColors.textMuted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  _buildBpmButton(
-                    icon: Icons.remove,
-                    onTap: () => onTempoChanged(
-                      (item.tempoFactor - 0.05).clamp(0.5, 2.0),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      height: 36,
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF333333)),
-                      ),
-                      child: Text(
-                        '${(item.tempoFactor * 100).round()}%',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildBpmButton(
-                    icon: Icons.add,
-                    onTap: () => onTempoChanged(
-                      (item.tempoFactor + 0.05).clamp(0.5, 2.0),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Actions: Transpose & Global EQ
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      context,
-                      icon: Icons.music_note,
-                      label: 'TRANSPOSE',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => TransposeConfigDialog(
-                            itemId: item.id,
-                            store: store,
+                  // Volume Control
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          'VOL',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: AppColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildEffectsButton(context)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildActionButton(
-                      context,
-                      icon: Icons.tune,
-                      label: 'MIXER',
-                      onTap: () {
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => Dialog(
-                            backgroundColor: Colors.transparent,
-                            insetPadding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 20,
+                        ),
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: AppColors.primary.withValues(
+                              alpha: 0.3,
                             ),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: 1200,
-                                maxHeight: 800,
-                              ),
-                              child: LiveMixerWidget(
-                                store: store,
+                            inactiveTrackColor: const Color(0xFF333333),
+                            thumbColor: AppColors.primary,
+                            overlayColor: AppColors.primary.withValues(
+                              alpha: 0.1,
+                            ),
+                            trackHeight: 4,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 8,
+                            ),
+                          ),
+                          child: Slider(
+                            value: item.volume.clamp(0.0, 1.5),
+                            min: 0.0,
+                            max: 1.5,
+                            onChanged: onVolumeChanged,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          '${_formatDb(item.volume)} dB',
+                          textAlign: TextAlign.end,
+                          style: GoogleFonts.jetBrainsMono(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // BPM Control
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        child: Text(
+                          'BPM',
+                          style: GoogleFonts.jetBrainsMono(
+                            color: AppColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      _buildBpmButton(
+                        icon: Icons.remove,
+                        onTap: () => onTempoChanged(
+                          (item.tempoFactor - 0.05).clamp(0.5, 2.0),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          height: 36,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF333333)),
+                          ),
+                          child: Text(
+                            '${(item.tempoFactor * 100).round()}%',
+                            style: GoogleFonts.jetBrainsMono(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _buildBpmButton(
+                        icon: Icons.add,
+                        onTap: () => onTempoChanged(
+                          (item.tempoFactor + 0.05).clamp(0.5, 2.0),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Actions: Transpose & Global EQ
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          icon: Icons.music_note,
+                          label: 'TRANSPOSE',
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => TransposeConfigDialog(
                                 itemId: item.id,
-                                songTitle: item.originalMusic.title,
-                                audioEngine: GetIt.I<IAudioEngineService>(),
-                                onReset: () {
-                                  // Simplified reset for feedback, real persistence should happen via store
-                                  for (final track
-                                      in item.originalMusic.tracks) {
-                                    GetIt.I<IAudioEngineService>()
-                                        .setTrackVolume(track.id, 0.8);
-                                    GetIt.I<IAudioEngineService>().setTrackPan(
-                                      track.id,
-                                      0.0,
-                                    );
-                                  }
-                                },
-                                onSave: () => Navigator.pop(context),
+                                store: store,
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: _buildEffectsButton(context)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildActionButton(
+                          context,
+                          icon: Icons.tune,
+                          label: 'MIXER',
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => Dialog(
+                                backgroundColor: Colors.transparent,
+                                insetPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 20,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 1200,
+                                    maxHeight: 800,
+                                  ),
+                                  child: LiveMixerWidget(
+                                    store: store,
+                                    itemId: item.id,
+                                    songTitle: item.originalMusic.title,
+                                    audioEngine: GetIt.I<IAudioEngineService>(),
+                                    onReset: () {
+                                      // Simplified reset for feedback, real persistence should happen via store
+                                      for (final track
+                                          in item.originalMusic.tracks) {
+                                        GetIt.I<IAudioEngineService>()
+                                            .setTrackVolume(track.id, 0.8);
+                                        GetIt.I<IAudioEngineService>()
+                                            .setTrackPan(track.id, 0.0);
+                                      }
+                                    },
+                                    onSave: () => Navigator.pop(context),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-              // Preview Timeline / Interaction Logic
-              if (isLoadingPreview)
-                _buildLoadingState('CARREGANDO DA DISCO...')
-              else if (isPlaying)
-                PreviewTimeline(
-                  totalDuration: item.originalMusic.duration,
-                  positionStream: positionStream,
-                  onPlayPause: onPreviewToggle,
-                  onSeek: onSeek,
-                  isPlaying: isPlaying,
-                )
-              else
-                _buildActionButton(
-                  context,
-                  icon: Icons.play_circle_outline,
-                  label: 'PREVIEW SONG',
-                  onTap: onPreviewToggle,
-                ),
+                  // Preview Timeline / Interaction Logic
+                  if (isLoadingPreview)
+                    _buildLoadingState('CARREGANDO DA DISCO...')
+                  else if (isPlaying)
+                    PreviewTimeline(
+                      totalDuration: item.originalMusic.duration,
+                      positionStream: positionStream,
+                      onPlayPause: onPreviewToggle,
+                      onSeek: onSeek,
+                      isPlaying: isPlaying,
+                    )
+                  else
+                    _buildActionButton(
+                      context,
+                      icon: Icons.play_circle_outline,
+                      label: 'PREVIEW SONG',
+                      onTap: onPreviewToggle,
+                    ),
                 ],
               );
-          },
-        ),
-      );
-    },
-  );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildLoadingState(String label) {

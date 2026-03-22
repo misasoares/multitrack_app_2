@@ -159,7 +159,7 @@ class _MusicLibraryPageState extends State<MusicLibraryPage> {
             ),
             if (_isGlobalLoading)
               Container(
-                color: Colors.black.withOpacity(0.7),
+                color: Colors.black.withValues(alpha: 0.7),
                 child: const Center(
                   child: CircularProgressIndicator(color: AppColors.primary),
                 ),

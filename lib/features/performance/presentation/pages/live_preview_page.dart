@@ -34,7 +34,7 @@ class _LivePreviewPageState extends State<LivePreviewPage> {
   Duration _duration = Duration.zero;
   final ValueNotifier<int> _currentPositionNotifier = ValueNotifier(0);
 
-  Map<String, List<double>> _waveformData = {};
+  final Map<String, List<double>> _waveformData = {};
   late List<double> _peaks;
 
   Marker? _currentPlayingMarker;

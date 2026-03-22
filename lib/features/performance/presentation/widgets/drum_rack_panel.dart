@@ -62,7 +62,7 @@ class _DrumRackPanelState extends State<DrumRackPanel> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: _getPadColor(index).withOpacity(0.2),
+                          color: _getPadColor(index).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(Icons.tune, color: _getPadColor(index)),
@@ -155,7 +155,7 @@ class _DrumRackPanelState extends State<DrumRackPanel> {
             activeTrackColor: Colors.orangeAccent,
             inactiveTrackColor: Colors.grey[900],
             thumbColor: Colors.white,
-            overlayColor: Colors.orangeAccent.withOpacity(0.1),
+            overlayColor: Colors.orangeAccent.withValues(alpha: 0.1),
           ),
           child: Slider(value: value, min: min, max: max, onChanged: onChanged),
         ),
@@ -237,13 +237,13 @@ class _DrumRackPanelState extends State<DrumRackPanel> {
             color: pressed ? padColor : Colors.grey[950],
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: pressed ? padColor.withOpacity(0.8) : Colors.grey[900]!,
+              color: pressed ? padColor.withValues(alpha: 0.8) : Colors.grey[900]!,
               width: 1.5,
             ),
             boxShadow: pressed
                 ? [
                     BoxShadow(
-                      color: padColor.withOpacity(0.4),
+                      color: padColor.withValues(alpha: 0.4),
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),

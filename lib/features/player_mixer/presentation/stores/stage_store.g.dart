@@ -23,6 +23,27 @@ mixin _$StageStore on StageStoreBase, Store {
           () => super.isPerformanceMode,
           name: 'StageStoreBase.isPerformanceMode'))
       .value;
+  Computed<Duration>? _$totalDurationComputed;
+
+  @override
+  Duration get totalDuration =>
+      (_$totalDurationComputed ??= Computed<Duration>(() => super.totalDuration,
+              name: 'StageStoreBase.totalDuration'))
+          .value;
+  Computed<Stream<Duration>>? _$previewPositionComputed;
+
+  @override
+  Stream<Duration> get previewPosition => (_$previewPositionComputed ??=
+          Computed<Stream<Duration>>(() => super.previewPosition,
+              name: 'StageStoreBase.previewPosition'))
+      .value;
+  Computed<SetlistItem?>? _$currentItemComputed;
+
+  @override
+  SetlistItem? get currentItem =>
+      (_$currentItemComputed ??= Computed<SetlistItem?>(() => super.currentItem,
+              name: 'StageStoreBase.currentItem'))
+          .value;
 
   late final _$modeAtom = Atom(name: 'StageStoreBase.mode', context: context);
 
@@ -119,6 +140,23 @@ mixin _$StageStore on StageStoreBase, Store {
     });
   }
 
+  late final _$previewLoadingItemIdAtom =
+      Atom(name: 'StageStoreBase.previewLoadingItemId', context: context);
+
+  @override
+  String? get previewLoadingItemId {
+    _$previewLoadingItemIdAtom.reportRead();
+    return super.previewLoadingItemId;
+  }
+
+  @override
+  set previewLoadingItemId(String? value) {
+    _$previewLoadingItemIdAtom.reportWrite(value, super.previewLoadingItemId,
+        () {
+      super.previewLoadingItemId = value;
+    });
+  }
+
   late final _$renderProgressAtom =
       Atom(name: 'StageStoreBase.renderProgress', context: context);
 
@@ -167,6 +205,198 @@ mixin _$StageStore on StageStoreBase, Store {
     });
   }
 
+  late final _$currentPositionAtom =
+      Atom(name: 'StageStoreBase.currentPosition', context: context);
+
+  @override
+  Duration get currentPosition {
+    _$currentPositionAtom.reportRead();
+    return super.currentPosition;
+  }
+
+  @override
+  set currentPosition(Duration value) {
+    _$currentPositionAtom.reportWrite(value, super.currentPosition, () {
+      super.currentPosition = value;
+    });
+  }
+
+  late final _$isScrubbingAtom =
+      Atom(name: 'StageStoreBase.isScrubbing', context: context);
+
+  @override
+  bool get isScrubbing {
+    _$isScrubbingAtom.reportRead();
+    return super.isScrubbing;
+  }
+
+  @override
+  set isScrubbing(bool value) {
+    _$isScrubbingAtom.reportWrite(value, super.isScrubbing, () {
+      super.isScrubbing = value;
+    });
+  }
+
+  late final _$masterVolumeAtom =
+      Atom(name: 'StageStoreBase.masterVolume', context: context);
+
+  @override
+  double get masterVolume {
+    _$masterVolumeAtom.reportRead();
+    return super.masterVolume;
+  }
+
+  @override
+  set masterVolume(double value) {
+    _$masterVolumeAtom.reportWrite(value, super.masterVolume, () {
+      super.masterVolume = value;
+    });
+  }
+
+  late final _$metronomeBpmAtom =
+      Atom(name: 'StageStoreBase.metronomeBpm', context: context);
+
+  @override
+  double get metronomeBpm {
+    _$metronomeBpmAtom.reportRead();
+    return super.metronomeBpm;
+  }
+
+  @override
+  set metronomeBpm(double value) {
+    _$metronomeBpmAtom.reportWrite(value, super.metronomeBpm, () {
+      super.metronomeBpm = value;
+    });
+  }
+
+  late final _$metronomeVolumeAtom =
+      Atom(name: 'StageStoreBase.metronomeVolume', context: context);
+
+  @override
+  double get metronomeVolume {
+    _$metronomeVolumeAtom.reportRead();
+    return super.metronomeVolume;
+  }
+
+  @override
+  set metronomeVolume(double value) {
+    _$metronomeVolumeAtom.reportWrite(value, super.metronomeVolume, () {
+      super.metronomeVolume = value;
+    });
+  }
+
+  late final _$metronomePanAtom =
+      Atom(name: 'StageStoreBase.metronomePan', context: context);
+
+  @override
+  double get metronomePan {
+    _$metronomePanAtom.reportRead();
+    return super.metronomePan;
+  }
+
+  @override
+  set metronomePan(double value) {
+    _$metronomePanAtom.reportWrite(value, super.metronomePan, () {
+      super.metronomePan = value;
+    });
+  }
+
+  late final _$isMetronomePlayingAtom =
+      Atom(name: 'StageStoreBase.isMetronomePlaying', context: context);
+
+  @override
+  bool get isMetronomePlaying {
+    _$isMetronomePlayingAtom.reportRead();
+    return super.isMetronomePlaying;
+  }
+
+  @override
+  set isMetronomePlaying(bool value) {
+    _$isMetronomePlayingAtom.reportWrite(value, super.isMetronomePlaying, () {
+      super.isMetronomePlaying = value;
+    });
+  }
+
+  late final _$isMixerVisibleAtom =
+      Atom(name: 'StageStoreBase.isMixerVisible', context: context);
+
+  @override
+  bool get isMixerVisible {
+    _$isMixerVisibleAtom.reportRead();
+    return super.isMixerVisible;
+  }
+
+  @override
+  set isMixerVisible(bool value) {
+    _$isMixerVisibleAtom.reportWrite(value, super.isMixerVisible, () {
+      super.isMixerVisible = value;
+    });
+  }
+
+  late final _$isMetronomeVisibleAtom =
+      Atom(name: 'StageStoreBase.isMetronomeVisible', context: context);
+
+  @override
+  bool get isMetronomeVisible {
+    _$isMetronomeVisibleAtom.reportRead();
+    return super.isMetronomeVisible;
+  }
+
+  @override
+  set isMetronomeVisible(bool value) {
+    _$isMetronomeVisibleAtom.reportWrite(value, super.isMetronomeVisible, () {
+      super.isMetronomeVisible = value;
+    });
+  }
+
+  late final _$isDrumRackVisibleAtom =
+      Atom(name: 'StageStoreBase.isDrumRackVisible', context: context);
+
+  @override
+  bool get isDrumRackVisible {
+    _$isDrumRackVisibleAtom.reportRead();
+    return super.isDrumRackVisible;
+  }
+
+  @override
+  set isDrumRackVisible(bool value) {
+    _$isDrumRackVisibleAtom.reportWrite(value, super.isDrumRackVisible, () {
+      super.isDrumRackVisible = value;
+    });
+  }
+
+  late final _$midiDrumMapAtom =
+      Atom(name: 'StageStoreBase.midiDrumMap', context: context);
+
+  @override
+  ObservableMap<int, String> get midiDrumMap {
+    _$midiDrumMapAtom.reportRead();
+    return super.midiDrumMap;
+  }
+
+  @override
+  set midiDrumMap(ObservableMap<int, String> value) {
+    _$midiDrumMapAtom.reportWrite(value, super.midiDrumMap, () {
+      super.midiDrumMap = value;
+    });
+  }
+
+  late final _$activeSongIndexAtom =
+      Atom(name: 'StageStoreBase.activeSongIndex', context: context);
+
+  @override
+  int get activeSongIndex {
+    _$activeSongIndexAtom.reportRead();
+    return super.activeSongIndex;
+  }
+
+  @override
+  set activeSongIndex(int value) {
+    _$activeSongIndexAtom.reportWrite(value, super.activeSongIndex, () {
+      super.activeSongIndex = value;
+    });
+  }
+
   late final _$importTracksForNewMusicAsyncAction =
       AsyncAction('StageStoreBase.importTracksForNewMusic', context: context);
 
@@ -177,12 +407,69 @@ mixin _$StageStore on StageStoreBase, Store {
         super.importTracksForNewMusic(title: title, filePaths: filePaths));
   }
 
+  late final _$_initMidiAsyncAction =
+      AsyncAction('StageStoreBase._initMidi', context: context);
+
+  @override
+  Future<void> _initMidi() {
+    return _$_initMidiAsyncAction.run(() => super._initMidi());
+  }
+
+  late final _$loadMidiConfigAsyncAction =
+      AsyncAction('StageStoreBase.loadMidiConfig', context: context);
+
+  @override
+  Future<void> loadMidiConfig() {
+    return _$loadMidiConfigAsyncAction.run(() => super.loadMidiConfig());
+  }
+
+  late final _$seekToPositionAsyncAction =
+      AsyncAction('StageStoreBase.seekToPosition', context: context);
+
+  @override
+  Future<void> seekToPosition(Duration position) {
+    return _$seekToPositionAsyncAction
+        .run(() => super.seekToPosition(position));
+  }
+
   late final _$togglePreviewAsyncAction =
       AsyncAction('StageStoreBase.togglePreview', context: context);
 
   @override
   Future<void> togglePreview(String itemId) {
     return _$togglePreviewAsyncAction.run(() => super.togglePreview(itemId));
+  }
+
+  late final _$nextSongAsyncAction =
+      AsyncAction('StageStoreBase.nextSong', context: context);
+
+  @override
+  Future<void> nextSong() {
+    return _$nextSongAsyncAction.run(() => super.nextSong());
+  }
+
+  late final _$previousSongAsyncAction =
+      AsyncAction('StageStoreBase.previousSong', context: context);
+
+  @override
+  Future<void> previousSong() {
+    return _$previousSongAsyncAction.run(() => super.previousSong());
+  }
+
+  late final _$goToSongAsyncAction =
+      AsyncAction('StageStoreBase.goToSong', context: context);
+
+  @override
+  Future<void> goToSong(int index) {
+    return _$goToSongAsyncAction.run(() => super.goToSong(index));
+  }
+
+  late final _$saveDraftAsyncAction =
+      AsyncAction('StageStoreBase.saveDraft', context: context);
+
+  @override
+  Future<void> saveDraft() {
+    return _$saveDraftAsyncAction.run(() => super.saveDraft());
   }
 
   late final _$renderSetlistAsyncAction =
@@ -252,6 +539,17 @@ mixin _$StageStore on StageStoreBase, Store {
   }
 
   @override
+  void updateTrackSolo(String itemId, String trackId, bool isSolo) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.updateTrackSolo');
+    try {
+      return super.updateTrackSolo(itemId, trackId, isSolo);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void updateTrackEq(String itemId, String trackId, EqBandData updatedBand) {
     final _$actionInfo = _$StageStoreBaseActionController.startAction(
         name: 'StageStoreBase.updateTrackEq');
@@ -274,11 +572,198 @@ mixin _$StageStore on StageStoreBase, Store {
   }
 
   @override
+  void updateItemMasterEq(String itemId, EqBandData band) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.updateItemMasterEq');
+    try {
+      return super.updateItemMasterEq(itemId, band);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateItemVolume(String itemId, double volume) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.updateItemVolume');
+    try {
+      return super.updateItemVolume(itemId, volume);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void updateItemTranspose(String itemId, int semitones) {
     final _$actionInfo = _$StageStoreBaseActionController.startAction(
         name: 'StageStoreBase.updateItemTranspose');
     try {
       return super.updateItemTranspose(itemId, semitones);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMasterVolume(double volume) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.setMasterVolume');
+    try {
+      return super.setMasterVolume(volume);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomeBpm(double bpm) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.setMetronomeBpm');
+    try {
+      return super.setMetronomeBpm(bpm);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomeVolume(double volume) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.setMetronomeVolume');
+    try {
+      return super.setMetronomeVolume(volume);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomePan(double pan) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.setMetronomePan');
+    try {
+      return super.setMetronomePan(pan);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void setMetronomePlaying(bool playing) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.setMetronomePlaying');
+    try {
+      return super.setMetronomePlaying(playing);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void tapTempo() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.tapTempo');
+    try {
+      return super.tapTempo();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleMixerVisible() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.toggleMixerVisible');
+    try {
+      return super.toggleMixerVisible();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleMetronomeVisible() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.toggleMetronomeVisible');
+    try {
+      return super.toggleMetronomeVisible();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleDrumRackVisible() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.toggleDrumRackVisible');
+    try {
+      return super.toggleDrumRackVisible();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void startScrubbing() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.startScrubbing');
+    try {
+      return super.startScrubbing();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void updateScrubPosition(Duration position) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.updateScrubPosition');
+    try {
+      return super.updateScrubPosition(position);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void endScrubbing() {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.endScrubbing');
+    try {
+      return super.endScrubbing();
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void seek(Duration position) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.seek');
+    try {
+      return super.seek(position);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleTrackTranspose(String itemId, String trackId, bool apply) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.toggleTrackTranspose');
+    try {
+      return super.toggleTrackTranspose(itemId, trackId, apply);
+    } finally {
+      _$StageStoreBaseActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void toggleTrackOctave(String itemId, String trackId) {
+    final _$actionInfo = _$StageStoreBaseActionController.startAction(
+        name: 'StageStoreBase.toggleTrackOctave');
+    try {
+      return super.toggleTrackOctave(itemId, trackId);
     } finally {
       _$StageStoreBaseActionController.endAction(_$actionInfo);
     }
@@ -293,11 +778,27 @@ playingItemId: ${playingItemId},
 isPlaying: ${isPlaying},
 isLoading: ${isLoading},
 isRendering: ${isRendering},
+previewLoadingItemId: ${previewLoadingItemId},
 renderProgress: ${renderProgress},
 renderMessage: ${renderMessage},
 trackPeaks: ${trackPeaks},
+currentPosition: ${currentPosition},
+isScrubbing: ${isScrubbing},
+masterVolume: ${masterVolume},
+metronomeBpm: ${metronomeBpm},
+metronomeVolume: ${metronomeVolume},
+metronomePan: ${metronomePan},
+isMetronomePlaying: ${isMetronomePlaying},
+isMixerVisible: ${isMixerVisible},
+isMetronomeVisible: ${isMetronomeVisible},
+isDrumRackVisible: ${isDrumRackVisible},
+midiDrumMap: ${midiDrumMap},
+activeSongIndex: ${activeSongIndex},
 isRehearsalMode: ${isRehearsalMode},
-isPerformanceMode: ${isPerformanceMode}
+isPerformanceMode: ${isPerformanceMode},
+totalDuration: ${totalDuration},
+previewPosition: ${previewPosition},
+currentItem: ${currentItem}
     ''';
   }
 }

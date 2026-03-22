@@ -8,6 +8,9 @@
 
 #include "lufs_analyzer.h"
 #include "libs/dr_wav.h"
+#ifdef __ANDROID__
+#include "audio_decoder.h"
+#endif
 
 #include <cmath>
 #include <algorithm>
@@ -374,9 +377,7 @@ LufsResult analyzeTrackLufs(const std::string& filePath, float targetLufs) {
 
     // For other formats (MP3/FLAC), we decode the full file into memory.
     // While less RAM-efficient, it's the safest way to ensure compatibility.
-#ifdef __ANDROID__
-    #include "audio_decoder.h"
-#else
+#ifndef __ANDROID__
     // Fallback if decoder not available in current context (should not happen on Android)
     LufsResult res; res.success = false; return res;
 #endif
